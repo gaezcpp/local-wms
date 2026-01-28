@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+  <record id="view_tagging_wo_sparepart_wizard_form" model="ir.ui.view">
+    <field name="name">tagging.wo.sparepart.wizard.form</field>
+    <field name="model">tagging.wo.sparepart.wizard</field>
+    <field name="arch" type="xml">
+      <form string="Spare Part">
+        <sheet>
+          <group>
+            <field name="record_id" readonly="1"/>
+          </group>
+
+          <field name="line_ids">
+            <list editable="bottom">
+              <field name="machine_bom_id" string="Kategori Unit Mesin"/>
+              <field name="part_id" string="Kategori Bagian Mesin"/>
+              <field name="spare_part_id" string="Spare Part"/>
+              <field name="specification" string="Spesifikasi Spare Part"/>
+              <field name="sku" string="SKU"/>
+              <field name="qty" string="Jumlah"/>
+            </list>
+          </field>
+
+          <footer>
+            <button string="Confirm" type="object" name="action_confirm" class="btn-primary"/>
+            <button string="Cancel" class="btn-secondary" special="cancel"/>
+          </footer>
+        </sheet>
+      </form>
+    </field>
+  </record>
+</odoo>

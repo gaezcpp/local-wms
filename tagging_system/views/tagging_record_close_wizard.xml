@@ -1,0 +1,22 @@
+<odoo>
+    <record id="view_tagging_record_close_wizard_form" model="ir.ui.view">
+      <field name="name">tagging.record.close.wizard.form</field>
+      <field name="model">tagging.record.close.wizard</field>
+      <field name="arch" type="xml">
+        <form string="Close Tagging">
+          <sheet>
+            <group>
+              <field name="record_id" readonly="1"/>
+              <field name="machine_bom_id" required="1"/>
+            </group>
+  
+            <footer>
+              <button string="Cancel" class="btn-secondary" special="cancel"/>
+              <button string="Confirm Close" type="object" name="action_confirm_close" class="btn-primary"/>
+            </footer>
+          </sheet>
+        </form>
+      </field>
+    </record>
+  </odoo>
+  

@@ -1,0 +1,235 @@
+<odoo>
+
+    <!-- ===================== SYSTEM ===================== -->
+    <record id="action_tagging_system" model="ir.actions.act_window">
+        <field name="name">System</field>
+        <field name="res_model">tagging.system</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="view_tagging_system_list" model="ir.ui.view">
+        <field name="name">tagging.system.list</field>
+        <field name="model">tagging.system</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="active"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_tagging_system_form" model="ir.ui.view">
+        <field name="name">tagging.system.form</field>
+        <field name="model">tagging.system</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="active"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- ===================== SUBSYSTEM ===================== -->
+    <record id="action_tagging_subsystem" model="ir.actions.act_window">
+        <field name="name">Sub System</field>
+        <field name="res_model">tagging.subsystem</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="view_tagging_subsystem_list" model="ir.ui.view">
+        <field name="name">tagging.subsystem.list</field>
+        <field name="model">tagging.subsystem</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="system_id"/>
+                <field name="name"/>
+                <field name="active"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_tagging_subsystem_form" model="ir.ui.view">
+        <field name="name">tagging.subsystem.form</field>
+        <field name="model">tagging.subsystem</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <field name="system_id"/>
+                        <field name="name"/>
+                        <field name="active"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- ===================== UNIT MESIN ===================== -->
+    <record id="action_tagging_machine_unit" model="ir.actions.act_window">
+        <field name="name">Unit Mesin</field>
+        <field name="res_model">tagging.machine_unit</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="view_tagging_machine_unit_list" model="ir.ui.view">
+        <field name="name">tagging.machine_unit.list</field>
+        <field name="model">tagging.machine_unit</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="subsystem_id"/>
+                <field name="name"/>
+                <field name="bu_id"/>
+                <field name="active"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_tagging_machine_unit_form" model="ir.ui.view">
+        <field name="name">tagging.machine_unit.form</field>
+        <field name="model">tagging.machine_unit</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <field name="subsystem_id"/>
+                        <field name="name"/>
+                        <field name="bu_id"/>
+                        <field name="active"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- ===================== BAGIAN MESIN ===================== -->
+    <record id="action_tagging_machine_part" model="ir.actions.act_window">
+        <field name="name">Bagian Mesin</field>
+        <field name="res_model">tagging.machine_part</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="view_tagging_machine_part_list" model="ir.ui.view">
+        <field name="name">tagging.machine_part.list</field>
+        <field name="model">tagging.machine_part</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="unit_id"/>
+                <field name="name"/>
+                <field name="active"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_tagging_machine_part_form" model="ir.ui.view">
+        <field name="name">tagging.machine_part.form</field>
+        <field name="model">tagging.machine_part</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <field name="unit_id"/>
+                        <field name="name"/>
+                        <field name="active"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- ===================== SPARE PART MASTER ===================== -->
+    <record id="action_tagging_spare_part" model="ir.actions.act_window">
+        <field name="name">Spare Part</field>
+        <field name="res_model">tagging.spare_part</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="view_tagging_spare_part_list" model="ir.ui.view">
+        <field name="name">tagging.spare_part.list</field>
+        <field name="model">tagging.spare_part</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="sku"/>
+                <field name="bu_id"/>
+                <field name="active"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_tagging_spare_part_form" model="ir.ui.view">
+        <field name="name">tagging.spare_part.form</field>
+        <field name="model">tagging.spare_part</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="sku"/>
+                        <field name="bu_id"/>
+                        <field name="active"/>
+                    </group>
+                    <group string="Spesifikasi">
+                        <field name="specification" nolabel="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- ===================== EQUIPMENT TREE / BOM ===================== -->
+    <record id="action_tagging_machine_bom" model="ir.actions.act_window">
+        <field name="name">Equipment Tree</field>
+        <field name="res_model">tagging.machine_bom</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="view_tagging_machine_bom_list" model="ir.ui.view">
+        <field name="name">tagging.machine_bom.list</field>
+        <field name="model">tagging.machine_bom</field>
+        <field name="arch" type="xml">
+            <list string="Equipment Tree">
+                <field name="system_id"/>
+                <field name="subsystem_id"/>
+                <field name="unit_id"/>
+                <field name="part_id"/>
+                <field name="spare_part_id"/>
+                <field name="sku"/>
+                <field name="bu_id"/>
+                <field name="active"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_tagging_machine_bom_form" model="ir.ui.view">
+        <field name="name">tagging.machine_bom.form</field>
+        <field name="model">tagging.machine_bom</field>
+        <field name="arch" type="xml">
+            <form string="Equipment Tree">
+                <sheet>
+                    <group string="Hirarki Mesin">
+                        <field name="system_id"/>
+                        <field name="subsystem_id"/>
+                        <field name="unit_id"/>
+                        <field name="part_id"/>
+                    </group>
+
+                    <group string="Spare Part">
+                        <field name="spare_part_id"/>
+                        <field name="sku"/>
+                        <field name="bu_id"/>
+                        <field name="active"/>
+                    </group>
+
+                    <group string="Spesifikasi (Snapshot)">
+                        <field name="specification" nolabel="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+</odoo>

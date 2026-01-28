@@ -1,0 +1,235 @@
+/* =========================================
+   FORCE LIGHT BACKGROUND (Odoo container)
+   Only when dashboard is present
+   ========================================= */
+
+   .o_web_client:has(.o_tagging_dash),
+   .o_action_manager:has(.o_tagging_dash),
+   .o_content:has(.o_tagging_dash),
+   .o_view_controller:has(.o_tagging_dash) {
+     background: #f4f6f8 !important;
+   }
+   
+   .o_action_manager:has(.o_tagging_dash) .o_action,
+   .o_action_manager:has(.o_tagging_dash) .o_content,
+   .o_action_manager:has(.o_tagging_dash) .o_view_controller {
+     background: #f4f6f8 !important;
+   }
+   
+   /* =========================================
+      DASHBOARD
+      ========================================= */
+   
+   .o_tagging_dash {
+     padding: 16px;
+     background: #f4f6f8 !important;
+     color: #111827 !important;
+   
+     // paksa semua card di dalam dashboard jadi light
+     .card {
+       border-radius: 14px;
+       background: #ffffff !important;
+       color: #111827 !important;
+       border: 1px solid #e5e7eb !important;
+       box-shadow: 0 6px 18px rgba(17, 24, 39, 0.08) !important;
+     }
+   
+     .card-body {
+       background: transparent !important;
+       color: inherit !important;
+     }
+   
+     // ===== HERO =====
+     .dash-hero {
+       border-radius: 14px;
+       padding: 18px;
+       margin-bottom: 14px;
+       color: #fff !important;
+       background: #0ea5b7 !important;
+       display: flex;
+       align-items: center;
+       justify-content: space-between;
+       gap: 16px;
+   
+       .hero-title {
+         font-size: 26px;
+         font-weight: 800;
+         line-height: 1.1;
+       }
+   
+       .hero-sub {
+         opacity: 0.92;
+         font-size: 13px;
+         margin-top: 4px;
+       }
+   
+       .hero-filters {
+         display: grid;
+         grid-template-columns: 180px 260px;
+         gap: 10px;
+   
+         .form-select {
+           border-radius: 10px;
+           height: 40px;
+           background: #ffffff !important;
+           color: #111827 !important;
+           border: 1px solid rgba(17, 24, 39, 0.18) !important;
+   
+           &:focus {
+             border-color: rgba(255, 255, 255, 0.85) !important;
+             box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.25) !important;
+           }
+         }
+       }
+   
+       @media (max-width: 900px) {
+         flex-direction: column;
+         align-items: stretch;
+   
+         .hero-filters {
+           grid-template-columns: 1fr;
+         }
+       }
+     }
+   
+     // ===== Performance Metrics =====
+     // kalau kamu mau putih total, tinggal ganti background jadi #fff dan color jadi #111827
+     .perf {
+       margin-bottom: 14px;
+       background: linear-gradient(135deg, #1f2937, #111827) !important;
+       color: #fff !important;
+       border: 0 !important;
+       box-shadow: 0 6px 18px rgba(17, 24, 39, 0.10) !important;
+   
+       .perf-title {
+         font-weight: 800;
+         margin-bottom: 10px;
+         color: #ffffff !important;
+       }
+   
+       .perf-grid {
+         display: grid;
+         grid-template-columns: repeat(3, 1fr);
+         gap: 12px;
+       }
+   
+       .perf-item {
+         border: 1px solid rgba(255, 255, 255, 0.20) !important;
+         border-radius: 14px;
+         padding: 14px;
+         text-align: center;
+         background: #ffffff !important;
+         color: #111827 !important;
+   
+         .perf-label {
+           font-size: 12px;
+           color: #6b7280 !important;
+         }
+   
+         .perf-value {
+           font-size: 28px;
+           font-weight: 900;
+           margin-top: 6px;
+         }
+       }
+   
+       @media (max-width: 900px) {
+         .perf-grid {
+           grid-template-columns: 1fr;
+         }
+       }
+     }
+   
+     // ===== Grid Layout =====
+     .grid-2 {
+       display: grid;
+       grid-template-columns: 1fr 1fr;
+       gap: 14px;
+   
+       @media (max-width: 900px) {
+         grid-template-columns: 1fr;
+       }
+     }
+   
+     .card-title-sm {
+       font-weight: 800;
+       margin-bottom: 10px;
+       color: #111827 !important;
+     }
+   
+     // ===== Chart area =====
+     .chart-box {
+       height: 260px;
+       background: #ffffff !important;
+       border-radius: 12px;
+     }
+   
+     .treemap-box {
+       height: 280px;
+       background: #ffffff !important;
+       border-radius: 12px;
+     }
+   
+     // ===== ABC Table =====
+     .abc-table {
+       .table {
+         color: #111827 !important;
+         background: #ffffff !important;
+         border-radius: 12px;
+         overflow: hidden;
+       }
+   
+       // FIX: header jangan dark
+       .table thead,
+       .table thead tr,
+       .table thead th {
+         background: #ffffff !important;
+         color: #374151 !important;
+         border-color: #e5e7eb !important;
+       }
+   
+       .table thead th {
+         font-size: 12px;
+       }
+   
+       .table tbody td {
+         font-size: 13px;
+         border-color: #e5e7eb !important;
+         background: #ffffff !important;
+       }
+   
+       .bar {
+         --w: 0%;
+         position: relative;
+         height: 28px;
+         border-radius: 10px;
+         overflow: hidden;
+         background: #eef2f7 !important;
+         display: flex;
+         align-items: center;
+         padding-left: 10px;
+   
+         &::before {
+           content: "";
+           position: absolute;
+           left: 0;
+           top: 0;
+           bottom: 0;
+           width: var(--w);
+           border-radius: 10px;
+           opacity: 0.95;
+         }
+   
+         span {
+           position: relative;
+           font-weight: 700;
+           font-size: 12px;
+           color: #111827 !important;
+         }
+       }
+   
+       .bar-closed::before { background: #f59e0b; } // oranye
+       .bar-not::before { background: #c026d3; }    // ungu
+     }
+   }
+   

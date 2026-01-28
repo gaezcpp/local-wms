@@ -1,0 +1,116 @@
+<odoo>
+
+    <!-- ACTION -->
+    <record id="action_tagging_pic" model="ir.actions.act_window">
+      <field name="name">PIC List</field>
+      <field name="res_model">tagging.pic</field>
+      <field name="view_mode">list,form</field>
+    </record>
+
+    <!-- LIST -->
+    <record id="view_tagging_pic_list" model="ir.ui.view">
+      <field name="name">tagging.pic.list</field>
+      <field name="model">tagging.pic</field>
+      <field name="arch" type="xml">
+        <list string="PIC List" default_order="email asc">
+          <field name="email"/>
+          <field name="department_ids" widget="many2many_tags"/>
+          <field name="cc"/>
+          <field name="bu_ids" widget="many2many_tags"/>
+          <field name="active"/>
+        </list>
+      </field>
+    </record>
+
+    <!-- FORM -->
+    <record id="view_tagging_pic_form" model="ir.ui.view">
+      <field name="name">tagging.pic.form</field>
+      <field name="model">tagging.pic</field>
+      <field name="arch" type="xml">
+        <form string="PIC">
+          <header>
+            <field name="active" widget="boolean_button"/>
+          </header>
+
+          <sheet>
+            <group>
+              <field name="email" widget="email"/>
+              <field name="cc"/>
+            </group>
+
+            <group string="Mapping">
+              <field name="department_ids" widget="many2many_tags" options="{'no_create_edit': False}"/>
+              <field name="bu_ids" widget="many2many_tags" options="{'no_create_edit': False}"/>
+            </group>
+          </sheet>
+        </form>
+      </field>
+    </record>
+
+    <!-- Department -->
+    <record id="action_tagging_department" model="ir.actions.act_window">
+      <field name="name">Departments</field>
+      <field name="res_model">tagging.department</field>
+      <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="view_tagging_department_list" model="ir.ui.view">
+      <field name="name">tagging.department.list</field>
+      <field name="model">tagging.department</field>
+      <field name="arch" type="xml">
+        <list>
+          <field name="name"/>
+          <field name="active"/>
+        </list>
+      </field>
+    </record>
+
+    <record id="view_tagging_department_form" model="ir.ui.view">
+      <field name="name">tagging.department.form</field>
+      <field name="model">tagging.department</field>
+      <field name="arch" type="xml">
+        <form>
+          <sheet>
+            <group>
+              <field name="name"/>
+              <field name="active"/>
+            </group>
+          </sheet>
+        </form>
+      </field>
+    </record>
+
+    <!-- BU -->
+    <record id="action_tagging_bu" model="ir.actions.act_window">
+      <field name="name">BUs</field>
+      <field name="res_model">tagging.bu</field>
+      <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="view_tagging_bu_list" model="ir.ui.view">
+      <field name="name">tagging.bu.list</field>
+      <field name="model">tagging.bu</field>
+      <field name="arch" type="xml">
+        <list>
+          <field name="name"/>
+          <field name="active"/>
+        </list>
+      </field>
+    </record>
+
+    <record id="view_tagging_bu_form" model="ir.ui.view">
+      <field name="name">tagging.bu.form</field>
+      <field name="model">tagging.bu</field>
+      <field name="arch" type="xml">
+        <form>
+          <sheet>
+            <group>
+              <field name="name"/>
+              <field name="active"/>
+            </group>
+          </sheet>
+        </form>
+      </field>
+    </record>
+
+</odoo>

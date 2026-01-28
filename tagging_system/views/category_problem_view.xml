@@ -1,0 +1,42 @@
+<odoo>
+
+    <!-- Action -->
+    <record id="action_category_problem" model="ir.actions.act_window">
+        <field name="name">Category Problem</field>
+        <field name="res_model">category.problem</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <!-- List View -->
+    <record id="view_category_problem_list" model="ir.ui.view">
+        <field name="name">category.problem.list</field>
+        <field name="model">category.problem</field>
+        <field name="arch" type="xml">
+            <list string="Category Problem">
+                <field name="sistem"/>
+                <field name="sub_sistem"/>
+                <field name="cat_masalah"/>
+                <field name="active"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Form View -->
+    <record id="view_category_problem_form" model="ir.ui.view">
+        <field name="name">category.problem.form</field>
+        <field name="model">category.problem</field>
+        <field name="arch" type="xml">
+            <form string="Category Problem">
+                <sheet>
+                    <group>
+                        <field name="sistem"/>
+                        <field name="sub_sistem"/>
+                        <field name="cat_masalah"/>
+                        <field name="active"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+</odoo>

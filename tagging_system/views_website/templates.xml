@@ -1,0 +1,256 @@
+<odoo>
+  <template id="tagging_form" name="Tagging Form">
+    <t t-call="website.layout">
+
+      <style>
+        .ts-card { border-radius: 16px; }
+        .ts-title { font-weight: 700; letter-spacing: .2px; }
+        .ts-badge { background: #FFF6D8; color: #5B4A00; border: 1px solid #F1D58A; }
+        .ts-readonly { background: #F6F7F9 !important; }
+        .btn-ts {
+          background: #D0A522 !important;
+          border-color: #D0A522 !important;
+          color: #111 !important;
+          font-weight: 700;
+          border-radius: 14px;
+          padding: 14px 16px;
+        }
+        .btn-ts:active, .btn-ts:focus, .btn-ts:hover { filter: brightness(0.95); }
+        .btn-ts[disabled], .btn-ts:disabled { opacity: .55; filter: none; }
+        .form-control, .form-select { border-radius: 12px; }
+        .form-control-lg { padding-top: 12px; padding-bottom: 12px; font-size: 16px; }
+        .ts-section {
+          font-weight: 800;
+          font-size: 14px;
+          letter-spacing: .6px;
+          color: #374151;
+          margin-top: 10px;
+        }
+      </style>
+
+      <script type="text/javascript">
+        (function () {
+          function initSelect2() {
+            if (window.jQuery &amp;&amp; jQuery.fn &amp;&amp; jQuery.fn.select2) {
+              jQuery('.js-select2, .o_category_problem_select').select2({
+                width: '100%',
+                placeholder: 'Pilih atau ketik...',
+                allowClear: true,
+                minimumResultsForSearch: 0
+              });
+            }
+          }
+          if (document.readyState !== 'loading') initSelect2();
+          else document.addEventListener('DOMContentLoaded', initSelect2);
+        })();
+      </script>
+      
+      
+      <div class="container-fluid py-3">
+        <div class="row justify-content-center">
+          <div class="col-12 col-md-6 col-lg-5">
+
+            <!-- Header -->
+            <div class="d-flex align-items-center justify-content-between mb-3">
+              <div>
+                <div class="ts-title h4 mb-0">Form Tagging</div>
+                <div class="text-muted small">Scan QR → Isi temuan → Submit</div>
+              </div>
+              <span class="badge ts-badge">Tagging</span>
+            </div>
+
+            <!-- Alerts -->
+            <t t-if="error">
+              <div class="alert alert-danger" role="alert">
+                <t t-esc="error"/>
+              </div>
+            </t>
+
+            <t t-if="not barcode">
+              <div class="alert alert-warning" role="alert">
+                Silakan scan QR lokasi terlebih dahulu agar data Plant/Business Unit/Functional Location terisi otomatis.
+              </div>
+            </t>
+
+            <t t-if="not success">
+              <form action="/tagging/submit"
+                    method="post"
+                    enctype="multipart/form-data"
+                    class="card shadow-sm border-0 ts-card">
+                <div class="card-body p-3 p-md-4">
+
+                  <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                  <input type="hidden" name="barcode_code" t-att-value="barcode_code or ''"/>
+
+                  <div class="ts-section mb-2">TAGGING</div>
+
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">Nama Tagger</label>
+                    <input class="form-control form-control-lg ts-readonly"
+                           name="tagger_name"
+                           t-att-value="default_tagger_name or ''"
+                           readonly="readonly"/>
+                  </div>
+
+                  <div class="ts-section mb-2">INFORMASI LOKASI</div>
+
+                  <div class="row g-2">
+                    <div class="col-4">
+                      <label class="form-label fw-semibold">Plant</label>
+                      <input class="form-control ts-readonly"
+                             name="plant_code"
+                             t-att-value="barcode.plant_code if barcode else ''"
+                             readonly="readonly"/>
+                    </div>
+                    <div class="col-8">
+                      <label class="form-label fw-semibold">&#160;</label>
+                      <input class="form-control ts-readonly"
+                             name="plant_name"
+                             t-att-value="barcode.plant_name if barcode else ''"
+                             readonly="readonly"/>
+                    </div>
+                  </div>
+
+                  <div class="row g-2 mt-2">
+                    <div class="col-4">
+                      <label class="form-label fw-semibold">Business Unit</label>
+                      <input class="form-control ts-readonly"
+                             name="bu_code"
+                             t-att-value="barcode.business_unit_code if barcode else ''"
+                             readonly="readonly"/>
+                    </div>
+                    <div class="col-8">
+                      <label class="form-label fw-semibold">&#160;</label>
+                      <input class="form-control ts-readonly"
+                             name="bu_name"
+                             t-att-value="barcode.business_unit_name if barcode else ''"
+                             readonly="readonly"/>
+                    </div>
+                  </div>
+
+                  <div class="mt-2">
+                    <label class="form-label fw-semibold">Functional Location</label>
+                    <input class="form-control ts-readonly"
+                           name="functional_location"
+                           t-att-value="barcode.functional_location if barcode else ''"
+                           readonly="readonly"/>
+                    <div class="form-text" t-if="barcode_code">
+                      Barcode Code: <strong><t t-esc="barcode_code"/></strong>
+                    </div>
+                  </div>
+
+                  <!-- PIC -->
+                  <div class="mb-3 mt-3">
+                    <label class="form-label fw-semibold">PIC</label>
+                    <select class="form-select form-select-lg js-select2" name="pic_id" required="required">
+                      <option value="">-- Pilih PIC --</option>
+                      <t t-foreach="pics" t-as="pic">
+                        <option t-att-value="pic.id"><t t-esc="pic.email"/></option>
+                      </t>
+                    </select>
+                    <div class="form-text">Pilih PIC yang bertanggung jawab di lokasi ini.</div>
+                  </div>
+
+                  <hr class="my-3"/>
+
+                  <div class="ts-section mb-2">DETAIL TEMUAN</div>
+
+                  <!-- Category Problem -->
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">Kategori Masalah</label>
+                    <select name="category_problem_id"
+                    class="form-select form-select-lg js-select2"
+                    required="required">
+            
+                <option value="">-- Pilih Kategori Masalah --</option>
+                <t t-foreach="category_problems" t-as="cp">
+                    <option t-att-value="cp.id">
+                        <t t-esc="cp.display_name"/>
+                    </option>
+                </t>
+            </select>
+            
+                  </div>
+
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">Deskripsi Temuan</label>
+                    <textarea class="form-control"
+                              name="description"
+                              rows="4"
+                              t-att-disabled="'disabled' if not barcode else None"
+                              placeholder="Tuliskan detail temuan, lokasi, kondisi, dan tindakan sementara (jika ada)"></textarea>
+                  </div>
+
+                  <div class="mt-3">
+                    <label class="form-label fw-semibold">Upload Foto (Maks. 5)</label>
+                    <input id="tagging-photos"
+                           class="form-control form-control-lg"
+                           type="file"
+                           name="photos"
+                           accept="image/png,image/jpeg"
+                           multiple="multiple"
+                           t-att-disabled="'disabled' if not barcode else None"/>
+                    <div class="text-muted small mt-1">Format JPG/PNG, maks. 5MB per foto.</div>
+                  </div>
+
+                  <button class="btn btn-ts w-100 mt-3"
+                          type="submit"
+                          t-att-disabled="'disabled' if not barcode else None">
+                    Submit Data
+                  </button>
+
+                  <t t-if="not barcode">
+                    <div class="text-muted small mt-2">
+                      Tombol submit akan aktif setelah barcode valid (hasil scan QR).
+                    </div>
+                  </t>
+
+                </div>
+              </form>
+            </t>
+
+            <!-- SUCCESS -->
+            <t t-if="success">
+              <div class="card shadow-sm border-0 ts-card mt-4">
+                <div class="card-body text-center p-4">
+                  <div style="font-size:48px;">✅</div>
+                  <h4 class="fw-bold mt-2">Berhasil</h4>
+                  <p class="text-muted mb-3">Data tagging berhasil disimpan.</p>
+
+                  <div class="alert alert-light text-start">
+                    <strong>Lokasi:</strong><br/>
+                    <t t-esc="barcode.functional_location if barcode else '-'"/><br/>
+                    <small class="text-muted">Barcode: <t t-esc="barcode_code"/></small>
+                  </div>
+
+                  <div class="d-grid gap-2 mt-3">
+                    <a href="/" class="btn btn-outline-secondary">⬅️ Selesai</a>
+                  </div>
+                </div>
+              </div>
+            </t>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Select2 Init: searchable dropdown -->
+      <script type="text/javascript">
+        (function () {
+          function initSelect2() {
+            if (window.jQuery &amp;&amp; jQuery.fn &amp;&amp; jQuery.fn.select2) {
+              jQuery('.js-select2').select2({
+                width: '100%',
+                placeholder: 'Pilih...',
+                allowClear: true
+              });
+            }
+          }
+          if (document.readyState !== 'loading') initSelect2();
+          else document.addEventListener('DOMContentLoaded', initSelect2);
+        })();
+      </script>
+
+    </t>
+  </template>
+</odoo>

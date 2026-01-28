@@ -1,0 +1,14 @@
+<odoo>
+    <record id="action_tagging_dashboard_client" model="ir.actions.client">
+      <field name="name">Tagging Dashboard</field>
+      <field name="tag">tagging_system.tagging_dashboard</field>
+    </record>
+  
+    <!-- Menu Dashboard arahkan ke client action ini -->
+    <menuitem id="menu_tagging_dashboard"
+              name="Dashboard"
+              parent="menu_tagging_root"
+              action="action_tagging_dashboard_client"
+              sequence="10"/>
+  </odoo>
+  

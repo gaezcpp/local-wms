@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="view_tagging_bom_import_wizard_form" model="ir.ui.view">
+    <field name="name">tagging.bom.import.wizard.form</field>
+    <field name="model">tagging.bom.import.wizard</field>
+    <field name="arch" type="xml">
+      <form string="Import Equipment Tree / BOM">
+        <group>
+          <field name="file" filename="filename" required="1"/>
+          <field name="filename" invisible="1"/>
+        </group>
+        <footer>
+          <button string="Import" type="object" name="action_import" class="btn-primary"/>
+          <button string="Cancel" special="cancel"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+
+  <record id="action_tagging_bom_import_wizard" model="ir.actions.act_window">
+    <field name="name">Import Equipment Tree / BOM</field>
+    <field name="res_model">tagging.bom.import.wizard</field>
+    <field name="view_mode">form</field>
+    <field name="target">new</field>
+  </record>
+
+</odoo>

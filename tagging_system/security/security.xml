@@ -1,0 +1,9 @@
+<odoo>
+    <!-- Portal users: only see their own records -->
+    <record id="tagging_record_rule_own_portal" model="ir.rule">
+        <field name="name">Tagging: portal only own records</field>
+        <field name="model_id" ref="model_tagging_record"/>
+        <field name="domain_force">[('user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+    </record>
+</odoo>

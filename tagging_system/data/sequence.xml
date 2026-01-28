@@ -1,0 +1,9 @@
+<odoo>
+  <record id="seq_tagging_record" model="ir.sequence">
+    <field name="name">Tagging Ticket</field>
+    <field name="code">tagging.record</field>
+    <field name="prefix">TSP-</field>
+    <field name="padding">4</field>
+    <field name="company_id" eval="False"/>
+  </record>
+</odoo>

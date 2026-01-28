@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+  <t t-name="tagging_system.TaggingDashboard" owl="1">
+    <div class="o_tagging_dash">
+
+      <!-- HERO -->
+      <div class="dash-hero">
+        <div class="hero-left">
+          <div class="hero-title">Tagging System Machine</div>
+          <div class="hero-sub">Progressing towards achieving the best maintenance process</div>
+        </div>
+
+        <div class="hero-filters">
+          <select class="form-select form-select-sm" t-on-change="onBUChange">
+            <option value="">Business Unit</option>
+            <t t-foreach="options.business_units" t-as="bu" t-key="bu">
+              <option t-att-value="bu" t-att-selected="filters.business_unit_code === bu">
+                <t t-esc="bu"/>
+              </option>
+            </t>
+          </select>
+
+          <select class="form-select form-select-sm" t-on-change="onDateRangeChange">
+            <t t-foreach="options.date_ranges" t-as="r" t-key="r.key">
+              <option t-att-value="r.key" t-att-selected="filters.date_range === r.key">
+                <t t-esc="r.label"/>
+              </option>
+            </t>
+          </select>
+        </div>
+      </div>
+
+      <!-- PERFORMANCE METRICS -->
+      <div class="card perf shadow-sm border-0">
+        <div class="card-body">
+          <div class="perf-title">Performance Metrics</div>
+
+          <div class="perf-grid">
+            <div class="perf-item">
+              <div class="perf-label">Total Tagging</div>
+              <div class="perf-value"><t t-esc="state.metrics.total"/></div>
+            </div>
+
+            <div class="perf-item">
+              <div class="perf-label">% Closed</div>
+              <div class="perf-value text-danger">
+                <t t-esc="(state.metrics.pct_closed || 0).toFixed(2)"/>%
+              </div>
+            </div>
+
+            <div class="perf-item">
+              <div class="perf-label">% Not Valid</div>
+              <div class="perf-value">
+                <t t-esc="(state.metrics.pct_not_valid || 0).toFixed(2)"/>%
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ROW 1 -->
+      <div class="grid-2">
+        <div class="card shadow-sm border-0">
+          <div class="card-body">
+            <div class="card-title-sm">Total Tagging by System</div>
+            <div class="chart-box">
+              <canvas t-ref="chartSystem"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="card shadow-sm border-0">
+          <div class="card-body">
+            <div class="card-title-sm">Total Tagging by Category Problem</div>
+            <div class="chart-box">
+              <canvas t-ref="chartProblem"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ROW 2 -->
+      <div class="grid-2 mt-3">
+        <div class="card shadow-sm border-0">
+          <div class="card-body">
+            <div class="card-title-sm">Total Tagging by System &amp; Sub System</div>
+            <div class="chart-box treemap-box">
+              <canvas t-ref="chartTreemap"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="card shadow-sm border-0">
+          <div class="card-body">
+            <div class="card-title-sm">% Closed &amp; Not Closed based on System</div>
+
+            <div class="abc-table">
+              <table class="table table-sm align-middle mb-0">
+                <thead>
+                  <tr>
+                    <th style="width: 160px;">System</th>
+                    <th style="width: 120px;">Total Tagging</th>
+                    <th>% Closed</th>
+                    <th>% Not Closed</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <t t-foreach="state.abc_table" t-as="row" t-key="row.abc">
+                    <tr>
+                      <td><t t-esc="row.abc"/></td>
+                      <td><t t-esc="row.total"/></td>
+                      <td>
+                        <div class="bar bar-closed" t-att-style="'--w:' + (row.pct_closed || 0) + '%;'">
+                          <span><t t-esc="(row.pct_closed || 0).toFixed(2)"/>%</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="bar bar-not" t-att-style="'--w:' + (row.pct_not_closed || 0) + '%;'">
+                          <span><t t-esc="(row.pct_not_closed || 0).toFixed(2)"/>%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  </t>
+                </tbody>
+              </table>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </t>
+</templates>

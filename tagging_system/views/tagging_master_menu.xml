@@ -1,0 +1,98 @@
+<odoo>
+
+    <!-- ===================== ROOT TAGGING ===================== -->
+    <!-- (ini biasanya sudah ada, pastikan ID sama) -->
+    <menuitem id="menu_tagging_root"
+              name="Tagging System"
+              sequence="10"/>
+
+
+    <!-- ===================== MASTER DATA ===================== -->
+    <menuitem id="menu_tagging_master_root"
+              name="Master Data"
+              parent="menu_tagging_root"
+              sequence="30"/>
+
+    <!-- Category Problem -->
+    <menuitem id="menu_tagging_master_problem"
+        name="Category Problem"
+        parent="menu_tagging_master_root"
+        sequence="5"/>
+
+
+    <!-- PIC -->
+    <menuitem id="menu_tagging_pic"
+              name="PIC List"
+              parent="menu_tagging_master_root"
+              action="action_tagging_pic"
+              sequence="10"/>
+
+    <!-- Department -->
+    <menuitem id="menu_tagging_department"
+              name="Departments"
+              parent="menu_tagging_master_root"
+              action="action_tagging_department"
+              sequence="20"/>
+
+    <!-- BU -->
+    <menuitem id="menu_tagging_bu"
+              name="BUs"
+              parent="menu_tagging_master_root"
+              action="action_tagging_bu"
+              sequence="30"/>
+
+    <!-- ===================== MASTER EQUIPMENT ===================== -->
+    <menuitem id="menu_equipment_master_root"
+              name="Master Equipment"
+              parent="menu_tagging_master_root"
+              sequence="40"/>
+
+    <menuitem id="menu_tagging_system"
+              name="System"
+              parent="menu_equipment_master_root"
+              action="action_tagging_system"
+              sequence="10"/>
+
+    <menuitem id="menu_tagging_subsystem"
+              name="Sub System"
+              parent="menu_equipment_master_root"
+              action="action_tagging_subsystem"
+              sequence="20"/>
+
+    <menuitem id="menu_tagging_machine_unit"
+              name="Unit Mesin"
+              parent="menu_equipment_master_root"
+              action="action_tagging_machine_unit"
+              sequence="30"/>
+
+    <menuitem id="menu_tagging_machine_part"
+              name="Bagian Mesin"
+              parent="menu_equipment_master_root"
+              action="action_tagging_machine_part"
+              sequence="40"/>
+
+    <menuitem id="menu_tagging_spare_part"
+              name="Spare Part"
+              parent="menu_equipment_master_root"
+              action="action_tagging_spare_part"
+              sequence="50"/>
+
+    <menuitem id="menu_tagging_machine_bom"
+              name="Equipment Tree"
+              parent="menu_equipment_master_root"
+              action="action_tagging_machine_bom"
+              sequence="60"/>
+
+    <menuitem id="menu_tagging_bom_import"
+              name="Import BOM (Excel)"
+              parent="menu_equipment_master_root"
+              action="action_tagging_bom_import_wizard"/>
+
+    <!-- ===================== MASTER BARCODE ===================== -->
+    <menuitem id="menu_tagging_barcode_master"
+              name="Master Barcode Tagging"
+              parent="menu_tagging_master_root"
+              action="action_barcode_tagging"
+              sequence="70"/>
+
+</odoo>

@@ -1,0 +1,82 @@
+<odoo>
+
+    <!-- ACTION -->
+    <record id="action_barcode_tagging" model="ir.actions.act_window">
+        <field name="name">Barcode Tagging</field>
+        <field name="res_model">barcode.tagging</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Buat master barcode untuk tagging berdasarkan lokasi (Functional Location).
+            </p>
+        </field>
+    </record>
+
+    <!-- LIST VIEW -->
+    <record id="view_barcode_tagging_list" model="ir.ui.view">
+        <field name="name">barcode.tagging.list</field>
+        <field name="model">barcode.tagging</field>
+        <field name="arch" type="xml">
+            <list string="Barcode Tagging" default_order="barcode_code desc">
+                <field name="barcode_code"/>
+                <field name="plant_code"/>
+                <field name="plant_name"/>
+                <field name="business_unit_code"/>
+                <field name="business_unit_name"/>
+                <field name="work_center"/>
+                <field name="functional_location"/>
+                <field name="active"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- FORM VIEW -->
+    <record id="view_barcode_tagging_form" model="ir.ui.view">
+        <field name="name">barcode.tagging.form</field>
+        <field name="model">barcode.tagging</field>
+        <field name="arch" type="xml">
+            <form string="Barcode Tagging">
+                <header>
+                    <button name="action_generate_qr"
+                            type="object"
+                            string="Generate QR"
+                            class="btn-primary"/>
+                    <button name="action_download_qr"
+                            type="object"
+                            string="Download QR"
+                            class="btn-secondary"
+                            invisible="not qr_image"/>
+                    <field name="active" widget="boolean_button"/>
+                </header>
+
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="barcode_code" readonly="1"/>
+                        </h1>
+                    </div>
+
+                    <group string="Location Master">
+                        <group>
+                            <field name="plant_code"/>
+                            <field name="plant_name"/>
+                            <field name="business_unit_code"/>
+                            <field name="business_unit_name"/>
+                        </group>
+
+                        <group>
+                            <field name="work_center"/>
+                            <field name="functional_location" required="1"/>
+                        </group>
+                    </group>
+
+                    <group string="QR Code">
+                        <field name="qr_image" widget="image" options="{'preview_image': 'qr_image'}"/>
+                        <div class="o_form_label">Klik Generate QR untuk membuat QR dari barcode_code.</div>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+</odoo>

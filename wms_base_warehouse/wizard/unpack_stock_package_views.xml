@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="unpack_stock_package_view_form" model="ir.ui.view">
+        <field name="name">unpack.stock.package.wizard.form.views</field>
+        <field name="model">unpack.stock.package.wizard</field>
+        <field name="arch" type="xml">
+            <form>
+                <group>
+                    <group>
+                        <field name="stock_package_id" force_save="1" readonly="1" invisible="1"/>
+                        <field name="location_dest_id" options="{'no_open': True, 'no_create': True}" domain="[('usage', '=', 'internal')]"/>
+                    </group>
+                </group>
+                <field name="line_ids" options="{'no_create': True}">
+                    <list create="0" delete="0" duplicate="0" editable="bottom">
+                        <field name="product_id" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1"/>
+                        <field name="package_id" widget="package_m2o" context="{'show_src_package': 1}" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1"/>
+                        <field name="quant_id" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1" invisible="1"/>
+                        <field name="lot_id" groups="stock.group_production_lot" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1"/>
+                        <field name="qty_available" force_save="1" readonly="1"/>
+                        <field name="product_uom_id" groups="uom.group_uom" force_save="1" readonly="1" options="{'no_open': True, 'no_create': True}"/>
+                            <!-- user input -->
+                        <field name="qty_unpack"/>
+                    </list>
+                    <form create="0" delete="0" duplicate="0">
+                        <group name="unpack_wiz" string="Unpack">
+                            <field name="quant_id" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1" invisible="1"/>
+                            <field name="package_id" widget="package_m2o" context="{'show_src_package': 1}" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1"/>
+                            <field name="lot_id" groups="stock.group_production_lot" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1"/>
+                            <field name="product_id" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1"/>
+                            <field name="qty_available" force_save="1" readonly="1"/>
+                            <!-- user input -->
+                            <field name="qty_unpack"/>
+                        </group>
+                    </form>
+                    <kanban create="0" delete="0" duplicate="0" class="o_kanban_mobile">
+                        <templates>
+                            <t t-name="card">
+                                <field name="unpack_stock_id" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1" invisible="1"/>
+                                <field name="product_id" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1"/>
+                                <field name="package_id" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1" invisible="1"/>
+                                <field name="quant_id" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1" invisible="1"/>
+                                <field name="lot_id" groups="stock.group_production_lot" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1"/>
+                                <div class="d-flex">
+                                    <field name="qty_available"/>
+                                    <field class="mx-2" name="product_uom_id" groups="uom.group_uom" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1"/>
+                                </div>
+                            </t>
+                        </templates>
+                    </kanban>
+                </field>
+                <footer>
+                    <button name="action_unpack_qty" confirm="Apakah Anda Yakin?" string="UNPACK" type="object" default_focus="1" class="oe_highlight"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

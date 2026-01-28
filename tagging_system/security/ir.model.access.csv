@@ -1,0 +1,27 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+
+access_tagging_record,access_tagging_record,model_tagging_record,base.group_user,1,1,1,0
+
+access_barcode_tagging,access_barcode_tagging,model_barcode_tagging,base.group_user,1,1,1,1
+
+access_tagging_pic,access_tagging_pic,model_tagging_pic,base.group_user,1,1,1,1
+access_tagging_department,access_tagging_department,model_tagging_department,base.group_user,1,1,1,1
+access_tagging_bu,access_tagging_bu,model_tagging_bu,base.group_user,1,1,1,1
+
+access_tagging_system,access_tagging_system,model_tagging_system,base.group_user,1,1,1,1
+access_tagging_subsystem,access_tagging_subsystem,model_tagging_subsystem,base.group_user,1,1,1,1
+access_tagging_machine_unit,access_tagging_machine_unit,model_tagging_machine_unit,base.group_user,1,1,1,1
+access_tagging_machine_part,access_tagging_machine_part,model_tagging_machine_part,base.group_user,1,1,1,1
+access_tagging_spare_part,access_tagging_spare_part,model_tagging_spare_part,base.group_user,1,1,1,1
+access_tagging_machine_bom,access_tagging_machine_bom,model_tagging_machine_bom,base.group_user,1,1,1,1
+
+access_tagging_record_close_wizard,access_tagging_record_close_wizard,model_tagging_record_close_wizard,base.group_user,1,0,0,0
+access_tagging_record_reject_wizard_user,access.tagging.record.reject.wizard.user,model_tagging_record_reject_wizard,base.group_user,1,1,1,1
+access_category_problem_user,access.category.problem.user,model_category_problem,base.group_user,1,1,1,1
+
+
+access_tagging_wo_sparepart_wizard_user,tagging.wo.sparepart.wizard user,model_tagging_wo_sparepart_wizard,base.group_user,1,1,1,1
+access_tagging_wo_sparepart_wizard_line_user,tagging.wo.sparepart.wizard.line user,model_tagging_wo_sparepart_wizard_line,base.group_user,1,1,1,1
+access_tagging_wo_sparepart_user,tagging.wo.sparepart user,model_tagging_wo_sparepart,base.group_user,1,1,1,1
+
+access_tagging_bom_import_wizard,access_tagging_bom_import_wizard,model_tagging_bom_import_wizard,,1,1,1,1

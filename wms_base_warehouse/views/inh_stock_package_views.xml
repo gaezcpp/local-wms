@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <record model="ir.ui.view" id="inherit_stock_package_form_views">
+            <field name="name">inherit.stock.package.form</field>
+            <field name="model">stock.package</field>
+            <field name="inherit_id" ref="stock.stock_package_view_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//button[@name='unpack']" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </xpath>
+                <xpath expr="//button[@name='unpack']" position="after">
+                    <button name="action_unpack_wizard" type="object" string="Unpack" class="oe_highlight"/>
+                </xpath>
+            </field>
+        </record>
+    </data>
+</odoo>
