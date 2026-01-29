@@ -19,17 +19,21 @@ Long description of module's purpose
     # any module necessary for this one to work correctly
     'depends': ['base', 'stock', 'stock_barcode'],
     
+    # always loaded
+    'data': [
+        'data/parameter.xml',
+        'views/product_template_views.xml',
+        'views/stock_package_views.xml',
+        'views/stock_picking_views.xml',
+        'views/stock_putaway_rule_views.xml',
+        'views/stock_move_line_barcode_views.xml',
+    ],
+    
     "assets": {
         "web.assets_backend": [
-            "wms_inherit_stock_barcode/static/src/js/barcode_line_uom_conversion.js",
-            "wms_inherit_stock_barcode/static/src/xml/barcode_line_uom_conversion.xml",
+            "wms_inherit_stock_barcode/static/src/js/digipad_patch.js",
         ],
     },
 
-    # always loaded
-    'data': [
-        # 'views/views.xml',
-        # 'views/templates.xml',
-    ],
 }
 

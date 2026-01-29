@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="inherit_stock_move_line_product_selector" model="ir.ui.view">
+        <field name="name">inherit.stock.product.selector</field>
+        <field name="model">stock.move.line</field>
+        <field name="inherit_id" ref="stock_barcode.stock_move_line_product_selector"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='qty_done']" position="attributes">
+                <attribute name="force_save">1</attribute>
+                <attribute name="readonly">1</attribute>
+            </xpath>
+            <xpath expr="//field[@name='product_uom_id']" position="attributes">
+                <attribute name="readonly">1</attribute>
+            </xpath>
+            <xpath expr="//div[@name='quantity']" position="before">
+                <div name="bag_quantity" class="row my-2">
+                    <div class="col">
+                        <field name="bag_qty" class="text-end" options="{'type': 'number'}" force_save="1" placeholder="Bag Qty"/>
+                    </div>
+                    <div class="col-3 ps-0" groups="uom.group_uom">
+                        <field name="uom_bag_id" options="{'no_open': True}" groups="uom.group_uom" widget="many2one_uom" force_save="1" readonly="1"/>
+                    </div>
+                </div>
+                <div name="pallet_quantity" class="row my-2">
+                    <div class="col">
+                        <field name="pallet_qty" class="text-end" options="{'type': 'number'}" placeholder="Pallet Qty" force_save="1" readonly="1"/>
+                    </div>
+                    <div class="col-3 ps-0" groups="uom.group_uom">
+                        <field name="uom_pallet_id" options="{'no_open': True}" groups="uom.group_uom" widget="many2one_uom" force_save="1" readonly="1"/>
+                    </div>
+                </div>
+            </xpath>
+        </field>
+    </record>
+</odoo>

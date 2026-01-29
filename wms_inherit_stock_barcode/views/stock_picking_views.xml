@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <record model="ir.ui.view" id="inherit_stock_picking_form_views">
+            <field name="name">stock.picking.form</field>
+            <field name="model">stock.picking</field>
+            <field name="inherit_id" ref="stock.view_picking_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='product_uom_qty']" position="attributes">
+                    <attribute name="force_save">1</attribute>
+                    <attribute name="readonly">1</attribute>
+                    <attribute name="column_invisible">parent.state == 'draft'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='product_uom']" position="attributes">
+                    <attribute name="force_save">1</attribute>
+                    <attribute name="readonly">1</attribute>
+                    <attribute name="column_invisible">parent.state == 'draft'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='quantity']" position="attributes">
+                    <attribute name="force_save">1</attribute>
+                    <attribute name="readonly">1</attribute>
+                </xpath>
+                <xpath expr="//field[@name='product_uom']" position="after">
+                    <field name="bag_qty" string="Bag" force_save="1" readonly="1" column_invisible="parent.state=='draft'" decoration-danger="product_uom_qty and quantity > product_uom_qty and parent.state not in ['done', 'cancel']"/>
+                    <field name="uom_bag_id" string="" force_save="1" readonly="1" column_invisible="parent.state=='draft'" options="{'no_open': True, 'no_create': True}" widget="many2one_uom" groups="uom.group_uom"/>
+
+                    <field name="pallet_qty" string="Pallet" force_save="1" readonly="1" column_invisible="parent.state=='draft'" decoration-danger="product_uom_qty and quantity > product_uom_qty and parent.state not in ['done', 'cancel']"/>
+                    <field name="uom_pallet_id" string="" force_save="1" readonly="1" column_invisible="parent.state=='draft'" options="{'no_open': True, 'no_create': True}" widget="many2one_uom" groups="uom.group_uom"/>
+                </xpath>
+            </field>
+        </record>
+    </data>
+</odoo>
