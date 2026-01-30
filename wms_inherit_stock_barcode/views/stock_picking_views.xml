@@ -6,11 +6,14 @@
             <field name="model">stock.picking</field>
             <field name="inherit_id" ref="stock.view_picking_form"/>
             <field name="arch" type="xml">
-                <xpath expr="//field[@name='product_uom_qty']" position="attributes">
+                <xpath expr="//field[@name='origin']" position="after">
+                    <field name="over_delivery" force_save="1" readonly="1"/>
+                </xpath>
+                <!-- <xpath expr="//field[@name='product_uom_qty']" position="attributes">
                     <attribute name="force_save">1</attribute>
                     <attribute name="readonly">1</attribute>
                     <attribute name="column_invisible">parent.state == 'draft'</attribute>
-                </xpath>
+                </xpath> -->
                 <xpath expr="//field[@name='product_uom']" position="attributes">
                     <attribute name="force_save">1</attribute>
                     <attribute name="readonly">1</attribute>

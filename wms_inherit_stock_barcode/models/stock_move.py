@@ -4,10 +4,35 @@ from odoo import models, fields, api
 class InheritStockMove(models.Model):
     _inherit = 'stock.move'
 
-    bag_qty = fields.Float(string="Bag Qty", compute="_compute_bag_pallet_from_lines", store=True, tracking=True)
-    pallet_qty = fields.Float(string="Pallet Qty", compute="_compute_bag_pallet_from_lines", store=True, tracking=True)
-    uom_bag_id = fields.Many2one('uom.uom', compute="_compute_bag_pallet_from_lines", store=True, tracking=True)
-    uom_pallet_id = fields.Many2one('uom.uom', compute="_compute_bag_pallet_from_lines", store=True, tracking=True)
+    uom_bag_id = fields.Many2one('uom.uom',  related='product_id.uom_bag_id', store=True, tracking=True)
+    uom_pallet_id = fields.Many2one('uom.uom', related='product_id.uom_pallet_id', store=True, tracking=True)
+    bag_qty = fields.Float(string="Bag Qty", compute="_compute_bag_qty", store=True, tracking=True)
+    pallet_qty = fields.Float(string="Pallet Qty", compute="_compute_pallet_qty", store=True, tracking=True)
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        moves = super().create(vals_list)
+        moves._update_over_delivery()
+        return moves
+
+    def write(self, vals):
+        res = super().write(vals)
+        self._update_over_delivery()
+        return res
+    
+    def _update_over_delivery(self):
+        for move in self:
+            picking = move.picking_id
+            if not picking:
+                continue
+
+            over = False
+            for m in picking.move_ids:
+                if m.quantity != m.product_uom_qty:
+                    over = True
+                    break
+
+            picking.over_delivery = over
 
     def _get_fields_stock_barcode(self):
         res = super()._get_fields_stock_barcode()
@@ -17,28 +42,21 @@ class InheritStockMove(models.Model):
             'uom_bag_id',
             'uom_pallet_id',
         ]
+        
+    @api.depends('quantity', 'uom_bag_id', 'uom_pallet_id')
+    def _compute_bag_qty(self):
+        for line in self:
+            if not line.uom_bag_id or not line.quantity:
+                line.bag_qty = 0.0
+                continue
 
-    @api.depends('move_line_ids.bag_qty', 'move_line_ids.pallet_qty', 'move_line_ids.uom_bag_id', 'move_line_ids.uom_pallet_id', 'move_line_ids.quantity', 'move_line_ids.picked',)
-    def _compute_bag_pallet_from_lines(self):
-        for move in self:
-            bag = 0.0
-            pallet = 0.0
-            uom_bag = False
-            uom_pallet = False
+            line.bag_qty = line.quantity / line.uom_bag_id.relative_factor
 
-            for line in move.move_line_ids:
-                if not line.picked:
-                    continue
+    @api.depends('bag_qty', 'uom_pallet_id')
+    def _compute_pallet_qty(self):
+        for line in self:
+            if not line.bag_qty or not line.uom_pallet_id:
+                line.pallet_qty = 0.0
+                continue
 
-                bag += line.bag_qty or 0.0
-                pallet += line.pallet_qty or 0.0
-
-                if not uom_bag and line.uom_bag_id:
-                    uom_bag = line.uom_bag_id
-                if not uom_pallet and line.uom_pallet_id:
-                    uom_pallet = line.uom_pallet_id
-
-            move.bag_qty = bag
-            move.pallet_qty = pallet
-            move.uom_bag_id = uom_bag
-            move.uom_pallet_id = uom_pallet
+            line.pallet_qty = line.bag_qty / line.uom_pallet_id.relative_factor

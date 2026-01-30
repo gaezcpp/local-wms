@@ -31,7 +31,7 @@
                     <field name="state" widget="statusbar"/>
                 </xpath>
                 <xpath expr="//field[@name='pack_date']" position="after">
-                    <field name="pallet_status"/>
+                    <field name="pallet_status" force_save="1" readonly="1"/>
                 </xpath>
                 <xpath expr="//field[@name='contained_quant_ids']/list/field[@name='product_uom_id']" position="after">
                     <field name="exp_group"/>
