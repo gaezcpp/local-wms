@@ -26,7 +26,10 @@ Long description of module's purpose
         'views/stock_package_views.xml',
         'views/stock_picking_views.xml',
         'views/stock_putaway_rule_views.xml',
+        'views/stock_quant_views.xml',
+        'views/stock_lot_views.xml',
         'views/stock_move_line_barcode_views.xml',
+        'views/stock_move_line_views.xml',
     ],
     
     "assets": {

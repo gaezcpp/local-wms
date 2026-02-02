@@ -9,6 +9,26 @@ class InheritStockQuant(models.Model):
 
     inbound_date = fields.Datetime(string="Inbound Date", tracking=True)
     exp_group = fields.Datetime(string="Exp Group", tracking=True)
+    uom_bag_id = fields.Many2one('uom.uom',  tracking=True)
+    bag_qty = fields.Float(string="Bag", tracking=True)
+    
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            self._prepare_bag_vals(vals)
+
+        records = super().create(vals_list)
+        records._recompute_package_pallet_status()
+        return records
+
+    def write(self, vals):
+        if 'product_id' in vals or 'quantity' in vals:
+            for rec in self:
+                rec._prepare_bag_vals(vals)
+
+        res = super().write(vals)
+        self._recompute_package_pallet_status()
+        return res
     
     def _recompute_package_pallet_status(self):
         param = self.env['ir.config_parameter'].sudo().get_param('pembagi_pallet')
@@ -43,14 +63,25 @@ class InheritStockQuant(models.Model):
 
             if pkg.pallet_status != pallet_status:
                 pkg.pallet_status = pallet_status
+    
+    def _prepare_bag_vals(self, vals):
+        product_id = vals.get('product_id')
+        quantity = vals.get('quantity')
+        if product_id is None and quantity is None:
+            return vals
 
-    @api.model_create_multi
-    def create(self, vals_list):
-        res = super().create(vals_list)
-        res._recompute_package_pallet_status()
-        return res
+        if product_id:
+            product = self.env['product.product'].sudo().browse(product_id)
+        else:
+            product = self.product_id
 
-    def write(self, vals):
-        res = super().write(vals)
-        self._recompute_package_pallet_status()
-        return res
+        qty = quantity if quantity is not None else self.quantity
+        uom_bag = product.uom_bag_id if product else False
+        vals['uom_bag_id'] = uom_bag.id if uom_bag else False
+
+        if uom_bag and uom_bag.relative_factor and qty:
+            vals['bag_qty'] = qty / uom_bag.relative_factor
+        else:
+            vals['bag_qty'] = 0.0
+
+        return vals
