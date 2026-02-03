@@ -17,13 +17,14 @@ Long description of module's purpose
     'version': '0.1',
 
     # any module necessary for this one to work correctly
-    'depends': ['base', 'stock', 'product'],
+    'depends': ['base', 'stock'],
 
     # always loaded
     'data': [
         'security/ir.model.access.csv',
         'wizard/unpack_stock_package_views.xml',
         'views/inh_stock_package_views.xml',
+        'views/stock_picking_type_views.xml',
     ],
 }
 
