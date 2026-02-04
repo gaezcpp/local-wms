@@ -1,0 +1,25 @@
+<?xml version='1.0' encoding='utf-8'?>
+<odoo>
+    <menuitem
+        id="production_master_data_menu_root"
+        name="Production"
+        parent="stock.menu_stock_config_settings"
+        sequence="70"
+    />
+
+    <menuitem
+        id="production_shift_menu"
+        name="Production Shift"
+        parent="wms_base_warehouse.production_master_data_menu_root"
+        action="wms_base_warehouse.production_shift_action"
+        sequence="10"
+    />
+
+    <menuitem
+        id="production_line_menu"
+        name="Production Line"
+        parent="wms_base_warehouse.production_master_data_menu_root"
+        action="wms_base_warehouse.production_line_action"
+        sequence="20"
+    />
+</odoo>

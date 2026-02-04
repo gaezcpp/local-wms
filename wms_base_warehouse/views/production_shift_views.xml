@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record model="ir.ui.view" id="production_shift_search">
+        <field name="name">production.shift.search</field>
+        <field name="model">production.shift</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="company_ids"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="production_shift_view_tree" model="ir.ui.view">
+        <field name="name">production.shift.view.tree</field>
+        <field name="model">production.shift</field>
+        <field name="arch" type="xml">
+            <list string="Production Shift">
+                <field name="name"/>
+                <field name="company_ids"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="production_shift_view_form" model="ir.ui.view">
+        <field name="name">production.shift.view.form</field>
+        <field name="model">production.shift</field>
+        <field name="arch" type="xml">
+            <form string="Production Shift">
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="company_ids" options="{'no_open': True, 'no_create': True}" widget="many2many_tags"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="production_shift_action" model="ir.actions.act_window">
+        <field name="name">Production Shift</field>
+        <field name="res_model">production.shift</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>

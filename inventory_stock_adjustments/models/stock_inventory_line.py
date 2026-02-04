@@ -84,7 +84,7 @@ class StockInventoryLine(models.Model):
                     ('location_id', '=', line.stock_inventory_id.location_id.id),
                     ]
             if line.stock_inventory_id and line.stock_inventory_id.partner_id:
-                donain.append(('owner_id', '=', line.stock_inventory_id.partner_id.id),)
+                domain.append(('owner_id', '=', line.stock_inventory_id.partner_id.id),)
             if line.product_id.tracking == 'none':
                 quant_rec = self.env['stock.quant'].search(domain + [('product_id','=',line.product_id.id)])
                 if quant_rec:

@@ -23,8 +23,13 @@ Long description of module's purpose
     'data': [
         'security/ir.model.access.csv',
         'wizard/unpack_stock_package_views.xml',
+        'views/production_line_views.xml',
+        'views/production_shift_views.xml',
         'views/inh_stock_package_views.xml',
         'views/stock_picking_type_views.xml',
+        'views/stock_picking_views.xml',
+        'views/stock_move_line_views.xml',
+        'views/menuitem.xml',
     ],
 }
 

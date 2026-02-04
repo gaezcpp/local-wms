@@ -16,6 +16,15 @@ class InheritStockPackage(models.Model):
         ('eceran', 'Eceran'),
     ], string="Pallet Status", default=False, tracking=True)
     
+    def write(self, vals):
+        res = super().write(vals)
+        for rec in self:
+            if rec.state in ('UU', 'Blocked'):
+                if not rec.contained_quant_ids:
+                    _logger.info(f"State pada {rec.name} otomatis berubah karena tidak ada quants")
+                    rec.sudo().state = 'QI'
+        return res
+    
     def action_qi(self):
         for rec in self:
             if rec.state != 'QI':
