@@ -8,6 +8,7 @@
             <field name="arch" type="xml">
                 <xpath expr="//field[@name='set_package_type']" position="after">
                     <field name="uu_only"/>
+                    <field name="production_only"/>
                 </xpath>
             </field>
         </record>

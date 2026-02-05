@@ -5,6 +5,9 @@
         <field name="model">stock.move.line</field>
         <field name="inherit_id" ref="stock_barcode.stock_move_line_product_selector"/>
         <field name="arch" type="xml">
+            <xpath expr="//field[@name='quant_id']" position="after">
+                <field name="picking_type_id" invisible="1"/>
+            </xpath>
             <xpath expr="//field[@name='qty_done']" position="attributes">
                 <attribute name="force_save">1</attribute>
                 <attribute name="readonly">1</attribute>
@@ -28,6 +31,36 @@
                     <div class="col-3 ps-0" groups="uom.group_uom">
                         <field name="uom_pallet_id" options="{'no_open': True}" groups="uom.group_uom" widget="many2one_uom" force_save="1" readonly="1"/>
                     </div>
+                </div>
+            </xpath>
+            <xpath expr="//div[@name='location_src']" position="before">
+                <div name="production_line" class="row" invisible="not picking_type_id.production_only">
+                    <div class="text-black-50 mt-2 fs-5">
+                        <span class="fa fa-map-marker me-1"/>
+                        <label for="production_line_id" string="Production Line" class="p-0"/>
+                    </div>
+                    <field name="production_line_id" placeholder="Production Line" options="{'no_create': True, 'no_open': True}"/>
+                </div>
+                <div name="first_count" class="row" invisible="not picking_type_id.production_only">
+                    <div class="text-black-50 mt-2 fs-5">
+                        <span class="fa fa-map-marker me-1"/>
+                        <label for="first_count" string="First Count" class="p-0"/>
+                    </div>
+                    <field name="first_count" placeholder="First Count"/>
+                </div>
+                <div name="last_count" class="row" invisible="not picking_type_id.production_only">
+                    <div class="text-black-50 mt-2 fs-5">
+                        <span class="fa fa-map-marker me-1"/>
+                        <label for="last_count" string="Last Count" class="p-0"/>
+                    </div>
+                    <field name="last_count" placeholder="Last Count"/>
+                </div>
+                <div name="detail_text" class="row" invisible="not picking_type_id.production_only">
+                    <div class="text-black-50 mt-2 fs-5">
+                        <span class="fa fa-map-marker me-1"/>
+                        <label for="detail_text" string="Detail Text" class="p-0"/>
+                    </div>
+                    <field name="detail_text" placeholder="Detail Text"/>
                 </div>
             </xpath>
         </field>

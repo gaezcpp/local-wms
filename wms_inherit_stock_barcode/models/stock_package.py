@@ -25,17 +25,25 @@ class InheritStockPackage(models.Model):
                     rec.sudo().state = 'QI'
         return res
     
+    def _reserved_packages(self):
+        for rec in self.picking_ids:
+            if rec.state in ('confirmed', 'assigned'):
+                raise ValidationError(f"Packages tidak bisa dilakukan perubahan status karena ada Transfer pada {rec.name}")            
+    
     def action_qi(self):
+        self._reserved_packages()
         for rec in self:
             if rec.state != 'QI':
                 rec.state = 'QI'
     
     def action_blocked(self):
+        self._reserved_packages()
         for rec in self:
             if rec.state != 'Blocked':
                 rec.state = 'Blocked'
     
     def action_uu(self):
+        self._reserved_packages()
         for rec in self:
             if rec.state != 'UU':
                 rec.state = 'UU'
