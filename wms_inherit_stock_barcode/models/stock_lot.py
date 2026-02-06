@@ -35,7 +35,7 @@ class InheritStockLot(models.Model):
     
     def _prepare_bag_vals(self, vals):
         product_id = vals.get('product_id')
-        quantity = vals.get('quantity')
+        quantity = vals.get('product_qty')
         if product_id is None and quantity is None:
             return vals
 
@@ -44,7 +44,7 @@ class InheritStockLot(models.Model):
         else:
             product = self.product_id
 
-        qty = quantity if quantity is not None else self.quantity
+        qty = quantity if quantity is not None else self.product_qty
         uom_bag = product.uom_bag_id if product else False
         vals['uom_bag_id'] = uom_bag.id if uom_bag else False
 

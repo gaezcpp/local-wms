@@ -29,7 +29,7 @@ class InheritStockLocation(models.Model):
             and (not rule.package_type_ids or package_type in rule.package_type_ids)
             and (not rule.pallet_status or not package or rule.pallet_status == package.pallet_status)
         )
-        print(f"XXXXXXXXXXXXXXXXXXXXXXX {putaway_rules}")
+        # print(f"XXXXXXXXXXXXXXXXXXXXXXX {putaway_rules}")
 
         putaway_rules = putaway_rules.sorted(
             lambda rule: (
@@ -40,7 +40,7 @@ class InheritStockLocation(models.Model):
             ),
             reverse=True,
         )
-        print(f"DDDDDDDDDDDDDDDDDDDDDD {putaway_rules}")
+        # print(f"DDDDDDDDDDDDDDDDDDDDDD {putaway_rules}")
         putaway_location = None
         locations = self.env.context.get("locations")
         if not locations:

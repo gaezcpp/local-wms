@@ -14,7 +14,7 @@ class StockQuant(models.Model):
             strict=strict,
             qty=qty
         )
-        print(f"CONTEXTNYAA {self.env.context}")
+        # print(f"CONTEXTNYAA {self.env.context}")
 
         if self.env.context.get('uu_only'):
             quants = quants.filtered(lambda q: q.package_id and q.package_id.state == 'UU')
