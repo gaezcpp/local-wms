@@ -50,7 +50,8 @@ class InheritStockMove(models.Model):
                 line.bag_qty = 0.0
                 continue
 
-            line.bag_qty = line.quantity / line.uom_bag_id.relative_factor
+            # line.bag_qty = line.quantity / line.uom_bag_id.relative_factor
+            line.bag_qty = line.quantity / (line.uom_bag_id.factor / 1000)
 
     @api.depends('bag_qty', 'uom_pallet_id')
     def _compute_pallet_qty(self):
@@ -59,4 +60,5 @@ class InheritStockMove(models.Model):
                 line.pallet_qty = 0.0
                 continue
 
-            line.pallet_qty = line.bag_qty / line.uom_pallet_id.relative_factor
+            # line.pallet_qty = line.bag_qty / line.uom_pallet_id.relative_factor
+            line.pallet_qty = line.bag_qty / (line.uom_pallet_id.factor / 1000)

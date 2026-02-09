@@ -85,10 +85,16 @@ class InheritStockQuant(models.Model):
         vals['uom_bag_id'] = uom_bag.id if uom_bag else False
         vals['uom_pallet_id'] = uom_pallet.id if uom_pallet else False
 
-        if uom_bag and uom_bag.relative_factor and qty:
-            vals['bag_qty'] = qty / uom_bag.relative_factor
-            if uom_pallet and uom_pallet.relative_factor:
-                vals['pallet_qty'] = vals['bag_qty'] / uom_pallet.relative_factor
+        # if uom_bag and uom_bag.relative_factor and qty:
+        #     vals['bag_qty'] = qty / uom_bag.relative_factor
+        #     if uom_pallet and uom_pallet.relative_factor:
+        #         vals['pallet_qty'] = vals['bag_qty'] / uom_pallet.relative_factor
+        #     else:
+        #         vals['pallet_qty'] = 0.0
+        if uom_bag and uom_bag.factor and qty:
+            vals['bag_qty'] = qty / (uom_bag.factor / 1000)
+            if uom_pallet and uom_pallet.factor:
+                vals['pallet_qty'] = vals['bag_qty'] / (uom_pallet.factor / 1000)
             else:
                 vals['pallet_qty'] = 0.0
         else:
@@ -116,12 +122,14 @@ class InheritStockQuant(models.Model):
                 line.inventory_quantity = 0.0
                 continue
             print("BAG DUMMY", line)
-            line.inventory_quantity = line.bag_dummy_qty * line.uom_bag_id.relative_factor
+            # line.inventory_quantity = line.bag_dummy_qty * line.uom_bag_id.relative_factor
+            line.inventory_quantity = line.bag_dummy_qty * (line.uom_bag_id.factor / 1000)
     
     @api.depends('bag_dummy_qty', 'uom_pallet_id')
     def _compute_pallet_dummy_qty(self):
         for line in self:
             if line.bag_dummy_qty and line.uom_pallet_id:
-                line.pallet_dummy_qty = line.bag_dummy_qty / line.uom_pallet_id.relative_factor
+                # line.pallet_dummy_qty = line.bag_dummy_qty / line.uom_pallet_id.relative_factor
+                line.pallet_dummy_qty = line.bag_dummy_qty / (line.uom_pallet_id.factor / 1000)
             else:
                 line.pallet_dummy_qty = 0.0

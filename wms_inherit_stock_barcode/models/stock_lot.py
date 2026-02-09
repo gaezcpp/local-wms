@@ -10,13 +10,6 @@ class InheritStockLot(models.Model):
     uom_bag_id = fields.Many2one('uom.uom',  tracking=True)
     bag_qty = fields.Float(string="Bag", tracking=True)
     
-    # @api.onchange('product_id', 'product_qty')
-    # def onchange_product_qty_kg(self):
-    #     for rec in self:
-    #         if rec.product_id or rec.product_qty > 0:
-    #             rec.uom_bag_id = rec.product_id.uom_bag_id.id or False
-    #             rec.bag_qty = rec.product_qty / rec.uom_bag_id.relative_factor
-    
     @api.model_create_multi
     def create(self, vals_list):
         for vals in vals_list:
@@ -48,8 +41,10 @@ class InheritStockLot(models.Model):
         uom_bag = product.uom_bag_id if product else False
         vals['uom_bag_id'] = uom_bag.id if uom_bag else False
 
-        if uom_bag and uom_bag.relative_factor and qty:
-            vals['bag_qty'] = qty / uom_bag.relative_factor
+        # if uom_bag and uom_bag.relative_factor and qty:
+        #     vals['bag_qty'] = qty / uom_bag.relative_factor
+        if uom_bag and uom_bag.factor and qty:
+            vals['bag_qty'] = qty / (uom_bag.factor / 1000)
         else:
             vals['bag_qty'] = 0.0
 

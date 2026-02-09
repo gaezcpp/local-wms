@@ -20,7 +20,8 @@ class InheritStockMoveLineBarcode(models.Model):
 
             if bag_qty and uom_bag_id:
                 uom_bag = self.env['uom.uom'].browse(uom_bag_id)
-                vals['quantity'] = bag_qty * uom_bag.relative_factor
+                # vals['quantity'] = bag_qty * uom_bag.relative_factor
+                vals['quantity'] = bag_qty * (uom_bag.factor / 1000)
 
             pallet_qty = vals.get('pallet_qty')
             if pallet_qty and pallet_qty > 1:
@@ -32,7 +33,8 @@ class InheritStockMoveLineBarcode(models.Model):
         if 'bag_qty' in vals:
             for line in self:
                 if line.uom_bag_id:
-                    vals['quantity'] = vals['bag_qty'] * line.uom_bag_id.relative_factor
+                    # vals['quantity'] = vals['bag_qty'] * line.uom_bag_id.relative_factor
+                    vals['quantity'] = vals['bag_qty'] * (line.uom_bag_id.factor / 1000)
 
         if 'pallet_qty' in vals and vals['pallet_qty'] > 1:
             raise ValidationError("Quantity Pallet tidak boleh lebih dari 1!")
@@ -52,7 +54,8 @@ class InheritStockMoveLineBarcode(models.Model):
     def _compute_pallet_qty(self):
         for line in self:
             if line.bag_qty and line.uom_pallet_id:
-                line.pallet_qty = line.bag_qty / line.uom_pallet_id.relative_factor
+                # line.pallet_qty = line.bag_qty / line.uom_pallet_id.relative_factor
+                line.pallet_qty = line.bag_qty / (line.uom_pallet_id.factor / 1000)
             else:
                 line.pallet_qty = 0.0
     
@@ -63,4 +66,5 @@ class InheritStockMoveLineBarcode(models.Model):
                 line.qty_done = 0.0
                 continue
             
-            line.qty_done = line.bag_qty * line.uom_bag_id.relative_factor
+            # line.qty_done = line.bag_qty * line.uom_bag_id.relative_factor
+            line.qty_done = line.bag_qty * (line.uom_bag_id.factor / 1000)
