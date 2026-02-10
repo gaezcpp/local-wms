@@ -41,8 +41,6 @@ class InheritStockLot(models.Model):
         uom_bag = product.uom_bag_id if product else False
         vals['uom_bag_id'] = uom_bag.id if uom_bag else False
 
-        # if uom_bag and uom_bag.relative_factor and qty:
-        #     vals['bag_qty'] = qty / uom_bag.relative_factor
         if uom_bag and uom_bag.factor and qty:
             vals['bag_qty'] = qty / (uom_bag.factor / 1000)
         else:

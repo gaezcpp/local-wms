@@ -9,4 +9,3 @@ class InheritProductTemplate(models.Model):
 
     uom_bag_id = fields.Many2one('uom.uom', string="UoM Bag", tracking=True)
     uom_pallet_id = fields.Many2one('uom.uom', string="UoM Pallet", tracking=True)
-    sap_mm = fields.Boolean(string="SAP MM", tracking=True)

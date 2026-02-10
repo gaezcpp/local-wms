@@ -40,9 +40,6 @@ class InheritStockMoveLine(models.Model):
 
         if product and qty:
             uom_bag = product.uom_bag_id
-            # if uom_bag and uom_bag.relative_factor:
-            #     uom_bag_id = uom_bag.id
-            #     bag_qty = qty / uom_bag.relative_factor
             if uom_bag and uom_bag.factor:
                 uom_bag_id = uom_bag.id
                 bag_qty = qty / (uom_bag.factor / 1000)

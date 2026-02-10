@@ -33,7 +33,6 @@ class StockMove(models.Model):
         moves_uu = self.filtered(lambda m: m.picking_id.picking_type_id.uu_only)
         moves_normal = self - moves_uu
         res = True
-        # print(f"MOVES UU {moves_uu} | MOVES NORMAL {moves_normal}")
         if moves_normal:
             res = super(StockMove, moves_normal)._action_assign()
         if moves_uu:

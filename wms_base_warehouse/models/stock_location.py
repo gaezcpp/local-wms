@@ -29,7 +29,6 @@ class InheritStockLocation(models.Model):
             and (not rule.package_type_ids or package_type in rule.package_type_ids)
             and (not rule.pallet_status or not package or rule.pallet_status == package.pallet_status)
         )
-        # print(f"XXXXXXXXXXXXXXXXXXXXXXX {putaway_rules}")
 
         putaway_rules = putaway_rules.sorted(
             lambda rule: (
@@ -40,21 +39,11 @@ class InheritStockLocation(models.Model):
             ),
             reverse=True,
         )
-        # print(f"DDDDDDDDDDDDDDDDDDDDDD {putaway_rules}")
         putaway_location = None
         locations = self.env.context.get("locations")
         if not locations:
             locations = self.child_internal_location_ids
-        # if putaway_rules:
-        #     putaway_location = putaway_rules._get_putaway_location(
-        #         product,
-        #         quantity,
-        #         package,
-        #         packaging,
-        #         {}
-        #     )
         if putaway_rules:
-            # get current product qty (qty in current quants and future qty on assigned ml) of all child locations
             qty_by_location = defaultdict(lambda: 0)
             if locations.storage_category_id:
                 if package and package.package_type_id:
