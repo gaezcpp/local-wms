@@ -11,22 +11,19 @@ class InheritBaseStockMoveLine(models.Model):
     detail_text = fields.Char(string="Detail Text")
     production_only = fields.Boolean(string="Production Only", related='picking_type_id.production_only')
     
-    # @api.model_create_multi
-    # def create(self, vals_list):
-    #     locked_fields = ['production_line_id', 'first_count', 'last_count', 'detail_text']
-    #     for vals in vals_list:
-    #         has_custom = any(vals.get(f) for f in locked_fields)
-    #         if has_custom and not self._is_prod_in(vals):
-    #             raise ValidationError("Production fields hanya boleh diisi pada PROD-IN")
-    #     return super().create(vals_list)
-
-    # def write(self, vals):
-    #     locked_fields = ['production_line_id', 'first_count', 'last_count', 'detail_text']
-    #     if any(f in vals for f in locked_fields):
-    #         for rec in self:
-    #             if not rec._is_prod_in():
-    #                 raise ValidationError("Production fields hanya boleh diedit pada PROD-IN")
-    #     return super().write(vals)
+    # fields buat chriss
+    sloc_id = fields.Many2one(comodel_name='stock.location', compute='_compute_sloc_id')
+    destination_package_status = fields.Selection(related='result_package_id.state')
+    production_shift_id = fields.Many2one(related='picking_id.production_shift_id', string="Shift")
+    production_order_name = fields.Char(related='picking_id.production_order_name', string="Production Order")
+    
+    @api.depends('location_dest_id')
+    def _compute_sloc_id(self):
+        for rec in self:
+            rec.sloc_id = False
+            loc = rec.location_dest_id
+            if loc and loc.location_id and loc.location_id.location_id:
+                rec.sloc_id = loc.location_id.id
     
     def _is_prod_in(self, vals=None):
         picking = False
@@ -42,4 +39,4 @@ class InheritBaseStockMoveLine(models.Model):
     def _onchange_prod_in_fields(self):
         for rec in self:
             if not rec._is_prod_in():
-                raise ValidationError("Production fields hanya boleh diedit pada PROD-IN")
+                raise ValidationError("Production fields hanya boleh diedit pada Operation Type PROD-IN")

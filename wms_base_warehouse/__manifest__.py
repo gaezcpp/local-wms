@@ -28,7 +28,9 @@ Long description of module's purpose
         'views/inh_stock_package_views.xml',
         'views/stock_picking_type_views.xml',
         'views/stock_picking_views.xml',
+        'views/stock_putaway_rule_views.xml',
         'views/stock_move_line_views.xml',
+        'views/stock_move_line_gr_views.xml',
         'views/menuitem.xml',
     ],
 }

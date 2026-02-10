@@ -4,7 +4,9 @@ from odoo import models, fields, api
 class InheritBaseStockPicking(models.Model):
     _inherit = 'stock.picking'
     
+    over_delivery = fields.Boolean(string="Over Delivery", tracking=True)
     production_shift_id = fields.Many2one(comodel_name='production.shift', string="Shift", tracking=True)
+    production_order_name = fields.Char(string="Production Order", tracking=True)
     
     def button_validate(self):
         res = super().button_validate()
@@ -16,6 +18,7 @@ class InheritBaseStockPicking(models.Model):
 
             origin_lines = picking.move_line_ids
             for next_picking in next_pickings:
+                next_picking.write({'production_shift_id': picking.production_shift_id.id})
                 for line in next_picking.move_line_ids:
                     origin_line = origin_lines.filtered(lambda l: l.product_id.id == line.product_id.id and (not line.lot_id or l.lot_id.id == line.lot_id.id))
                     if not origin_line:

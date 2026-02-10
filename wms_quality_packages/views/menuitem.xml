@@ -1,0 +1,10 @@
+<?xml version='1.0' encoding='utf-8'?>
+<odoo>
+    <menuitem
+        id="quality_packages_menu"
+        name="Quality Packages"
+        sequence="120"
+        parent="stock.menu_stock_inventory_control"
+        action="wms_quality_packages.quality_packages_action"
+    />
+</odoo>

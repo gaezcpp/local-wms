@@ -1,0 +1,11 @@
+<?xml version='1.0' encoding='utf-8'?>
+<odoo>
+    <data noupdate="1">
+        <record id="seq_quality_packages" model="ir.sequence">
+            <field name="name">Quality Packages</field>
+            <field name="code">quality.packages</field>
+            <field name="prefix">QP-</field>
+            <field name="padding">4</field>
+        </record>
+    </data>
+</odoo>

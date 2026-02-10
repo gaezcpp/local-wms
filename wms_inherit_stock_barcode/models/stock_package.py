@@ -7,6 +7,7 @@ _logger = logging.getLogger(__name__)
 class InheritStockPackage(models.Model):
     _inherit = 'stock.package'
     
+    #PINDAH KE BASE
     state = fields.Selection([
         ('QI', 'QI'),
         ('Blocked', 'Blocked'),

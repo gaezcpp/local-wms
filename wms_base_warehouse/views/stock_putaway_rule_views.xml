@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <record model="ir.ui.view" id="inherit_stock_putaway_rule_list_views">
+            <field name="name">inherit.stock.putaway.rule.tree</field>
+            <field name="model">stock.putaway.rule</field>
+            <field name="inherit_id" ref="stock.stock_putaway_list"/>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='location_out_id']" position="before">
+                    <field name="pallet_status"/>
+                </xpath>
+            </field>
+        </record>
+    </data>
+</odoo>

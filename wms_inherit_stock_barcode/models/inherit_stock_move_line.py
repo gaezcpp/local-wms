@@ -50,12 +50,12 @@ class InheritStockMoveLineBarcode(models.Model):
             'uom_pallet_id',
         ]
         
-    @api.depends('bag_qty', 'uom_pallet_id')
+    @api.depends('quantity', 'uom_pallet_id')
     def _compute_pallet_qty(self):
         for line in self:
-            if line.bag_qty and line.uom_pallet_id:
+            if line.quantity and line.uom_pallet_id:
                 # line.pallet_qty = line.bag_qty / line.uom_pallet_id.relative_factor
-                line.pallet_qty = line.bag_qty / (line.uom_pallet_id.factor / 1000)
+                line.pallet_qty = line.quantity / (line.uom_pallet_id.factor / 1000)
             else:
                 line.pallet_qty = 0.0
     

@@ -7,8 +7,6 @@ _logger = logging.getLogger(__name__)
 class InheritStockQuant(models.Model):
     _inherit = 'stock.quant'
 
-    inbound_date = fields.Datetime(string="Inbound Date", tracking=True)
-    exp_group = fields.Datetime(string="Exp Group", tracking=True)
     uom_bag_id = fields.Many2one('uom.uom',  tracking=True)
     bag_qty = fields.Float(string="Bag", tracking=True)
     uom_pallet_id = fields.Many2one('uom.uom', tracking=True)
@@ -94,7 +92,8 @@ class InheritStockQuant(models.Model):
         if uom_bag and uom_bag.factor and qty:
             vals['bag_qty'] = qty / (uom_bag.factor / 1000)
             if uom_pallet and uom_pallet.factor:
-                vals['pallet_qty'] = vals['bag_qty'] / (uom_pallet.factor / 1000)
+                # vals['pallet_qty'] = vals['bag_qty'] / (uom_pallet.factor / 1000)
+                vals['pallet_qty'] = qty / (uom_pallet.factor / 1000)
             else:
                 vals['pallet_qty'] = 0.0
         else:
@@ -125,11 +124,11 @@ class InheritStockQuant(models.Model):
             # line.inventory_quantity = line.bag_dummy_qty * line.uom_bag_id.relative_factor
             line.inventory_quantity = line.bag_dummy_qty * (line.uom_bag_id.factor / 1000)
     
-    @api.depends('bag_dummy_qty', 'uom_pallet_id')
+    @api.depends('inventory_quantity', 'uom_pallet_id')
     def _compute_pallet_dummy_qty(self):
         for line in self:
-            if line.bag_dummy_qty and line.uom_pallet_id:
+            if line.inventory_quantity and line.uom_pallet_id:
                 # line.pallet_dummy_qty = line.bag_dummy_qty / line.uom_pallet_id.relative_factor
-                line.pallet_dummy_qty = line.bag_dummy_qty / (line.uom_pallet_id.factor / 1000)
+                line.pallet_dummy_qty = line.inventory_quantity / (line.uom_pallet_id.factor / 1000)
             else:
                 line.pallet_dummy_qty = 0.0

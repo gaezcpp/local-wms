@@ -9,30 +9,31 @@ class InheritStockMove(models.Model):
     bag_qty = fields.Float(string="Bag Qty", compute="_compute_bag_qty", store=True, tracking=True)
     pallet_qty = fields.Float(string="Pallet Qty", compute="_compute_pallet_qty", store=True, tracking=True)
 
-    @api.model_create_multi
-    def create(self, vals_list):
-        moves = super().create(vals_list)
-        moves._update_over_delivery()
-        return moves
+    #PINDAH KE BASE
+    # @api.model_create_multi
+    # def create(self, vals_list):
+    #     moves = super().create(vals_list)
+    #     moves._update_over_delivery()
+    #     return moves
 
-    def write(self, vals):
-        res = super().write(vals)
-        self._update_over_delivery()
-        return res
+    # def write(self, vals):
+    #     res = super().write(vals)
+    #     self._update_over_delivery()
+    #     return res
     
-    def _update_over_delivery(self):
-        for move in self:
-            picking = move.picking_id
-            if not picking:
-                continue
+    # def _update_over_delivery(self):
+    #     for move in self:
+    #         picking = move.picking_id
+    #         if not picking:
+    #             continue
 
-            over = False
-            for m in picking.move_ids:
-                if m.quantity != m.product_uom_qty:
-                    over = True
-                    break
+    #         over = False
+    #         for m in picking.move_ids:
+    #             if m.quantity != m.product_uom_qty:
+    #                 over = True
+    #                 break
 
-            picking.over_delivery = over
+    #         picking.over_delivery = over
 
     def _get_fields_stock_barcode(self):
         res = super()._get_fields_stock_barcode()
@@ -53,12 +54,12 @@ class InheritStockMove(models.Model):
             # line.bag_qty = line.quantity / line.uom_bag_id.relative_factor
             line.bag_qty = line.quantity / (line.uom_bag_id.factor / 1000)
 
-    @api.depends('bag_qty', 'uom_pallet_id')
+    @api.depends('quantity', 'uom_pallet_id')
     def _compute_pallet_qty(self):
         for line in self:
-            if not line.bag_qty or not line.uom_pallet_id:
+            if not line.quantity or not line.uom_pallet_id:
                 line.pallet_qty = 0.0
                 continue
 
             # line.pallet_qty = line.bag_qty / line.uom_pallet_id.relative_factor
-            line.pallet_qty = line.bag_qty / (line.uom_pallet_id.factor / 1000)
+            line.pallet_qty = line.quantity / (line.uom_pallet_id.factor / 1000)

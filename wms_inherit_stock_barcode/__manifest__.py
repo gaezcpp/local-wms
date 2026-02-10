@@ -17,7 +17,7 @@ Long description of module's purpose
     'version': '0.1',
 
     # any module necessary for this one to work correctly
-    'depends': ['base', 'stock', 'stock_barcode'],
+    'depends': ['base', 'stock', 'stock_barcode', 'wms_base_warehouse'],
     
     # always loaded
     'data': [
@@ -25,7 +25,6 @@ Long description of module's purpose
         'views/product_template_views.xml',
         'views/stock_package_views.xml',
         'views/stock_picking_views.xml',
-        'views/stock_putaway_rule_views.xml',
         'views/stock_quant_views.xml',
         'views/stock_lot_views.xml',
         'views/stock_move_line_barcode_views.xml',

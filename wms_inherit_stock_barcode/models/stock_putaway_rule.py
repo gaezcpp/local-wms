@@ -6,6 +6,8 @@ _logger = logging.getLogger(__name__)
 
 class InheritStockPutawayRule(models.Model):
     _inherit = 'stock.putaway.rule'
+    
+    #PINDAH KE BASE
 
     pallet_status = fields.Selection([
         ('full_pallet', 'Full Pallet'),

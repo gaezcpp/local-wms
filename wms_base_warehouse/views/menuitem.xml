@@ -22,4 +22,12 @@
         action="wms_base_warehouse.production_line_action"
         sequence="20"
     />
+
+    <menuitem
+        id="stock_move_line_gr_menu"
+        name="Moves GR"
+        parent="stock.menu_warehouse_report"
+        sequence="170"
+        action="wms_base_warehouse.stock_move_line_gr_action"
+    />
 </odoo>
