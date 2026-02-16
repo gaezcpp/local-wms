@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record model="ir.ui.view" id="inherit_uom_uom_form">
+        <field name="name">inherit.uom.uom.form</field>
+        <field name="model">uom.uom</field>
+        <field name="inherit_id" ref="uom.product_uom_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='name']" position="before">
+                <field name="sap_synchronize" force_save="1" readonly="1"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

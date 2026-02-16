@@ -12,18 +12,10 @@ class InheritBaseStockMoveLine(models.Model):
     production_only = fields.Boolean(string="Production Only", related='picking_type_id.production_only')
     
     # fields buat chriss
-    sloc_id = fields.Many2one(comodel_name='stock.location', compute='_compute_sloc_id')
+    sloc_name = fields.Char(related='location_dest_id.warehouse_id.lot_stock_id.name', string="SLOC")
     destination_package_status = fields.Selection(related='result_package_id.state')
     production_shift_id = fields.Many2one(related='picking_id.production_shift_id', string="Shift")
     production_order_name = fields.Char(related='picking_id.production_order_name', string="Production Order")
-    
-    @api.depends('location_dest_id')
-    def _compute_sloc_id(self):
-        for rec in self:
-            rec.sloc_id = False
-            loc = rec.location_dest_id
-            if loc and loc.location_id and loc.location_id.location_id:
-                rec.sloc_id = loc.location_id.id
     
     def _is_prod_in(self, vals=None):
         picking = False

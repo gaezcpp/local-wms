@@ -1,0 +1,17 @@
+<?xml version="1.0" ?>
+<odoo>
+    <data noupdate="1">
+        <record id="ip_sap_rfc" model="ir.config_parameter">
+            <field name="key">ip_sap_rfc</field>
+            <field name="value">https://saprfc-dev.cpp.co.id</field>
+        </record>
+        <record id="x_i_api_key" model="ir.config_parameter">
+            <field name="key">x_i_api_key</field>
+            <field name="value">xd4k9ck0dThdyMdbOiZ20O7g8hSPCdbTYKVROm11bRDe5BbEBFG6RolLZDGI0lvh</field>
+        </record>
+        <record id="query_master_data_sap" model="ir.config_parameter">
+            <field name="key">query_master_data_sap</field>
+            <field name="value">select c.maktx, a.meins, a.mtart, a.matkl, d.mtbez, a.ntgew, a.matnr, a.LVORM, b.werks, b.xchpf, e.meinh, e.umrez, e.umren, d.spras from mara a join marc b on a.mandt=b.mandt and a.matnr=b.matnr join makt c on a.mandt=c.mandt and a.matnr=c.matnr join t134t d on a.mandt=d.mandt and a.mtart=d.mtart and d.spras='E' join marm e on a.matnr=e.matnr where a.mtart = 'FERT' and a.lvorm &lt;&gt; 'X'</field>
+        </record>
+    </data>
+</odoo>
