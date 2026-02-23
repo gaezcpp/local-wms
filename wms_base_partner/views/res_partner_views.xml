@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <record model="ir.ui.view" id="inherit_base_partner_form">
+            <field name="name">inherit.base.partner.res.partner.form</field>
+            <field name="model">res.partner</field>
+            <field name="inherit_id" ref="base.view_partner_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='parent_id']" position="before">
+                    <field name="ref" force_save="1" readonly="1"/>
+                    <field name="cust_mobile" force_save="1" readonly="1"/>
+                    <field name="sap_synchronize" force_save="1" readonly="1"/>
+                </xpath>
+            </field>
+        </record>
+    </data>
+</odoo>

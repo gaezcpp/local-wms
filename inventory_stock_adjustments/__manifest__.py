@@ -44,5 +44,5 @@
     'installable' : True,
     'auto_install': False,
     'application' : True,
-    'category': 'WMS',
+    'category': 'CUSTOM',
 }

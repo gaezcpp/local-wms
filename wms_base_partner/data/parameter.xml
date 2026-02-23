@@ -1,0 +1,9 @@
+<?xml version="1.0" ?>
+<odoo>
+    <data noupdate="1">
+        <record id="query_master_customer_sap" model="ir.config_parameter">
+            <field name="key">query_master_customer_sap</field>
+            <field name="value">select kunnr, name1, stras, ort01, ort02, pstlz, land1, telf1, telf2, loevm, STKZN from kna1 a where a.loevm  != 'X' limit 100</field>
+        </record>
+    </data>
+</odoo>

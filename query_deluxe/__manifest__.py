@@ -8,6 +8,7 @@
         'license': 'AGPL-3',
         'support': 'yvandotet@yahoo.fr',
         'website': 'https://github.com/YvanDotet/query_deluxe/',
+        'category': 'CUSTOM',
         'installable': True,
 
         'data': [
