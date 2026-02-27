@@ -5,6 +5,8 @@ from collections import defaultdict
 class InheritStockLocation(models.Model):
     _inherit = 'stock.location'
     
+    sloc_name = fields.Char(string="SAP SLOC")
+    
     def _get_putaway_strategy(self,product,quantity=0,package=None,packaging=None,additional_qty=None):
         self = self._check_access_putaway()
         products = self.env.context.get('products', self.env['product.product'])

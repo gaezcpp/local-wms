@@ -1,0 +1,143 @@
+<?xml version='1.0' encoding='utf-8'?>
+<odoo>
+    <!-- Search View -->
+    <record model="ir.ui.view" id="stock_inventory_adjustment_search">
+        <field name="name">stock.inventory.adjustment.search</field>
+        <field name="model">stock.inventory.adjustment</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="company_id"/>
+                <filter name="fl_draft" string="Draft" domain="[('state','=', 'draft')]"/>
+                <filter name="fl_in_progress" string="In Progress" domain="[('state','=', 'in_progress')]"/>
+                <filter name="fl_validated" string="Validated" domain="[('state','=', 'validated')]"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="stock_inventory_adjustment_view_list" model="ir.ui.view">
+        <field name="name">stock.inventory.adjustment.view.list</field>
+        <field name="model">stock.inventory.adjustment</field>
+        <field name="arch" type="xml">
+            <list string="Inventory Adjustment">
+                <field name="name"/>
+                <field name="location_id"/>
+                <field name="company_id"/>
+                <field name="state"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="stock_inventory_adjustment_view_form" model="ir.ui.view">
+        <field name="name">stock.inventory.adjustment.view.form</field>
+        <field name="model">stock.inventory.adjustment</field>
+        <field name="arch" type="xml">
+            <form string="Inventory Adjustment">
+                <header>
+                    <button name="action_in_progress" string="Confirm" type="object" class="oe_highlight" invisible="state != 'draft'"/>
+                    <button name="action_validated" string="Validate" type="object" class="btn btn-success" invisible="state != 'in_progress'"/>
+                    <button name="action_cancelled" string="Cancel" type="object" class="btn btn-danger" invisible="state != 'in_progress'"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,in_progress,validated"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_quant" type="object" class="oe_stat_button" icon="fa-cubes">
+                            <field name="quant_count" widget="statinfo" string="Quant"/>
+                        </button>
+                    </div>
+                    <h1>
+                        <field name="name" placeholder="e.g Inventory Adjustment" required="1"/>
+                    </h1>
+                    <group>
+                        <group>
+                            <field name="location_id" readonly="state != 'draft'" domain="[('usage', '=', 'internal'),('company_id', '=', company_id)]"/>
+                            <field name="product_id" readonly="state != 'draft'" domain="[('company_id', '=', company_id)]"/>
+                        </group>
+                        <group>
+                            <field name="date_time" readonly="state != 'draft'"/>
+                            <field name="company_id" options="{'no_open': True, 'no_create': True}" required="1" readonly="state != 'draft'"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Details">
+                            <field name="adjustment_line_ids">
+                                <list editable="bottom" create="0" edit="0" delete="0" duplicate="0">
+                                    <field name="stock_adjustment_id" column_invisible="1"/>
+                                    <field name="product_id" options="{'no_open': True, 'no_create': True}"/>
+                                    <field name="location_id" options="{'no_open': True, 'no_create': True}"/>
+                                    <field name="lot_id" options="{'no_open': True, 'no_create': True}"/>
+                                    <field name="package_id" options="{'no_open': True, 'no_create': True}"/>
+                                    <field name="system_qty"/>
+                                    <field name="counted_qty"/>
+                                    <field name="difference_qty"/>
+								</list>
+								<form create="0" edit="0" delete="0">
+                                    <group>
+                                        <field name="stock_adjustment_id" column_invisible="1"/>
+                                        <field name="product_id" options="{'no_open': True, 'no_create': True}"/>
+                                        <field name="location_id" options="{'no_open': True, 'no_create': True}"/>
+                                        <field name="lot_id" options="{'no_open': True, 'no_create': True}"/>
+                                        <field name="package_id" options="{'no_open': True, 'no_create': True}"/>
+                                        <field name="system_qty"/>
+                                        <field name="counted_qty"/>
+                                        <field name="difference_qty"/>
+                                    </group>
+								</form>
+                            </field>
+                        </page>
+                    </notebook>
+                    <separator string="Notes"/>
+                    <field name="notes" readonly="state != 'draft'"/>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="stock_inventory_adjustment_view_kanban" model="ir.ui.view">
+        <field name="name">stock.inventory.adjustment.view.kanban</field>
+        <field name="model">stock.inventory.adjustment</field>
+        <field name="arch" type="xml">
+            <kanban class="o_kanban_mobile" create="0" group_create="false">
+                <field name="name"/>
+                <field name="location_id"/>
+                <field name="product_id"/>
+                <field name="date_time"/>
+                <templates>
+                    <t t-name="card">
+                        <div class="o_kanban_record p-3 position-relative">
+                            <a type="object" name="action_open_barcode_inventory" class="stretched-link"/>
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div class="fw-bold text-uppercase fs-6">
+                                    <field name="name"/>
+                                </div>
+                                <div class="text-muted small">
+                                    <field name="date_time"/>
+                                </div>
+                            </div>
+                            <div class="mb-1">
+                                <span class="text-muted small">Location</span><br/>
+                                <span class="fw-semibold">
+                                    <field name="location_id"/>
+                                </span>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="stock_inventory_adjustment_action" model="ir.actions.act_window">
+        <field name="name">Inventory Adjustment</field>
+        <field name="res_model">stock.inventory.adjustment</field>
+        <field name="view_mode">list,form,kanban</field>
+    </record>
+
+    <record id="stock_inventory_adjustment_action_kanban_validated" model="ir.actions.act_window">
+        <field name="name">Inventory Adjustment</field>
+        <field name="res_model">stock.inventory.adjustment</field>
+        <field name="view_mode">kanban</field>
+        <field name="domain">[('state','=','validated')]</field>
+    </record>
+</odoo>

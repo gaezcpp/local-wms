@@ -31,7 +31,7 @@ class QualityPackages(models.Model):
     def _onchange_picking_packages(self):
         for rec in self:
             if rec.picking_id:
-                packages = rec.picking_id.move_ids.mapped('package_ids').ids
+                packages = rec.picking_id.move_ids.mapped('packages_ids').ids
                 rec.packages_ids = [(6, 0, packages)]
             else:
                 rec.packages_ids = [(5, 0, 0)]

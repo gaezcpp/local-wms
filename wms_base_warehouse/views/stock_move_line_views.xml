@@ -12,6 +12,9 @@
                     <field name="last_count"/>
                     <field name="detail_text"/>
                 </xpath>
+                <xpath expr="//field[@name='removal_date']" position="after">
+                    <field name="sloc_name" readonly="1"/>
+                </xpath>
             </field>
         </record>
 

@@ -2,8 +2,9 @@ from odoo import models, fields, api, _
 from odoo.exceptions import ValidationError
 import requests
 import json
-import re
 import logging
+import re
+
 _logger = logging.getLogger(__name__)
 
 
@@ -14,17 +15,17 @@ class InheritProductTemplate(models.Model):
 
     @api.model
     def cron_synchronize_sap_master_data(self):
-        x_i_api_key = self.env['ir.config_parameter'].sudo().get_param('x_i_api_key')
+        icp = self.env['ir.config_parameter'].sudo()
+        x_i_api_key = icp.get_param('x_i_api_key')
+        ip_sap_rfc = icp.get_param('ip_sap_rfc')
+        query_master_data_sap = icp.get_param('query_master_data_sap')
+
         if not x_i_api_key:
-            raise ValidationError("x_i_api_key belum disetting!")
-        
-        ip_sap_rfc = self.env['ir.config_parameter'].sudo().get_param('ip_sap_rfc')
+            raise ValidationError(_("x_i_api_key belum disetting!"))
         if not ip_sap_rfc:
-            raise ValidationError("ip_sap_rfc belum disetting!")
-        
-        query_master_data_sap = self.env['ir.config_parameter'].sudo().get_param('query_master_data_sap')
+            raise ValidationError(_("ip_sap_rfc belum disetting!"))
         if not query_master_data_sap:
-            raise ValidationError("query_master_data_sap belum disetting!")
+            raise ValidationError(_("query_master_data_sap belum disetting!"))
 
         headers = {
             "x-i-api-key": str(x_i_api_key),
@@ -36,70 +37,92 @@ class InheritProductTemplate(models.Model):
             "I_MOD": "CRON cron_synchronize_sap_master_data"
         }
 
-        response = requests.post(headers=headers, url=url, data=json.dumps(body))
+        response = requests.post(url=url, headers=headers, data=json.dumps(body), timeout=120)
         if response.status_code != 200:
             raise ValidationError(f"{response.status_code} | {response.text}")
+
         res = response.json()
-
-        error = res.get('error', False)
-        if error:
-            raise ValidationError(json.dumps(error))
-
+        if res.get('error'):
+            raise ValidationError(json.dumps(res.get('error')))
         if not res.get('success'):
-            _logger.info("=== CRON cron_synchronize_sap_master_data NOT SUCCESS ===")
             return True
 
         data_list = res.get('data', [])
-        _logger.info(f"TOTAL DATA MARA: {len(data_list)}")
+        if not data_list:
+            return True
 
         uom_kg = self.env['uom.uom'].sudo().search([('name', '=', 'kg')], limit=1)
         if not uom_kg:
-            raise ValidationError("UoM kg tidak ditemukan")
+            raise ValidationError(_("UoM kg tidak ditemukan"))
 
         grouped = {}
         for data in data_list:
             matnr = data.get('MATNR')
-            if not matnr:
+            werks = data.get('WERKS')
+            if not matnr or not werks:
                 continue
-            grouped.setdefault(matnr, []).append(data)
+            key = f"{matnr}__{werks}"
+            grouped.setdefault(key, []).append(data)
 
-        _logger.info(f"TOTAL MATNR: {len(grouped)}")
+        all_werks = list({k.split("__")[1] for k in grouped.keys()})
+        companies = self.env['res.company'].sudo().search([('company_registry', 'in', all_werks)])
+        company_map = {c.company_registry: c for c in companies}
+
+        all_matnr = list({k.split("__")[0] for k in grouped.keys()})
+        existing_products = self.env['product.template'].sudo().search([('barcode', 'in', all_matnr)])
+        product_map = {}
+        for p in existing_products:
+            product_map[(p.barcode, p.company_id.id)] = p
+
+        uom_model = self.env['uom.uom'].sudo()
+        category_model = self.env['product.category'].sudo()
+
+        existing_uoms = uom_model.search([])
+        uom_name_map = {u.name: u for u in existing_uoms}
+
+        existing_categories = category_model.search([])
+        category_map = {c.name: c for c in existing_categories}
 
         create_products = []
         write_map = {}
 
-        for matnr, records in grouped.items():
-            _logger.info(f"PROCESS MATNR: {matnr} | ROWS: {len(records)}")
+        for key, records in grouped.items():
+            matnr, werks = key.split("__")
+            company = company_map.get(werks)
+            if not company:
+                _logger.warning(f"SKIP PRODUCT {matnr} | COMPANY NOT FOUND WERKS={werks}")
+                continue
 
             uom_ids = []
             bag_candidates = []
             categ_name = ""
             product_name = ""
-            weight = 0
+            weight = 0.0
 
             for data in records:
-                product_name = data.get('MAKTX', '')
-                werks = data.get('WERKS', '')
-                weight = data.get('NTGEW', 0)
+                product_name = data.get('MAKTX') or product_name
+                weight = float(data.get('NTGEW') or weight)
+                categ_name = data.get('MTBEZ') or categ_name
 
-                categ_name = data.get('MTBEZ', '')
                 if data.get('MTART') == "FERT" and data.get('SPRAS') == "E":
                     if data.get('MATKL') == "REMX":
                         categ_name = "REMIX"
 
-                meinh = data.get('MEINH', '')
-                meins = data.get('MEINS', '')
+                meinh = (data.get('MEINH') or "").strip()
+                meins = (data.get('MEINS') or "").strip()
 
                 uom_name = meinh
-                has_number = any(c.isdigit() for c in meinh)
-                if not has_number:
-                    if meinh != meins:
-                        uom_name = f"{meinh or '-'} {data.get('UMREZ', '-')}"
+                if not any(c.isdigit() for c in meinh):
+                    if meinh and meinh != meins:
+                        uom_name = f"{meinh} {data.get('UMREZ') or '-'}"
 
-                existing_uom = self.env['uom.uom'].sudo().search([('name', '=', uom_name)], limit=1)
+                if not uom_name:
+                    continue
+
                 factor = float(data.get('UMREZ') or 1) / float(data.get('UMREN') or 1)
 
-                uom_vals = {
+                existing_uom = uom_name_map.get(uom_name)
+                vals_uom = {
                     'name': uom_name,
                     'relative_factor': factor,
                     'relative_uom_id': uom_kg.id,
@@ -107,28 +130,26 @@ class InheritProductTemplate(models.Model):
                 }
 
                 if not existing_uom:
-                    existing_uom = self.env['uom.uom'].sudo().create(uom_vals)
-                    _logger.info(f"CREATE UOM: {uom_name}")
+                    existing_uom = uom_model.create(vals_uom)
+                    uom_name_map[uom_name] = existing_uom
                 else:
-                    existing_uom.sudo().write(uom_vals)
+                    existing_uom.write(vals_uom)
 
-                if meinh.upper() != 'KG':
-                    if existing_uom.id not in uom_ids:
-                        uom_ids.append(existing_uom.id)
+                if meinh.upper() != 'KG' and existing_uom.id not in uom_ids:
+                    uom_ids.append(existing_uom.id)
 
                 if re.match(r'^B\d+$', meinh.upper()):
                     try:
                         bag_candidates.append((int(re.findall(r'\d+', meinh)[0]), existing_uom.id))
-                    except:
+                    except Exception:
                         pass
 
             uom_bag_id = False
             if bag_candidates:
                 bag_candidates.sort(key=lambda x: x[0])
                 uom_bag_id = bag_candidates[0][1]
-                _logger.info(f"UOM BAG SELECTED: {uom_bag_id}")
 
-            existing_category = self.env['product.category'].sudo().search([('name', '=', categ_name)], limit=1)
+            category = category_map.get(categ_name)
             categ_vals = {
                 'name': categ_name,
                 'packaging_reserve_method': 'full',
@@ -136,21 +157,16 @@ class InheritProductTemplate(models.Model):
                 'property_valuation': 'periodic',
             }
 
-            if not existing_category:
-                existing_category = self.env['product.category'].sudo().create(categ_vals)
-                _logger.info(f"CREATE CATEGORY: {categ_name}")
+            if not category:
+                category = category_model.create(categ_vals)
+                category_map[categ_name] = category
             else:
-                existing_category.sudo().write(categ_vals)
-            
-            existing_company = self.env['res.company'].sudo().search([('company_registry', '=', werks)], limit=1)
-            if not existing_company:
-                _logger.warning(f"SKIP PRODUCT {matnr} | COMPANY NOT FOUND WERKS={werks}")
-                continue
-            
+                category.write(categ_vals)
+
             vals = {
                 'name': product_name,
                 'uom_id': uom_kg.id,
-                'categ_id': existing_category.id,
+                'categ_id': category.id,
                 'weight': weight,
                 'barcode': matnr,
                 'default_code': matnr,
@@ -171,23 +187,19 @@ class InheritProductTemplate(models.Model):
                 'tracking': 'lot',
                 'expiration_time': 365,
                 'responsible_id': self.env.user.id,
-                'company_id': existing_company.id if existing_company else False,
+                'company_id': company.id,
             }
 
-            existing_product = self.env['product.template'].sudo().search([('barcode', '=', matnr),('company_id', '=', existing_company.id)], limit=1)
-
+            existing_product = product_map.get((matnr, company.id))
             if not existing_product:
                 create_products.append(vals)
-                _logger.info(f"QUEUE CREATE PRODUCT: {matnr}")
             else:
                 write_map[existing_product.id] = vals
-                _logger.info(f"QUEUE WRITE PRODUCT: {matnr}")
 
         if create_products:
-            self.sudo().create(create_products)
-            _logger.info(f"BULK CREATE PRODUCT: {len(create_products)}")
+            created = self.sudo().create(create_products)
+            for p in created:
+                product_map[(p.barcode, p.company_id.id)] = p
 
         for pid, vals in write_map.items():
             self.sudo().browse(pid).write(vals)
-
-        _logger.info(f"TOTAL WRITE PRODUCT: {len(write_map)}")

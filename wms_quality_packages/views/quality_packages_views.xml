@@ -56,7 +56,7 @@
                     </group>
                     <notebook>
                         <page string="Packages">
-                            <field name="package_ids" readonly="state != 'draft'">
+                            <field name="packages_ids" readonly="state != 'draft'">
 								<!-- <list editable="bottom" create="0" delete="0">
 									<field name="name" readonly="1"/>
 									<field name="pl"/>
@@ -74,10 +74,9 @@
 								</form> -->
 							</field>
 						</page>
-						<page string="Notes">
-							<field name="notes" placeholder="e.g Packages sedang rusak" readonly="state != 'draft'"/>
-						</page>
 					</notebook>
+                    <separator string="Notes"/>
+                    <field name="notes" placeholder="e.g Packages sedang rusak" readonly="state != 'draft'" required="1"/>
                 </sheet>
                 <chatter reload_on_follower="True"/>
             </form>

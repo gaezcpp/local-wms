@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_user_stock_inventory_adjustment,access_user_stock_inventory_adjustment,model_stock_inventory_adjustment,base.group_user,1,1,1,1
+access_user_stock_inventory_adjustment_line,access_user_stock_inventory_adjustment_line,model_stock_inventory_adjustment_line,base.group_user,1,1,1,1
