@@ -133,7 +133,7 @@ class InheritSaleOrderSAP(models.Model):
                 }
                 so = sale_order_model.create(vals)
                 so.message_post(body=f"SO SAP {nomor_do} Created from Cron")
-                # so.action_confirm()
+                so.action_confirm()
                 _logger.info(f"SO Created {nomor_do}")
 
             for row in rows:
