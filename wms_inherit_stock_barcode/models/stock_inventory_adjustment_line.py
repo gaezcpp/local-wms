@@ -11,11 +11,6 @@ class StockInventoryAdjustmentLine(models.Model):
     location_id = fields.Many2one('stock.location', required=True)
     lot_id = fields.Many2one('stock.lot')
     package_id = fields.Many2one('stock.package')
-    system_qty = fields.Float(readonly=True)
-    counted_qty = fields.Float()
-    difference_qty = fields.Float(compute='_compute_difference')
-
-    @api.depends('system_qty', 'counted_qty')
-    def _compute_difference(self):
-        for rec in self:
-            rec.difference_qty = rec.counted_qty - rec.system_qty
+    quantity = fields.Float()
+    inventory_quantity = fields.Float()
+    inventory_diff_quantity = fields.Float()

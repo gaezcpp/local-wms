@@ -1,0 +1,21 @@
+<?xml version='1.0' encoding='utf-8'?>
+<odoo>
+    <data noupdate="1">
+        <record id="ir_cron_synchronize_sap_sale_order" model="ir.cron">
+            <field name="name">Synchronize Sale order SAP</field>
+            <field name="model_id" ref="model_sale_order"/>
+            <field name="state">code</field>
+            <field name="code">model.cron_synchronize_sap_sale_order()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+        </record>
+        <record id="ir_cron_update_nopol_sap_sale_order" model="ir.cron">
+            <field name="name">Synchronize NoPol Sale order SAP</field>
+            <field name="model_id" ref="model_sale_order"/>
+            <field name="state">code</field>
+            <field name="code">model.cron_update_nopol_sap_sale_order()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+        </record>
+    </data>
+</odoo>

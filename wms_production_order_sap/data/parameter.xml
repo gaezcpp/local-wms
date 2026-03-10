@@ -1,0 +1,9 @@
+<?xml version="1.0" ?>
+<odoo>
+    <data noupdate="1">
+        <record id="query_production_order_sap" model="ir.config_parameter">
+            <field name="key">query_production_order_sap</field>
+            <field name="value">SELECT a.aufnr, a.auart, p.matnr, a.werks, k.gamng, p.meins, k.gstrp, k.gltrp, a.ernam, CASE WHEN j.stat = 'I0045' AND j.inact = ' ' THEN 'TECO' ELSE 'NOT TECO' END AS teco_status FROM aufk a JOIN afko k ON a.aufnr = k.aufnr JOIN afpo p ON a.aufnr = p.aufnr JOIN jest j ON a.objnr = j.objnr AND j.stat = 'I0045' WHERE a.autyp = '10' limit 100</field>
+        </record>
+    </data>
+</odoo>

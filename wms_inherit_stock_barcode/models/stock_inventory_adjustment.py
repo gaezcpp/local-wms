@@ -38,34 +38,37 @@ class StockInventoryAdjustment(models.Model):
         for rec in self:
             if rec.state != 'draft':
                 continue
-            if not rec.product_id or not rec.location_id:
-                raise ValidationError('Product and Location are required.')
 
             rec.adjustment_line_ids.unlink()
 
             domain = [
-                ('product_id', '=', rec.product_id.id),
-                ('location_id', '=', rec.location_id.id),
                 ('company_id', '=', rec.company_id.id),
             ]
+            
+            if rec.product_id:
+                domain.append(('product_id', '=', rec.product_id.id))
+            if rec.location_id:
+                domain.append(('location_id', '=', rec.location_id.id))
             if rec.lot_id:
                 domain.append(('lot_id', '=', rec.lot_id.id))
             if rec.package_id:
                 domain.append(('package_id', '=', rec.package_id.id))
 
-            quant = Quant.search(domain, limit=1)
-
-            system_qty = quant.quantity if quant else 0.0
-
-            self.env['stock.inventory.adjustment.line'].create({
-                'stock_adjustment_id': rec.id,
-                'product_id': rec.product_id.id,
-                'location_id': rec.location_id.id,
-                'lot_id': rec.lot_id.id if rec.lot_id else False,
-                'package_id': rec.package_id.id if rec.package_id else False,
-                'system_qty': system_qty,
-                'counted_qty': rec.counted_qty,
-            })
+            quant = Quant.search(domain)
+            if not quant:
+                raise ValidationError("Physical Inventory not found!")
+            
+            for q in quant:
+                self.env['stock.inventory.adjustment.line'].create({
+                    'stock_adjustment_id': rec.id,
+                    'product_id': q.product_id.id,
+                    'location_id': q.location_id.id,
+                    'lot_id': q.lot_id.id if q.lot_id else False,
+                    'package_id': q.package_id.id if q.package_id else False,
+                    'quantity': q.quantity,
+                    'inventory_quantity': q.inventory_quantity,
+                    'inventory_diff_quantity': q.inventory_diff_quantity,
+                })
 
             rec.state = 'in_progress'
 
@@ -97,7 +100,7 @@ class StockInventoryAdjustment(models.Model):
                     })
 
                 quant.inventory_quantity = line.counted_qty
-                quant.action_apply_inventory()
+                # quant.action_apply_inventory()
 
             rec.state = 'validated'
 
@@ -143,6 +146,8 @@ class StockInventoryAdjustment(models.Model):
             'active_id': False,
             'active_ids': [],
             'active_model': False,
+            'default_location_barcode': self.location_id.barcode or '',
+            'auto_submit_barcode': True,
         }
         
         print(f"action_open_barcode_inventory.action {action}")
