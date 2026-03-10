@@ -11,22 +11,10 @@
                     <field name="so_sap" force_save="1" readonly="1"/>
                     <field name="do_sap" force_save="1" readonly="1"/>
                     <field name="sales_sap_name" force_save="1" readonly="1"/>
-                    <label for="nopol_description" string="Nomor Polisi" class="oe_grey"/>
+                    <label for="nomor_polisi_desc" string="Nomor Polisi" class="oe_grey"/>
                     <div style="border: 1px solid #ccc; padding: 6px; margin-bottom: 12px; max-height: 180px; overflow-y: auto; background: #fafafa;">
-                        <field name="nopol_description"/>
+                        <field name="nomor_polisi_desc"/>
                     </div>
-                </xpath>
-            </field>
-        </record>
-
-        <record model="ir.ui.view" id="inherit_wms_sale_order_search_views">
-            <field name="name">inherit.wms.sale.order.search</field>
-            <field name="model">sale.order</field>
-            <field name="inherit_id" ref="sale_management.sale_order_template_view_search"/>
-            <field name="arch" type="xml">
-                <xpath expr="//field[@name='name']" position="after">
-                    <field name="do_sap"/>
-                    <field name="so_sap"/>
                 </xpath>
             </field>
         </record>

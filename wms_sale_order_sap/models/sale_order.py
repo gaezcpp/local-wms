@@ -17,6 +17,7 @@ class InheritSaleOrderSAP(models.Model):
     do_sap = fields.Char(string="DO SAP", tracking=True)
     sales_sap_name = fields.Char(string="Sales Name", tracking=True)
     nopol_description = fields.Char(string="Nomor Polisi", tracking=True)
+    nomor_polisi_desc = fields.Text(string="Nomor Polisi", tracking=True)
     
     @api.depends('name', 'do_sap')
     def _compute_display_name(self):
@@ -235,7 +236,7 @@ class InheritSaleOrderSAP(models.Model):
             if not nopol_lines:
                 continue
 
-            nopol_description = "\n".join(nopol_lines)
-            if so.nopol_description != nopol_description:
-                so.write({'nopol_description': nopol_description})
+            nomor_polisi_desc = "\n".join(nopol_lines)
+            if so.nomor_polisi_desc != nomor_polisi_desc:
+                so.write({'nomor_polisi_desc': nomor_polisi_desc})
                 _logger.info(f"Nopol updated DO {so.do_sap}")
