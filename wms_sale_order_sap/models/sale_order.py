@@ -85,6 +85,7 @@ class InheritSaleOrderSAP(models.Model):
         company_model = self.env['res.company'].sudo()
         product_model = self.env['product.product'].sudo()
         uom_model = self.env['uom.uom'].sudo()
+        delivery_carrier_model = self.env['delivery.carrier'].sudo()
 
         grouped_data = defaultdict(list)
 
@@ -100,6 +101,7 @@ class InheritSaleOrderSAP(models.Model):
             erdat = first.get('ERDAT')
             company_registry = first.get('WERKS')
             ernam = first.get('ERNAM')
+            delivery_method = first.get('DELIVERY_METHOD')
 
             partner = partner_model.search([('ref', '=', customer_ref)], limit=1)
             if not partner:
@@ -119,6 +121,11 @@ class InheritSaleOrderSAP(models.Model):
             order_date = False
             if erdat and len(erdat) == 8:
                 order_date = datetime.strptime(erdat, "%Y%m%d")
+                
+            deliv_method = "Loco"
+            if delivery_method == "FRC":
+                deliv_method = "Franco"
+            deliv_carrier = delivery_carrier_model.search([('name', '=', deliv_method)], limit=1)
 
             so = sale_order_model.search([('do_sap', '=', nomor_do)], limit=1)
             vals = {
@@ -129,13 +136,14 @@ class InheritSaleOrderSAP(models.Model):
                 'partner_shipping_id': partner_shipping.id,
                 'date_order': order_date,
                 'date_order_sap': order_date,
+                'carrier_id': deliv_carrier.id,
                 'sales_sap_name': ernam,
                 'company_id': company.id,
             }
             if not so:
                 so = sale_order_model.create(vals)
                 so.message_post(body=f"SO SAP {nomor_do} Created from Cron")
-                so.action_confirm()
+                # so.action_confirm()
                 _logger.info(f"SO Created {nomor_do}")
             else:
                 so.write(vals)
