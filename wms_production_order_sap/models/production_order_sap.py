@@ -12,22 +12,22 @@ class ProductionOrderSAP(models.Model):
     _rec_name = 'po_number'
     _inherit = ['mail.thread', 'mail.activity.mixin']
     
-    po_number = fields.Char(string="Production Order")
-    order_type = fields.Char(string="Order Type")
-    start_date = fields.Date(string="Start Date")
-    finish_date = fields.Date(string="Finish Date")
-    product_id = fields.Many2one(comodel_name='product.template', string="Product")
-    uom_id = fields.Many2one(comodel_name='uom.uom', string="UoM")
-    order_qty = fields.Float(string="Order Qty")
-    company_registry = fields.Char(string="Company Registry")
-    company_id = fields.Many2one(comodel_name='res.company', string="Company", default=lambda self: self.env.company)
+    po_number = fields.Char(string="Production Order", tracking=True)
+    order_type = fields.Char(string="Order Type", tracking=True)
+    start_date = fields.Date(string="Start Date", tracking=True)
+    finish_date = fields.Date(string="Finish Date", tracking=True)
+    product_id = fields.Many2one(comodel_name='product.template', string="Product", tracking=True)
+    uom_id = fields.Many2one(comodel_name='uom.uom', string="UoM", tracking=True)
+    order_qty = fields.Float(string="Order Qty", tracking=True)
+    company_registry = fields.Char(string="Company Registry", tracking=True)
+    company_id = fields.Many2one(comodel_name='res.company', string="Company", default=lambda self: self.env.company, tracking=True)
     state = fields.Selection([
         ('open', 'Open'),
         ('teco', 'TECO'),
         ('closed', 'Closed'),
-    ], string="Status", default='open')
-    created_user = fields.Char(string="Created By")
-    status_teco = fields.Char(string="TECO Status")
+    ], string="Status", default='open', tracking=True)
+    created_user = fields.Char(string="Created By", tracking=True)
+    status_teco = fields.Char(string="TECO Status", tracking=True)
     sap_pp = fields.Boolean(string="SAP PP", default=False)
     
     @api.model
@@ -137,3 +137,6 @@ class ProductionOrderSAP(models.Model):
                 new_po = po_sap.create(vals)
                 new_po.message_post(body=f"PO SAP {po_sap} Created from Cron")
                 _logger.info(f"PO SAP {po_sap} Created")
+            else:
+                existing_po_sap.write(vals)
+                _logger.info(f"PO {existing_po_sap.name} Updated")

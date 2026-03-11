@@ -1,11 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <data>
+        <record model="ir.ui.view" id="inherit_wms_sale_order_tree_views">
+            <field name="name">inherit.wms.sale.order.tree</field>
+            <field name="model">sale.order</field>
+            <field name="inherit_id" ref="sale.sale_order_tree"/>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='user_id']" position="attributes">
+                    <attribute name="column_invisible">1</attribute>
+                </xpath>
+                <xpath expr="//field[@name='activity_ids']" position="attributes">
+                    <attribute name="column_invisible">1</attribute>
+                </xpath>
+                <xpath expr="//field[@name='name']" position="after">
+                    <field name="do_sap"/>
+                </xpath>
+                <xpath expr="//field[@name='partner_id']" position="after">
+                    <field name="sales_sap_name"/>
+                </xpath>
+            </field>
+        </record>
+
         <record model="ir.ui.view" id="inherit_wms_sale_order_form_views">
             <field name="name">inherit.wms.sale.order.form</field>
             <field name="model">sale.order</field>
             <field name="inherit_id" ref="sale.view_order_form"/>
             <field name="arch" type="xml">
+                <xpath expr="//field[@name='date_order']" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </xpath>
+                <xpath expr="//field[@name='date_order']" position="after">
+                    <field name="date_order_sap" force_save="1" readonly="1" string="SAP Order Date"/>
+                </xpath>
                 <xpath expr="//field[@name='tag_ids']" position="after">
                     <field name="is_sap" force_save="1" readonly="1"/>
                     <field name="so_sap" force_save="1" readonly="1"/>

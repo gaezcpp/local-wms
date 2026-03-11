@@ -16,8 +16,8 @@ class InheritSaleOrderSAP(models.Model):
     so_sap = fields.Char(string="SO SAP", tracking=True)
     do_sap = fields.Char(string="DO SAP", tracking=True)
     sales_sap_name = fields.Char(string="Sales Name", tracking=True)
-    nopol_description = fields.Char(string="Nomor Polisi", tracking=True)
     nomor_polisi_desc = fields.Text(string="Nomor Polisi", tracking=True)
+    date_order_sap = fields.Date(string="Date Order", tracking=True)
     
     @api.depends('name', 'do_sap')
     def _compute_display_name(self):
@@ -118,24 +118,29 @@ class InheritSaleOrderSAP(models.Model):
 
             order_date = False
             if erdat and len(erdat) == 8:
-                order_date = datetime.strptime(erdat, "%Y%m%d").date()
+                order_date = datetime.strptime(erdat, "%Y%m%d")
 
             so = sale_order_model.search([('do_sap', '=', nomor_do)], limit=1)
+            vals = {
+                'is_sap': True,
+                'do_sap': nomor_do,
+                'so_sap': nomor_so,
+                'partner_id': partner.id,
+                'partner_shipping_id': partner_shipping.id,
+                'date_order': order_date,
+                'date_order_sap': order_date,
+                'sales_sap_name': ernam,
+                'company_id': company.id,
+            }
             if not so:
-                vals = {
-                    'is_sap': True,
-                    'do_sap': nomor_do,
-                    'so_sap': nomor_so,
-                    'partner_id': partner.id,
-                    'partner_shipping_id': partner_shipping.id,
-                    'date_order': order_date,
-                    'sales_sap_name': ernam,
-                    'company_id': company.id,
-                }
                 so = sale_order_model.create(vals)
                 so.message_post(body=f"SO SAP {nomor_do} Created from Cron")
                 so.action_confirm()
                 _logger.info(f"SO Created {nomor_do}")
+            else:
+                so.write(vals)
+                so.message_post(body=f"SO Updated {so.name} | {so.do_sap}")
+                _logger.info(f"SO Updated {so.name} | {so.do_sap}")
 
             for row in rows:
                 product_code = row.get('MATNR')
@@ -164,15 +169,20 @@ class InheritSaleOrderSAP(models.Model):
                     ('product_id', '=', product.id)
                 ], limit=1)
 
-                if existing_line:
-                    continue
-
-                sale_order_line_model.create({
+                vals_line = {
                     'order_id': so.id,
                     'product_id': product.id,
                     'product_uom_qty': qty,
                     'product_uom_id': product_uom.id,
-                })
+                }
+
+                if existing_line:
+                    existing_line.write({
+                        'product_uom_qty': qty,
+                        'product_uom_id': product_uom.id,
+                    })
+                else:
+                    sale_order_line_model.create(vals_line)
 
             _logger.info(f"SO {nomor_do} total line {len(rows)}")
             
