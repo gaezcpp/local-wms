@@ -84,7 +84,11 @@ class ProductionOrderSAP(models.Model):
             order_type = data.get('AUART') or ''
             company_registry = data.get('WERKS') or ''
             if company_registry:
-                company_id = companies.search([('company_registry', '=', company_registry)], limit=1)
+                company_id = companies.search([
+                    ('company_registry', '=', company_registry),
+                    ('sync_wms', '=', True),
+                    ('sync_pm', '=', False),
+                ], limit=1)
                 if not company_id:
                     _logger.info(f"company_id {company_id} SKIPPED")
                     continue

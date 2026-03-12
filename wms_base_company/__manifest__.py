@@ -1,7 +1,7 @@
 {
-    'name': "WMS Production Order",
+    'name': "WMS Base Company",
 
-    'summary': "Production Order SAP",
+    'summary': "Short (1 phrase/line) summary of the module's purpose",
 
     'description': """
 Long description of module's purpose
@@ -17,16 +17,11 @@ Long description of module's purpose
     'version': '0.1',
 
     # any module necessary for this one to work correctly
-    'depends': ['base', 'stock', 'wms_base_company'],
+    'depends': ['base'],
 
     # always loaded
     'data': [
-        'security/ir.model.access.csv',
-        'data/parameter.xml',
-        'data/cron.xml',
-        'views/production_order_sap_views.xml',
-        'views/stock_picking_views.xml',
-        'views/menuitem.xml',
+        'views/res_company_views.xml',
     ],
 }
 

@@ -65,7 +65,11 @@ class InheritProductTemplate(models.Model):
             grouped.setdefault(key, []).append(data)
 
         all_werks = list({k.split("__")[1] for k in grouped.keys()})
-        companies = self.env['res.company'].sudo().search([('company_registry', 'in', all_werks)])
+        companies = self.env['res.company'].sudo().search([
+            ('company_registry', 'in', all_werks),
+            ('sync_wms', '=', True),
+            ('sync_pm', '=', False),
+        ])
         company_map = {c.company_registry: c for c in companies}
 
         all_matnr = list({k.split("__")[0] for k in grouped.keys()})
@@ -137,10 +141,13 @@ class InheritProductTemplate(models.Model):
 
                 if meinh.upper() != 'KG' and existing_uom.id not in uom_ids:
                     uom_ids.append(existing_uom.id)
-
-                if re.match(r'^B\d+$', meinh.upper()):
+                    
+                match = re.match(r'^(?:B|BAG)\s*(\d+)$', (meinh or "").upper())
+                if match:
                     try:
-                        bag_candidates.append((int(re.findall(r'\d+', meinh)[0]), existing_uom.id))
+                        # bag_candidates.append((int(re.findall(r'\d+', meinh)[0]), existing_uom.id))
+                        bag_size = int(match.group(1))
+                        bag_candidates.append((bag_size, existing_uom.id))
                     except Exception:
                         pass
 
@@ -181,7 +188,6 @@ class InheritProductTemplate(models.Model):
                 'supplier_taxes_id': False,
                 'list_price': 0.0,
                 'standard_price': 0.0,
-                'purchase_method': 'receive',
                 'is_storable': True,
                 'use_expiration_date': True,
                 'tracking': 'lot',

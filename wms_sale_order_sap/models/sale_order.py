@@ -27,10 +27,22 @@ class InheritSaleOrderSAP(models.Model):
             name = '%s - [%s]' % (so_name, do_sap)
             rec.display_name = name
     
-    # def _prepare_picking(self):
-    #     res = super()._prepare_picking()
-    #     res['so_id'] = self.id
-    #     return res
+    def _needs_update(self, so, vals):
+        for field, new_val in vals.items():
+            if field not in so._fields:
+                continue
+
+            field_def = so._fields[field]
+            old_val = so[field]
+
+            if field_def.type == 'many2one':
+                old_id = old_val.id if old_val else False
+                if old_id != new_val:
+                    return True
+            else:
+                if (old_val or False) != (new_val or False):
+                    return True
+        return False
     
     @api.model
     def cron_synchronize_sap_sale_order(self):
@@ -113,7 +125,11 @@ class InheritSaleOrderSAP(models.Model):
                 _logger.info(f"Delivery {delivery_ref} SKIPPED")
                 continue
 
-            company = company_model.search([('company_registry', '=', company_registry)], limit=1)
+            company = company_model.search([
+                ('company_registry', '=', company_registry),
+                ('sync_wms', '=', True),
+                ('sync_pm', '=', False),
+            ], limit=1)
             if not company:
                 _logger.info(f"Company {company_registry} SKIPPED")
                 continue
@@ -125,9 +141,9 @@ class InheritSaleOrderSAP(models.Model):
             deliv_method = "Loco"
             if delivery_method == "FRC":
                 deliv_method = "Franco"
-            deliv_carrier = delivery_carrier_model.search([('name', '=', deliv_method)], limit=1)
+            deliv_carrier = delivery_carrier_model.search([('name', '=', deliv_method),('company_id', '=', company.id)], limit=1)
 
-            so = sale_order_model.search([('do_sap', '=', nomor_do)], limit=1)
+            so = sale_order_model.search([('do_sap', '=', nomor_do),('company_id', '=', company.id)], limit=1)
             vals = {
                 'is_sap': True,
                 'do_sap': nomor_do,
@@ -143,18 +159,19 @@ class InheritSaleOrderSAP(models.Model):
             if not so:
                 so = sale_order_model.create(vals)
                 so.message_post(body=f"SO SAP {nomor_do} Created from Cron")
-                # so.action_confirm()
+                so.action_confirm()
                 _logger.info(f"SO Created {nomor_do}")
             else:
-                so.write(vals)
-                so.message_post(body=f"SO Updated {so.name} | {so.do_sap}")
-                _logger.info(f"SO Updated {so.name} | {so.do_sap}")
+                if self._needs_update(so, vals):
+                    so.write(vals)
+                    so.message_post(body=f"SO Updated {so.name} | {so.do_sap}")
+                    _logger.info(f"SO Updated {so.name} | {so.do_sap}")
 
             for row in rows:
                 product_code = row.get('MATNR')
                 if not product_code:
                     continue
-                product = product_model.search([('default_code', '=', product_code)], limit=1)
+                product = product_model.search([('default_code', '=', product_code),('company_id', '=', company.id)], limit=1)
                 if not product:
                     _logger.info(f"Product {product_code} SKIPPED")
                     continue
@@ -185,10 +202,11 @@ class InheritSaleOrderSAP(models.Model):
                 }
 
                 if existing_line:
-                    existing_line.write({
-                        'product_uom_qty': qty,
-                        'product_uom_id': product_uom.id,
-                    })
+                    if self._needs_update(existing_line, vals_line):
+                        existing_line.write({
+                            'product_uom_qty': qty,
+                            'product_uom_id': product_uom.id,
+                        })
                 else:
                     sale_order_line_model.create(vals_line)
 

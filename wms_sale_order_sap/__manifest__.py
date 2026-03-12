@@ -17,7 +17,7 @@ Long description of module's purpose
     'version': '0.1',
 
     # any module necessary for this one to work correctly
-    'depends': ['base', 'sale', 'sale_management', 'stock'],
+    'depends': ['base', 'sale', 'sale_management', 'stock', 'wms_base_company'],
 
     # always loaded
     'data': [

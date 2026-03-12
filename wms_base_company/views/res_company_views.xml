@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <record model="ir.ui.view" id="inherit_base_res_company_views">
+            <field name="name">inherit.base.res.company.form</field>
+            <field name="model">res.company</field>
+            <field name="inherit_id" ref="base.view_company_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='company_registry']" position="before">
+                    <field name="sync_wms"/>
+                    <field name="sync_pm"/>
+                </xpath>
+            </field>
+        </record>
+    </data>
+</odoo>
