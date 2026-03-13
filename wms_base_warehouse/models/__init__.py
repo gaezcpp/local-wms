@@ -10,3 +10,4 @@ from . import stock_location
 from . import stock_putaway_rule
 from . import stock_move_line
 from . import uom_uom
+from . import stock_sap

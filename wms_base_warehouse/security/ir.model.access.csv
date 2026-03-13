@@ -3,3 +3,4 @@ access_user_unpack_stock_package_wizard,user_unpack_stock_package_wizard,model_u
 access_user_unpack_stock_package_line,user_unpack_stock_package_line,model_unpack_stock_package_line,base.group_user,1,1,1,1
 access_user_production_line,user_production_line,model_production_line,base.group_user,1,1,1,1
 access_user_production_shift,user_production_shift,model_production_shift,base.group_user,1,1,1,1
+access_user_stock_sap,user_stock_sap,model_stock_sap,base.group_user,1,1,1,1

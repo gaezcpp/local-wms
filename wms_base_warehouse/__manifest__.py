@@ -35,6 +35,7 @@ Long description of module's purpose
         'views/stock_move_line_gr_views.xml',
         'views/uom_uom_views.xml',
         'views/stock_location_views.xml',
+        'views/stock_sap_views.xml',
         'views/menuitem.xml',
     ],
 }

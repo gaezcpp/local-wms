@@ -143,4 +143,4 @@ class ProductionOrderSAP(models.Model):
                 _logger.info(f"PO SAP {po_sap} Created")
             else:
                 existing_po_sap.write(vals)
-                _logger.info(f"PO {existing_po_sap.name} Updated")
+                _logger.info(f"PO {existing_po_sap.po_number} Updated")

@@ -30,4 +30,12 @@
         sequence="170"
         action="wms_base_warehouse.stock_move_line_gr_action"
     />
+
+    <menuitem
+        id="stock_sap_menu"
+        name="Stock SAP"
+        parent="stock.menu_warehouse_report"
+        sequence="120"
+        action="wms_base_warehouse.stock_sap_action"
+    />
 </odoo>
