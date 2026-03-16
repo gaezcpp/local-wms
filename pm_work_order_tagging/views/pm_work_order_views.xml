@@ -1,0 +1,95 @@
+<?xml version='1.0' encoding='utf-8'?>
+<odoo>
+    <!-- Search View -->
+    <record model="ir.ui.view" id="pm_work_order_search">
+        <field name="name">pm.work.order.search</field>
+        <field name="model">pm.work.order</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="tagging_id"/>
+                <field name="company_id"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="pm_work_order_view_list" model="ir.ui.view">
+        <field name="name">pm.work.order.view.list</field>
+        <field name="model">pm.work.order</field>
+        <field name="arch" type="xml">
+            <list string="Work Order" create="0" edit="0" delete="0">
+                <field name="name"/>
+                <field name="tagging_id"/>
+                <field name="type_mo"/>
+                <field name="system_id"/>
+                <field name="sub_system_id"/>
+                <field name="equipment_id"/>
+                <field name="sub_equipment_id"/>
+                <field name="priority"/>
+                <field name="company_id"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="pm_work_order_view_form" model="ir.ui.view">
+        <field name="name">pm.work.order.view.form</field>
+        <field name="model">pm.work.order</field>
+        <field name="arch" type="xml">
+            <form string="Work Order" create="0" delete="0">
+                <header>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,closed"/>
+                </header>
+                <sheet>
+                    <label for="name" class="oe_edit_only"/>
+                    <h1>
+                        <field name="name" force_save="1" readonly="1"/>
+                    </h1>
+                    <group>
+                        <group name="pm_left">
+                            <field name="type_mo" force_save="1" readonly="1"/>
+                            <field name="tagging_id" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1"/>
+                            <field name="company_id" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1"/>
+                            <field name="create_date" force_save="1" readonly="1"/>
+                            <field name="maintenance_type" force_save="1" readonly="1"/>
+                        </group>
+                        <group name="pm_right">
+                            <field name="system_id" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1"/>
+                            <field name="sub_system_id" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1"/>
+                            <field name="equipment_id" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1"/>
+                            <field name="sub_equipment_id" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1"/>
+                            <field name="priority" force_save="1" readonly="1"/>
+                        </group>
+                        <field name="pm_wo_material_line_ids" readonly="1">
+                            <list create="0" edit="0" delete="0">
+                                <field name="pm_work_order_id" column_invisible="1"/>
+                                <field name="sequence"/>
+                                <field name="product_sparepart_id" options="{'no_open': True, 'no_create': True}"/>
+                                <field name="product_material"/>
+                                <field name="quantity"/>
+                            </list>
+                            <form create="0" edit="0" delete="0">
+                                <field name="pm_work_order_id" readonly="1" options="{'no_open': True, 'no_create': True}"/>
+                            </form>
+                        </field>
+                        <separator string="Close Evidence"/>
+                            <group>
+                                <field name="date_from" readonly="state != 'draft'"/>
+                                <field name="date_to" readonly="state != 'draft'"/>
+                                <field name="analysis" readonly="state != 'draft'"/>
+                                <field name="problem_handling" readonly="state != 'draft'"/>
+                                <field name="photo_attachment" readonly="state != 'draft'"/>
+                            </group>
+                    </group>
+                </sheet>
+                <chatter reload_on_follower="True"/>
+            </form>
+        </field>
+    </record>
+
+    <record id="pm_work_order_action" model="ir.actions.act_window">
+        <field name="name">Work Order</field>
+        <field name="res_model">pm.work.order</field>
+        <field name="view_mode">list,form</field>
+    </record>
+    
+</odoo>

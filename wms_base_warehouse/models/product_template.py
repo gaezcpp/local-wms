@@ -57,7 +57,7 @@ class InheritProductTemplate(models.Model):
 
         grouped = {}
         for data in data_list:
-            matnr = data.get('MATNR')
+            matnr = (data.get('MATNR') or "").lstrip('0')
             werks = data.get('WERKS')
             if not matnr or not werks:
                 continue
@@ -68,7 +68,6 @@ class InheritProductTemplate(models.Model):
         companies = self.env['res.company'].sudo().search([
             ('company_registry', 'in', all_werks),
             ('sync_wms', '=', True),
-            ('sync_pm', '=', False),
         ])
         company_map = {c.company_registry: c for c in companies}
 
@@ -142,14 +141,19 @@ class InheritProductTemplate(models.Model):
                 if meinh.upper() != 'KG' and existing_uom.id not in uom_ids:
                     uom_ids.append(existing_uom.id)
                     
-                match = re.match(r'^(?:B|BAG)\s*(\d+)$', (meinh or "").upper())
-                if match:
-                    try:
-                        # bag_candidates.append((int(re.findall(r'\d+', meinh)[0]), existing_uom.id))
-                        bag_size = int(match.group(1))
+                meinh_upper = (meinh or "").upper()
+                try:
+                    if re.match(r'^B\d+$', meinh_upper):
+                        bag_size = int(meinh_upper[1:])
                         bag_candidates.append((bag_size, existing_uom.id))
-                    except Exception:
-                        pass
+                    elif meinh_upper == "BAG":
+                        umrez = float(data.get('UMREZ') or 1)
+                        umren = float(data.get('UMREN') or 1)
+                        if umren:
+                            bag_size = int(umrez / umren)
+                            bag_candidates.append((bag_size, existing_uom.id))
+                except Exception:
+                    pass
 
             uom_bag_id = False
             if bag_candidates:
@@ -169,7 +173,8 @@ class InheritProductTemplate(models.Model):
                 category_map[categ_name] = category
             else:
                 category.write(categ_vals)
-
+                
+            lvorm = (records[0].get('LVORM') or '').strip()
             vals = {
                 'name': product_name,
                 'uom_id': uom_kg.id,
@@ -194,6 +199,7 @@ class InheritProductTemplate(models.Model):
                 'expiration_time': 365,
                 'responsible_id': self.env.user.id,
                 'company_id': company.id,
+                'active': lvorm != 'X',
             }
 
             existing_product = product_map.get((matnr, company.id))

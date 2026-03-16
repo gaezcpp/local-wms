@@ -1,0 +1,68 @@
+<?xml version='1.0' encoding='utf-8'?>
+<odoo>
+    <!-- Search View -->
+    <record model="ir.ui.view" id="debt_management_line_search">
+        <field name="name">debt.management.line.search</field>
+        <field name="model">debt.management.line</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="debt_management_id"/>
+                <field name="debt_type_id"/>
+                <field name="start_date"/>
+                <field name="end_date"/>
+                <field name="amount"/>
+                <field name="state"/>
+                <filter name="fl_draft" string="In Progress" domain="[('state','=', 'in_progress')]"/>
+                <filter name="fl_paid" string="Paid" domain="[('state','=', 'paid')]"/>
+                <group>
+                    <filter name="gr_type" string="By Type" context="{'group_by':'debt_type_id'}"/>
+                    <filter name="gr_state" string="By State" context="{'group_by':'state'}"/>
+                    <filter name="gr_ed" string="By End Date" context="{'group_by':'end_date'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="debt_management_line_view_list" model="ir.ui.view">
+        <field name="name">debt.management.line.view.list</field>
+        <field name="model">debt.management.line</field>
+        <field name="arch" type="xml">
+            <list string="Debt Lines" create="0" edit="0" delete="0">
+                <field name="debt_management_id"/>
+                <field name="debt_type_id"/>
+                <field name="start_date" optional="hide"/>
+                <field name="end_date"/>
+                <field name="due_days"/>
+                <field name="amount" sum="total"/>
+                <field name="partially_paid" optional="hide"/>
+                <field name="paid_amount" sum="partial_total"/>
+                <field name="amount_total" sum="all_total"/>
+                <field name="notes" optional="hide"/>
+                <field name="state"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="debt_management_line_view_form" model="ir.ui.view">
+        <field name="name">debt.management.line.view.form</field>
+        <field name="model">debt.management.line</field>
+        <field name="arch" type="xml">
+            <form string="Debt Lines" create="0" edit="0" delete="0">
+                <sheet>
+                    <group>
+                        <field name="debt_management_id" options="{'no_open': True, 'no_create': True}"/>
+                        <field name="debt_type_id" options="{'no_open': True, 'no_create': True}"/>
+                        <field name="start_date"/>
+                        <field name="end_date"/>
+                        <field name="due_days"/>
+                        <field name="amount"/>
+                        <field name="partially_paid"/>
+                        <field name="paid_amount"/>
+                        <field name="amount_total"/>
+                        <field name="state"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+</odoo>

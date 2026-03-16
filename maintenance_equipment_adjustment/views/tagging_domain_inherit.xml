@@ -1,0 +1,28 @@
+<odoo>
+  <record id="tagging_record_form_inherit_equipment_domain" model="ir.ui.view">
+    <field name="name">tagging.record.form.inherit.equipment.domain</field>
+    <field name="model">tagging.record</field>
+    <field name="inherit_id" ref="tagging_system.view_tagging_record_form"/>
+    <field name="arch" type="xml">
+
+      <!-- Parent equipment: root saja + filter system/subsystem -->
+      <xpath expr="//field[@name='parent_equipment_id']" position="attributes">
+        <attribute name="domain">[
+          ('parent_equipment_id','=',False),
+          ('system_id','=', system_id),
+          ('sub_system_id','=', sub_system_id)
+        ]</attribute>
+      </xpath>
+
+      <!-- Child equipment: berdasarkan parent + filter system/subsystem -->
+      <xpath expr="//field[@name='equipment_id']" position="attributes">
+        <attribute name="domain">[
+          ('parent_equipment_id','=', parent_equipment_id),
+          ('system_id','=', system_id),
+          ('sub_system_id','=', sub_system_id)
+        ]</attribute>
+      </xpath>
+
+    </field>
+  </record>
+</odoo>

@@ -13,8 +13,8 @@
         <field name="model">category.problem</field>
         <field name="arch" type="xml">
             <list string="Category Problem">
-                <field name="sistem"/>
-                <field name="sub_sistem"/>
+                <field name="system_id"/>
+                <field name="subsystem_id"/>
                 <field name="cat_masalah"/>
                 <field name="active"/>
             </list>
@@ -29,10 +29,16 @@
             <form string="Category Problem">
                 <sheet>
                     <group>
-                        <field name="sistem"/>
-                        <field name="sub_sistem"/>
-                        <field name="cat_masalah"/>
-                        <field name="active"/>
+                        <group string="Classification">
+                            <field name="system_id"/>
+                            <field name="subsystem_id"
+                                   domain="[('system_id', '=', system_id)]"/>
+                        </group>
+
+                        <group string="Details">
+                            <field name="cat_masalah"/>
+                            <field name="active"/>
+                        </group>
                     </group>
                 </sheet>
             </form>

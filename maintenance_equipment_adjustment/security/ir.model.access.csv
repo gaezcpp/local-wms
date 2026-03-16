@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_maintenance_business_area,maintenance.business.area,model_maintenance_business_area,,1,1,1,1
+access_maintenance_equipment_product_line,maintenance.equipment.product.line,model_maintenance_equipment_product_line,,1,1,1,1

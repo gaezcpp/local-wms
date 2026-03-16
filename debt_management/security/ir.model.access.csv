@@ -1,0 +1,7 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_user_debt_management,access_user_debt_management,model_debt_management,base.group_user,1,1,1,1
+access_user_debt_management_line,access_user_debt_management_line,model_debt_management_line,base.group_user,1,1,1,1
+access_user_debt_type,access_user_debt_type,model_debt_type,base.group_user,1,1,1,1
+
+
+access_admin_debt_management,access_admin_debt_management,model_debt_management,base.group_system,1,1,1,1

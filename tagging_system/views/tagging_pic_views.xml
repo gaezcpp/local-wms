@@ -1,116 +1,125 @@
 <odoo>
 
     <!-- ACTION -->
-    <record id="action_tagging_pic" model="ir.actions.act_window">
-      <field name="name">PIC List</field>
-      <field name="res_model">tagging.pic</field>
-      <field name="view_mode">list,form</field>
+    <record id="action_tagging_record" model="ir.actions.act_window">
+        <field name="name">Tagging List</field>
+        <field name="res_model">tagging.record</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Buat Tagging Record baru untuk proses tagging &amp; work order.
+            </p>
+        </field>
     </record>
-
-    <!-- LIST -->
-    <record id="view_tagging_pic_list" model="ir.ui.view">
-      <field name="name">tagging.pic.list</field>
-      <field name="model">tagging.pic</field>
-      <field name="arch" type="xml">
-        <list string="PIC List" default_order="email asc">
-          <field name="email"/>
-          <field name="department_ids" widget="many2many_tags"/>
-          <field name="cc"/>
-          <field name="bu_ids" widget="many2many_tags"/>
-          <field name="active"/>
-        </list>
-      </field>
+  
+    <!-- LIST VIEW -->
+    <record id="view_tagging_record_list" model="ir.ui.view">
+        <field name="name">tagging.record.list</field>
+        <field name="model">tagging.record</field>
+        <field name="arch" type="xml">
+            <list string="Tagging List" default_order="create_date desc">
+                <field name="name"/>
+                <field name="tagger_name"/>
+                <field name="barcode_id"/>
+                <field name="pic_id"/>
+                <field name="department_ids" widget="many2many_tags"/>
+                <field name="status"/>
+                <field name="start_date" invisible="status not in ('validated','open_wo','closed')"/>
+                <field name="end_date" invisible="status not in ('validated','open_wo','closed')"/>
+                <field name="create_date"/>
+            </list>
+        </field>
     </record>
-
-    <!-- FORM -->
-    <record id="view_tagging_pic_form" model="ir.ui.view">
-      <field name="name">tagging.pic.form</field>
-      <field name="model">tagging.pic</field>
-      <field name="arch" type="xml">
-        <form string="PIC">
-          <header>
-            <field name="active" widget="boolean_button"/>
-          </header>
-
-          <sheet>
-            <group>
-              <field name="email" widget="email"/>
-              <field name="cc"/>
-            </group>
-
-            <group string="Mapping">
-              <field name="department_ids" widget="many2many_tags" options="{'no_create_edit': False}"/>
-              <field name="bu_ids" widget="many2many_tags" options="{'no_create_edit': False}"/>
-            </group>
-          </sheet>
-        </form>
-      </field>
+  
+    <!-- FORM VIEW -->
+    <record id="view_tagging_record_form" model="ir.ui.view">
+        <field name="name">tagging.record.form</field>
+        <field name="model">tagging.record</field>
+        <field name="arch" type="xml">
+            <form string="Tagging List">
+  
+                <header>
+                    <button name="action_validate"
+                            type="object"
+                            string="Validate"
+                            class="btn-primary"
+                            invisible="status != 'open'"/>
+  
+                    <button name="action_open_reject_wizard"
+                            type="object"
+                            string="Reject"
+                            class="btn-secondary"
+                            invisible="status != 'open'"/>
+  
+                    <field name="status" widget="statusbar"
+                           statusbar_visible="open,validated,open_wo,postponed,closed"/>
+                </header>
+  
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name" readonly="1"/></h1>
+                    </div>
+  
+                    <group>
+                        <!-- LEFT: TAGGING INFO -->
+                        <group string="Tagging Info">
+                            <field name="tagger_name"/>
+  
+                            <field name="barcode_id"/>
+                            <!-- <field name="pic_id"/> -->
+                            <field name="department_ids" widget="many2many_tags" readonly="1"/>
+                            <field name="pic_name" string="PIC Email" readonly="1"/>
+  
+                            <field name="start_date" invisible="status not in ('validated','open_wo','closed')"/>
+                            <field name="end_date" invisible="status not in ('validated','open_wo','closed')"/>
+  
+                            <field name="reject_reason" invisible="status != 'postponed' and status != 'open'"/>
+                        </group>
+  
+                        <!-- RIGHT: LOCATION SNAPSHOT -->
+                        <group string="Location Snapshot">
+                            <field name="plant_code" readonly="1"/>
+                            <field name="plant_name" readonly="1"/>
+                            <field name="functional_location" readonly="1"/>
+                        </group>
+                    </group>
+  
+                    <!-- CATEGORY PROBLEM (single) -->
+                    <group string="Category Problem">
+                        <field name="category_problem_id"/>
+                    </group>
+  
+                  
+  
+                    <!-- CLOSE EVIDENCE -->
+                    <group string="Close Evidence" invisible="status not in ('validated','open_wo','closed')">
+                        <group>
+                            <field name="machine_bom_id" string="Equipment (Master)"/>
+                            <field name="close_description"/>
+                        </group>
+                        <group>
+                            <field name="close_photo" widget="image"
+                                   options="{'preview_image': 'close_photo'}"/>
+                            <field name="close_photo_filename" invisible="1"/>
+                        </group>
+                    </group>
+  
+                    <notebook>
+                        <page string="Description">
+                            <field name="description"/>
+                        </page>
+  
+                        <page string="Photos">
+                            <field name="attachment_ids"
+                                   widget="many2many_binary"
+                                   string="Photos"/>
+                        </page>
+                    </notebook>
+  
+                </sheet>
+            </form>
+        </field>
     </record>
-
-    <!-- Department -->
-    <record id="action_tagging_department" model="ir.actions.act_window">
-      <field name="name">Departments</field>
-      <field name="res_model">tagging.department</field>
-      <field name="view_mode">list,form</field>
-    </record>
-
-    <record id="view_tagging_department_list" model="ir.ui.view">
-      <field name="name">tagging.department.list</field>
-      <field name="model">tagging.department</field>
-      <field name="arch" type="xml">
-        <list>
-          <field name="name"/>
-          <field name="active"/>
-        </list>
-      </field>
-    </record>
-
-    <record id="view_tagging_department_form" model="ir.ui.view">
-      <field name="name">tagging.department.form</field>
-      <field name="model">tagging.department</field>
-      <field name="arch" type="xml">
-        <form>
-          <sheet>
-            <group>
-              <field name="name"/>
-              <field name="active"/>
-            </group>
-          </sheet>
-        </form>
-      </field>
-    </record>
-
-    <!-- BU -->
-    <record id="action_tagging_bu" model="ir.actions.act_window">
-      <field name="name">BUs</field>
-      <field name="res_model">tagging.bu</field>
-      <field name="view_mode">list,form</field>
-    </record>
-
-    <record id="view_tagging_bu_list" model="ir.ui.view">
-      <field name="name">tagging.bu.list</field>
-      <field name="model">tagging.bu</field>
-      <field name="arch" type="xml">
-        <list>
-          <field name="name"/>
-          <field name="active"/>
-        </list>
-      </field>
-    </record>
-
-    <record id="view_tagging_bu_form" model="ir.ui.view">
-      <field name="name">tagging.bu.form</field>
-      <field name="model">tagging.bu</field>
-      <field name="arch" type="xml">
-        <form>
-          <sheet>
-            <group>
-              <field name="name"/>
-              <field name="active"/>
-            </group>
-          </sheet>
-        </form>
-      </field>
-    </record>
-
-</odoo>
+  
+  </odoo>
+  

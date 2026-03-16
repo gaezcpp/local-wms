@@ -99,7 +99,7 @@ class StockInventoryAdjustment(models.Model):
                         'package_id': line.package_id.id if line.package_id else False,
                     })
 
-                quant.inventory_quantity = line.counted_qty
+                # quant.inventory_quantity = line.counted_qty
                 # quant.action_apply_inventory()
 
             rec.state = 'validated'

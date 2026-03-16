@@ -1,0 +1,15 @@
+<?xml version='1.0' encoding='utf-8'?>
+<odoo>
+    <menuitem
+        id="maintenance.menu_m_request_form"
+        active="False"
+    />
+
+    <menuitem
+        id="maintenance_request_work_order_menu"
+        name="Work Order"
+        parent="maintenance.menu_m_request"
+        action="pm_work_order_tagging.pm_work_order_action"
+        sequence="1"
+    />
+</odoo>

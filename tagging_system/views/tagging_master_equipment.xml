@@ -13,6 +13,7 @@
         <field name="arch" type="xml">
             <list>
                 <field name="name"/>
+                <field name="code"/>
                 <field name="active"/>
             </list>
         </field>
@@ -26,6 +27,7 @@
                 <sheet>
                     <group>
                         <field name="name"/>
+                        <field name="code"/>
                         <field name="active"/>
                     </group>
                 </sheet>
@@ -40,33 +42,36 @@
         <field name="view_mode">list,form</field>
     </record>
 
-    <record id="view_tagging_subsystem_list" model="ir.ui.view">
-        <field name="name">tagging.subsystem.list</field>
-        <field name="model">tagging.subsystem</field>
+    <record id="view_tagging_system_list" model="ir.ui.view">
+        <field name="name">tagging.system.list</field>
+        <field name="model">tagging.system</field>
         <field name="arch" type="xml">
             <list>
-                <field name="system_id"/>
+                <field name="company_id"/>
                 <field name="name"/>
+                <field name="code"/>
                 <field name="active"/>
             </list>
         </field>
     </record>
-
-    <record id="view_tagging_subsystem_form" model="ir.ui.view">
-        <field name="name">tagging.subsystem.form</field>
-        <field name="model">tagging.subsystem</field>
+    
+    <record id="view_tagging_system_form" model="ir.ui.view">
+        <field name="name">tagging.system.form</field>
+        <field name="model">tagging.system</field>
         <field name="arch" type="xml">
             <form>
                 <sheet>
                     <group>
-                        <field name="system_id"/>
+                        <field name="company_id"/>
                         <field name="name"/>
+                        <field name="code"/>
                         <field name="active"/>
                     </group>
                 </sheet>
             </form>
         </field>
     </record>
+    
 
     <!-- ===================== UNIT MESIN ===================== -->
     <record id="action_tagging_machine_unit" model="ir.actions.act_window">
@@ -154,7 +159,9 @@
             <list>
                 <field name="name"/>
                 <field name="sku"/>
-                <field name="bu_id"/>
+                <field name="company_id"/>
+
+                <!-- <field name="bu_id"/> -->
                 <field name="active"/>
             </list>
         </field>
@@ -168,8 +175,10 @@
                 <sheet>
                     <group>
                         <field name="name"/>
+                        <!-- kalau SKU mau bisa diinput manual, JANGAN readonly -->
                         <field name="sku"/>
-                        <field name="bu_id"/>
+                        <!-- <field name="bu_id"/> -->
+                        <field name="company_id"/>
                         <field name="active"/>
                     </group>
                     <group string="Spesifikasi">
@@ -212,20 +221,24 @@
                 <sheet>
                     <group string="Hirarki Mesin">
                         <field name="system_id"/>
-                        <field name="subsystem_id"/>
-                        <field name="unit_id"/>
-                        <field name="part_id"/>
+                        <field name="subsystem_id"
+                               domain="[('system_id', '=', system_id)]"/>
+                        <field name="unit_id"
+                               domain="[('subsystem_id', '=', subsystem_id)]"/>
+                        <field name="part_id"
+                               domain="[('unit_id', '=', unit_id)]"/>
                     </group>
 
                     <group string="Spare Part">
                         <field name="spare_part_id"/>
-                        <field name="sku"/>
-                        <field name="bu_id"/>
+                        <!-- snapshot readonly -->
+                        <field name="sku" readonly="1"/>
+                        <field name="bu_id" readonly="1"/>
                         <field name="active"/>
                     </group>
 
                     <group string="Spesifikasi (Snapshot)">
-                        <field name="specification" nolabel="1"/>
+                        <field name="specification" nolabel="1" readonly="1"/>
                     </group>
                 </sheet>
             </form>

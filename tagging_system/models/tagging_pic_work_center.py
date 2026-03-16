@@ -10,6 +10,21 @@ class TaggingDepartment(models.Model):
     name = fields.Char(required=True)
     active = fields.Boolean(default=True)
 
+    company_id = fields.Many2one(
+        "res.company",
+        string="Company",
+        required=True,
+        default=lambda self: self.env.company,
+        ondelete="restrict",
+    )
+
+    company_code = fields.Char(
+        string="Company Code",
+        related="company_id.company_code",
+        store=True,
+        readonly=True,
+    )
+
 
 class TaggingBU(models.Model):
     _name = "tagging.bu"
@@ -17,9 +32,13 @@ class TaggingBU(models.Model):
     _order = "name asc"
 
     name = fields.Char(required=True)
+    code = fields.Char(required=True)
     active = fields.Boolean(default=True)
 
-
+    _sql_constraints = [
+        ("tagging_bu_code_uniq", "unique(code)", "Business Unit code must be unique."),
+    ]
+    
 class TaggingPic(models.Model):
     _name = "tagging.pic"
     _description = "Tagging PIC"

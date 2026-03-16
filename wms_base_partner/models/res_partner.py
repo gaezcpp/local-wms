@@ -78,6 +78,7 @@ class InheritResPartner(models.Model):
             country_code = data.get('LAND1') or ''
             phone = data.get('TELF1') or ''
             mobile = data.get('TELF2') or ''
+            loevm = data.get('LOEVM') or ''
 
             vals = {
                 'ref': ref,
@@ -93,6 +94,7 @@ class InheritResPartner(models.Model):
                 # additional
                 'type': 'contact',
                 'company_type': 'person',
+                'active': False if loevm == 'X' else True,
             }
 
             partner = Partner.search([('ref', '=', ref)], limit=1)

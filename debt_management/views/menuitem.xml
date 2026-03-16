@@ -1,0 +1,30 @@
+<?xml version='1.0' encoding='utf-8'?>
+<odoo>
+    <menuitem
+        id="debt_management_menu_root"
+        name="Debt Management"
+        web_icon="debt_management,static/description/icon.png"
+        action="debt_management.debt_management_action"
+    />
+
+    <menuitem
+        id="debt_management_menu"
+        name="Debt Management"
+        parent="debt_management.debt_management_menu_root"
+        action="debt_management.debt_management_action"
+    />
+
+    <menuitem
+        id="configuration_debt_management_menu"
+        name="Configuration"
+        parent="debt_management.debt_management_menu_root"
+        sequence="500"
+    />
+
+    <menuitem
+        id="debt_type_menu"
+        name="Debt Type"
+        parent="debt_management.configuration_debt_management_menu"
+        action="debt_management.debt_type_action"
+    />
+</odoo>

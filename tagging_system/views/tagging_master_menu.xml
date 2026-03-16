@@ -33,6 +33,11 @@
               parent="menu_tagging_master_root"
               action="action_tagging_department"
               sequence="20"/>
+        <menuitem id="menu_tagging_category_problem"
+              name="Category Problem"
+              parent="menu_tagging_master_root"
+              action="action_category_problem"
+              sequence="80"/>
 
     <!-- BU -->
     <menuitem id="menu_tagging_bu"

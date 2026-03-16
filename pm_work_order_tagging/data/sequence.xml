@@ -1,0 +1,11 @@
+<?xml version='1.0' encoding='utf-8'?>
+<odoo>
+    <data noupdate="1">
+        <record id="seq_pm_work_order" model="ir.sequence">
+            <field name="name">PM Work Order</field>
+            <field name="code">pm.work.order</field>
+            <field name="prefix">PWO-</field>
+            <field name="padding">4</field>
+        </record>
+    </data>
+</odoo>

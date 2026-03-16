@@ -6,32 +6,51 @@
     <field name="model">tagging.record</field>
     <field name="arch" type="xml">
       <search string="Search Tagging">
-        <field name="name"/>
-        <field name="plant_code"/>
-        <field name="business_unit_code"/>
-        <field name="work_center"/>
-        <field name="functional_location"/>
-        <field name="problem_category"/>
-        <field name="status"/>
 
-        <separator/>
+        <!-- field pencarian -->
+        <field name="name" />
+        <field name="plant_code" />
+        <field name="functional_location" />
+        <field name="pic_department_names" />
+        <field name="category_problem_id" />
+        <field name="status" />
 
-        <!-- Open = open + open_wo -->
+        <separator />
+
+        <!-- Status filters -->
         <filter string="Open" name="flt_open"
-                domain="['|',('status','=','open'),('status','=','open_wo')]"/>
+          domain="['|',('status','=','open'),('status','=','open_wo')]" />
         <filter string="Validated" name="flt_validated"
-                domain="[('status','=','validated')]"/>
-        <filter string="Postponed" name="flt_postponed"
-                domain="[('status','=','postponed')]"/>
+          domain="[('status','=','validated')]" />
         <filter string="Closed" name="flt_closed"
-                domain="[('status','=','closed')]"/>
+          domain="[('status','=','closed')]" />
 
-        <separator/>
+        <separator />
 
-        <filter string="Group by Status" name="grp_status" context="{'group_by': 'status'}"/>
-        <filter string="Group by Plant" name="grp_plant" context="{'group_by': 'plant_code'}"/>
-        <filter string="Group by Work Center" name="grp_wc" context="{'group_by': 'work_center'}"/>
+        <!--  ARCHIVE SUPPORT -->
+        <field name="active" invisible="1" />
+        <filter string="Archived"
+          name="archived"
+          domain="[('active','=',False)]" />
+
+        <!-- (opsional) default Active -->
+        <filter string="Active"
+          name="active_only"
+          domain="[('active','=',True)]"
+          context="{'search_default_active_only': 1}" />
+
+        <separator />
+
+        <!-- Group by -->
+        <filter string="Group by Status"
+          name="grp_status"
+          context="{'group_by': 'status'}" />
+        <filter string="Group by Plant"
+          name="grp_plant"
+          context="{'group_by': 'plant_code'}" />
+
       </search>
+
     </field>
   </record>
 
@@ -41,23 +60,21 @@
     <field name="model">tagging.record</field>
     <field name="arch" type="xml">
       <list string="Tagging List" default_order="create_date desc">
-        <field name="create_date" string="Tanggal"/>
+        <field name="create_date" string="Tanggal" />
 
         <field name="status" widget="badge"
-               decoration-danger="status == 'open'"
-               decoration-warning="status in ('validated','open_wo','postponed')"
-               decoration-success="status == 'closed'"/>
+          decoration-danger="status == 'open'"
+          decoration-warning="status in ('validated','open_wo')"
+          decoration-success="status == 'closed'" />
 
-        <field name="name" string="Ticket"/>
-        <field name="plant_code" string="Plant"/>
-        <field name="business_unit_code" string="Business Area"/>
-        <field name="work_center" string="Work Center"/>
-        <field name="functional_location" string="Functional Location"/>
+        <field name="name" string="Ticket" />
+        <field name="plant_code" string="Plant" />
+        <field name="functional_location" string="Sub System" />
 
-        <field name="pic_name" string="PIC"/>
-        <field name="problem_category" string="Kategori Masalah"/>
-        <field name="equipment" string="Equipment (Snapshot)"/>
-        <field name="sku" string="SKU (Snapshot)"/>
+        <field name="pic_name" string="PIC" />
+        <field name="category_problem_id" string="Kategori Masalah" />
+        <field name="equipment" string="Equipment (Snapshot)" />
+        <field name="sku" string="SKU (Snapshot)" />
       </list>
     </field>
   </record>
@@ -68,97 +85,164 @@
     <field name="model">tagging.record</field>
     <field name="arch" type="xml">
       <form string="Tagging">
-
         <header>
           <field name="status" widget="statusbar"
-                 statusbar_visible="open,validated,open_wo,postponed,closed"/>
+            statusbar_visible="open,validated,open_wo,closed" />
 
-          <!-- OPEN -->
           <button name="action_validate" type="object" string="Validate"
-                  class="btn-primary"
-                  invisible="status != 'open'"/>
+            class="btn-primary"
+            invisible="status != 'open'" />
 
           <button name="action_open_reject_wizard" type="object" string="Reject"
-                  class="btn-secondary"
-                  invisible="status != 'open'"/>
+            class="btn-secondary"
+            invisible="status != 'open'" />
 
-          <!-- VALIDATED -->
           <button name="action_set_wo" type="object" string="Set Work Order"
-                  class="btn-secondary"
-                  invisible="status != 'validated'"/>
+            class="btn-secondary"
+            invisible="status != 'validated'" />
 
-          <!-- CLOSE: boleh ditutup dari validated / open_wo -->
           <button name="action_set_closed" type="object" string="Set Closed"
-                  class="btn-primary"
-                  invisible="status not in ('validated','open_wo')"/>
+            class="btn-primary"
+            invisible="status not in ('validated','open_wo')" />
         </header>
 
         <!-- LOCK ALL CONTENT WHEN CLOSED -->
         <sheet readonly="status == 'closed'">
-
           <div class="oe_title">
-            <h1><field name="name" readonly="1"/></h1>
+            <h1>
+              <field name="name" readonly="1" />
+            </h1>
           </div>
 
           <group>
             <group string="Tagging Info">
-              <field name="tagger_name"/>
-              <field name="barcode_id" readonly="1"/>
-              <field name="pic_id"/>
-              <field name="pic_name" readonly="1"/>
-              <field name="status" readonly="1"/>
+              <field name="tagger_name" />
+              <field name="barcode_id"
+                readonly="1"
+                context="{'form_view_ref': 'tagging_system.barcode_tagging_form'}" />
+
+              <field name="pic_department_names" readonly="1" />
+              <field name="status" readonly="1" />
+
+              <!-- Maintenance Team: editable mulai validated -->
+              <field name="maintenance_team_id"
+                readonly="status not in ('validated','open_wo','closed')" />
+
+              <!-- Start Date: editable saat validated & open_wo -->
+              <field name="start_date"
+                readonly="status not in ('validated','open_wo')" />
+
+              <!-- End Date: editable saat open_wo -->
+              <field name="close_end_date"
+                readonly="status in ('validated','open_wo')" />
             </group>
 
             <group string="Location Snapshot">
-              <field name="plant_code" readonly="1"/>
-              <field name="plant_name" readonly="1"/>
-              <field name="business_unit_code" readonly="1"/>
-              <field name="business_unit_name" readonly="1"/>
-              <field name="work_center" readonly="1"/>
-              <field name="functional_location" readonly="1"/>
+              <field name="plant_code" readonly="1" />
+              <field name="plant_name" readonly="1" />
+              <field name="system_id" readonly="1" />
+              <field name="sub_system_id" readonly="1" />
+              <field name="sub_system_code" readonly="1" />
+              <field name="functional_location" readonly="1"
+                string="Functional Location (Legacy)" />
             </group>
           </group>
 
           <group string="Category Problem">
-            <!-- master reference -->
-            <field name="category_problem_id"/>
-            <!-- stored string -->
-            <field name="problem_category" readonly="1"/>
+            <field name="category_problem_id" readonly="1" />
           </group>
 
-          <group string="Close - Equipment Master"
-                 invisible="status not in ('validated','open_wo','closed')">
-            <!-- wajib dipilih sebelum close (di action_set_closed kamu udah validate) -->
-            <field name="machine_bom_id"
-                   options="{'no_create': True, 'no_create_edit': True}"/>
+          <group string="Equipment"
+            invisible="status not in ('validated','open_wo','closed')">
+
+            <field name="system_id" invisible="1" />
+            <field name="sub_system_id" invisible="1" />
+            <field name="functional_location" invisible="1" />
+
+            <field name="parent_equipment_id"
+              options="{'no_create': True, 'no_create_edit': True}" />
+
+            <field name="equipment_id"
+              options="{'no_create': True, 'no_create_edit': True}"
+              readonly="not parent_equipment_id" />
+
+            <!-- <field name="equipment_no" readonly="1" /> -->
+
           </group>
 
-          <group string="Snapshot (After Close)">
-            <group>
-              <field name="equipment" readonly="1"/>
-              <field name="spare_part" readonly="1"/>
-            </group>
-            <group>
-              <field name="sku" readonly="1"/>
-            </group>
+          <!-- WO spareparts -->
+          <group string="WO Spareparts"
+            invisible="status not in ('open_wo','closed')">
+            <field name="wo_sparepart_ids" readonly="status == 'closed'">
+              <list editable="bottom">
+                <field name="spare_part_id"
+                  context="{'display_name_only': 1}"
+                  options="{'no_create': True, 'no_create_edit': True}" />
+
+                <field name="sku" readonly="1" />
+                <field name="specification" readonly="1" />
+
+                <button name="action_qty_minus" type="object" string="-" class="btn-secondary" />
+                <field name="qty" string="Jumlah" />
+                <button name="action_qty_plus" type="object" string="+" class="btn-secondary" />
+
+                <field name="remarks" readonly="1" />
+              </list>
+
+            </field>
+
           </group>
 
           <notebook>
-            <page string="Description">
-              <field name="description"/>
+            <page string="Description" readonly="1">
+              <field name="description" readonly="status != 'open'" />
             </page>
 
-            <page string="Photos">
-              <field name="attachment_ids" widget="many2many_binary"/>
+            <page string="Photos" readonly="1">
+              <group col="2">
+                <group string="Photos Tagging" readonly="1">
+                  <field name="attachment_ids"
+                    widget="many2many_binary"
+                    options="{'no_create': False, 'no_open': True}"
+                    class="tagging_gallery" readonly="status != 'open'" />
+                </group>
+
+                <group string="Close Evidence"
+                  invisible="status not in ('validated','open_wo','closed')">
+
+                  <field name="close_start_date"
+                    string="Work Start Date"
+                    readonly="status == 'closed'" />
+
+                  <field name="close_end_date"
+                    string="Work End Date"
+                    readonly="status == 'closed'" />
+
+
+                  <field name="close_description"
+                    readonly="status == 'closed'" />
+
+                  <field name="close_photo"
+                    widget="image"
+                    filename="close_photo_filename"
+                    readonly="status == 'closed'" />
+
+                  <field name="close_photo_filename" invisible="1" />
+
+                </group>
+
+
+              </group>
             </page>
 
-            <page string="Reject Reason" invisible="not reject_reason">
-              <field name="reject_reason" readonly="1" nolabel="1"/>
+            <page string="Reject Reason" invisible="not reject_reason" readonly="1">
+              <field name="reject_reason" readonly="1" nolabel="1" />
             </page>
           </notebook>
 
         </sheet>
       </form>
+
     </field>
   </record>
 
@@ -168,8 +252,8 @@
     <field name="model">tagging.record</field>
     <field name="arch" type="xml">
       <graph string="Tagging Statistics" type="bar">
-        <field name="status" type="row"/>
-        <field name="id" type="measure"/>
+        <field name="status" type="row" />
+        <field name="id" type="measure" />
       </graph>
     </field>
   </record>
@@ -181,12 +265,12 @@
     <field name="arch" type="xml">
       <form string="Reject Tagging">
         <group>
-          <field name="record_id" invisible="1"/>
+          <field name="record_id" invisible="1" />
           <field name="reason" placeholder="Tuliskan alasan reject..." />
         </group>
         <footer>
-          <button name="action_confirm_reject" type="object" string="Reject" class="btn-primary"/>
-          <button string="Cancel" special="cancel" class="btn-secondary"/>
+          <button name="action_confirm_reject" type="object" string="Reject" class="btn-primary" />
+          <button string="Cancel" special="cancel" class="btn-secondary" />
         </footer>
       </form>
     </field>
@@ -197,17 +281,16 @@
     <field name="name">Tagging List</field>
     <field name="res_model">tagging.record</field>
     <field name="view_mode">list,form,graph</field>
-    <field name="view_id" ref="view_tagging_record_list"/>
-    <field name="search_view_id" ref="view_tagging_record_search"/>
+    <field name="view_id" ref="view_tagging_record_list" />
+    <field name="search_view_id" ref="view_tagging_record_search" />
     <field name="help" type="html">
       <p class="o_view_nocontent_smiling_face">Buat data tagging pertama.</p>
     </field>
   </record>
 
   <!-- ===================== MENUS ===================== -->
-  <!-- kalau menu_tagging_root sudah ada di file lain, HAPUS 2 baris ini -->
-  <menuitem id="menu_tagging_root" name="Tagging System" sequence="5"/>
+  <menuitem id="menu_tagging_root" name="Tagging System" sequence="5" />
   <menuitem id="menu_tagging_list" name="Tagging" parent="menu_tagging_root"
-            action="action_tagging_records" sequence="40"/>
+    action="action_tagging_records" sequence="40" />
 
 </odoo>

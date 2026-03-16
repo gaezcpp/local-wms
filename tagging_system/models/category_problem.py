@@ -1,11 +1,30 @@
 from odoo import models, fields
 
 class CategoryProblem(models.Model):
-    _name = 'category.problem'
-    _description = 'Category Problem Master'
-    _rec_name = 'cat_masalah'
+    _name = "category.problem"
+    _description = "Category Problem Master"
+    _rec_name = "cat_masalah"
 
-    sistem = fields.Char(string='Sistem', required=True)
-    sub_sistem = fields.Char(string='Sub Sistem', required=True)
-    cat_masalah = fields.Char(string='Category Masalah', required=True)
+    system_id = fields.Many2one(
+        "tagging.system",
+        string="Sistem",
+        required=True,
+        ondelete="restrict",
+        index=True,
+    )
+
+    subsystem_id = fields.Many2one(
+        "tagging.subsystem",
+        string="Sub Sistem",
+        required=True,
+        ondelete="restrict",
+        index=True,
+        domain="[('system_id', '=', system_id)]",
+    )
+
+    # opsional (kalau kamu butuh cepat cari/filter berdasarkan code)
+    system_code = fields.Char(related="system_id.code", store=True, readonly=True)
+    subsystem_code = fields.Char(related="subsystem_id.code", store=True, readonly=True)
+
+    cat_masalah = fields.Char(string="Category Masalah", required=True)
     active = fields.Boolean(default=True)
