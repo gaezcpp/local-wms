@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-  <data noupdate="0">
+  <data noupdate="1">
 
     <!-- =========================================================
          CRON: SAP Sync Equipment (Maintenance Equipment)
@@ -23,6 +23,15 @@
       <field name="nextcall">2026-02-13 08:00:00</field>
 
       <field name="active">True</field>
+    </record>
+
+    <record id="ir_cron_sync_equipment" model="ir.cron">
+        <field name="name">Synchronize Equipment SKU SAP</field>
+        <field name="model_id" ref="model_maintenance_equipment"/>
+        <field name="state">code</field>
+        <field name="code">model.cron_sync_equipment()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
     </record>
 
   </data>

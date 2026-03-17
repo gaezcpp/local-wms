@@ -29,10 +29,6 @@ class StockInventoryAdjustment(models.Model):
     notes = fields.Text(string="Notes")
     adjustment_line_ids = fields.One2many('stock.inventory.adjustment.line', 'stock_adjustment_id', copy=False)
     
-    def _compute_quant_count(self):
-        for rec in self:
-            rec.quant_count = 1 if rec.quant_id else 0
-    
     def action_in_progress(self):
         Quant = self.env['stock.quant'].sudo()
         for rec in self:
@@ -99,7 +95,6 @@ class StockInventoryAdjustment(models.Model):
                         'package_id': line.package_id.id if line.package_id else False,
                     })
 
-                # quant.inventory_quantity = line.counted_qty
                 # quant.action_apply_inventory()
 
             rec.state = 'validated'

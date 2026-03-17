@@ -1,0 +1,9 @@
+<?xml version="1.0" ?>
+<odoo>
+    <data noupdate="1">
+        <record id="query_funcloc_sap" model="ir.config_parameter">
+            <field name="key">query_funcloc_sap</field>
+            <field name="value">select a.tplnr, d.pltxu, a.tplma, b.swerk, b.abckz from iflot a join iflotx d on a.mandt=d.mandt and a.tplnr=d.tplnr join iloa b on a.mandt=b.mandt and a.tplnr=b.tplnr join t001w c on b.mandt=c.mandt and b.swerk=c.werks</field>
+        </record>
+    </data>
+</odoo>

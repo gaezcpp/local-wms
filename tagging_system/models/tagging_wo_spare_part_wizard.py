@@ -115,12 +115,11 @@ class TaggingWOSparePartWizardLine(models.TransientModel):
     spare_part_id = fields.Many2one(
         "product.product",
         string="Spare Part",
-        ondelete="restrict",
-        index=True
+        ondelete="restrict"
     )
 
     specification = fields.Text(string="Spesifikasi Spare Part")
-    sku = fields.Char(string="SKU", index=True)
+    sku = fields.Char(string="SKU")
     qty = fields.Float(string="Jumlah Spare Part", default=1.0)
 
     # -------------------------

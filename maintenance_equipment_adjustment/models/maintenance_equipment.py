@@ -142,8 +142,6 @@ class MaintenanceEquipment(models.Model):
                 raise ValidationError(_("Sub System is required when System is set."))
             if sub and sys and sub.system_id != sys:
                 raise ValidationError(_("Sub System must belong to selected System."))
-            if rec.company_id and not rec.company_id.company_code:
-                raise ValidationError(_("Company Code must be set on the Company."))
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -172,15 +170,20 @@ class MaintenanceEquipment(models.Model):
     # SAP INTEGRATION HELPERS
     # ==========================================================
     def _get_sap_endpoint(self):
-        return self.env["ir.config_parameter"].sudo().get_param(
-            "tagging_system.sap.endpoint",
-            default="https://saprfc-dev.cpp.co.id/api/v1/zfm-query-data",
-        )
+        # GAEZ Benerin biar ga bingung confignya
+        ip_sap_rfc = self.env['ir.config_parameter'].sudo().get_param('ip_sap_rfc')
+        url = f"{str(ip_sap_rfc)}/api/v1/zfm-query-data"
+        return url
+        # return self.env["ir.config_parameter"].sudo().get_param(
+        #     "tagging_system.sap.endpoint",
+        #     default="https://saprfc-dev.cpp.co.id/api/v1/zfm-query-data",
+        # )
 
     def _get_sap_api_key(self):
-        key = self.env["ir.config_parameter"].sudo().get_param("tagging_system.sap.api_key")
+        # GAEZ Benerin biar ga bingung confignya
+        key = self.env["ir.config_parameter"].sudo().get_param("x_i_api_key")
         if not key:
-            raise UserError(_("SAP API key is not configured (tagging_system.sap.api_key)."))
+            raise UserError(_("SAP API key is not configured (x_i_api_key)."))
         return key
 
     def _post_sap_query(self, query: str, mod: str = ""):
@@ -273,11 +276,6 @@ class MaintenanceEquipment(models.Model):
 
         if werks and "company_registry" in Company._fields:
             comp = Company.search([("company_registry", "=", werks)], limit=1)
-            if comp:
-                return comp
-
-        if werks and "company_code" in Company._fields:
-            comp = Company.search([("company_code", "=", werks)], limit=1)
             if comp:
                 return comp
 
@@ -584,7 +582,7 @@ class MaintenanceEquipment(models.Model):
 
                 Equipment = (
                     EquipmentBase.with_context(
-                        allowed_company_ids=[company.id], force_company=company.id, active_test=False
+                        allowed_company_ids=[company.id], active_test=False
                     ).with_company(company)
                 )
 
@@ -639,7 +637,7 @@ class MaintenanceEquipment(models.Model):
                     continue
 
                 child_ctx = child.sudo().with_company(company).with_context(
-                    allowed_company_ids=[company.id], force_company=company.id, active_test=False
+                    allowed_company_ids=[company.id], active_test=False
                 )
                 child_ctx.write({"parent_equipment_id": parent.id})
 
@@ -666,7 +664,8 @@ class MaintenanceEquipment(models.Model):
     # MAIN CRON ENTRY: Equipment Sync (QUERY TIDAK DIUBAH)
     # ==========================================================
     def cron_sync_equipment(self):
-        query = "select a.equnr as code, b.eqktx as equipment_name, c.hequi as parent, e.idnrk as sku, g.maktg as name, f.abckz as abc_indc, h.werks as company_id, h.name1 as company_name, f.tplnr as functional_location from equi a join eqkt b on a.mandt=b.mandt and a.equnr=b.equnr join equz c on a.mandt=c.mandt and a.equnr=c.equnr left join eqst d on a.mandt=d.mandt and a.equnr=d.equnr left join stpo e on d.mandt=e.mandt and d.stlnr=e.stlnr and e.stlty = 'E' join iloa f on c.mandt=f.mandt and c.iloan=f.iloan left join makt g on e.mandt=g.mandt and e.idnrk=g.matnr left join t001w h on f.mandt=h.mandt and f.swerk=h.werks where f.swerk = '1321'"
+        query = self.env['ir.config_parameter'].sudo().get_param('query_equipment_sku_sap')
+        # query = "select a.equnr as code, b.eqktx as equipment_name, c.hequi as parent, e.idnrk as sku, g.maktg as name, f.abckz as abc_indc, h.werks as company_id, h.name1 as company_name, f.tplnr as functional_location from equi a join eqkt b on a.mandt=b.mandt and a.equnr=b.equnr join equz c on a.mandt=c.mandt and a.equnr=c.equnr left join eqst d on a.mandt=d.mandt and a.equnr=d.equnr left join stpo e on d.mandt=e.mandt and d.stlnr=e.stlnr and e.stlty = 'E' join iloa f on c.mandt=f.mandt and c.iloan=f.iloan left join makt g on e.mandt=g.mandt and e.idnrk=g.matnr left join t001w h on f.mandt=h.mandt and f.swerk=h.werks where f.swerk = '1321'"
         try:
             _logger.warning("SAP equipment query: %s", query)
 

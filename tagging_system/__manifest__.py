@@ -23,6 +23,7 @@
         "data/ir_cron.xml",
         "data/ir_cron_sycn_master_data.xml",
         "data/barcode_tagging_sequence.xml",
+        "data/parameter.xml",
 
         # Masters / Reference
         "views/category_problem_view.xml",
@@ -41,9 +42,6 @@
         "views/tagging_record_close_wizard.xml",
         "views/tagging_wo_sparepart_wizard_views.xml",
         "views/tagging_bom_import_wizard_views.xml",
-        
-        #company
-        "views/res_company_view.xml",
 
         # Dashboard action
         "views/tagging_dashboard_action.xml",
@@ -65,4 +63,5 @@
     },
     "installable": True,
     "application": True,
+    'category': 'PM',
 }

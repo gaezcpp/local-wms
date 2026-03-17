@@ -21,7 +21,6 @@ class TaggingRecord(models.Model):
         "res.users",
         string="Created By",
         required=True,
-        index=True,
         default=lambda self: self.env.user,
         readonly=True,
     )
@@ -51,7 +50,6 @@ class TaggingRecord(models.Model):
     barcode_id = fields.Many2one(
         "barcode.tagging",
         string="Barcode",
-        index=True,
         ondelete="restrict",
         tracking=True,
     )   
@@ -67,7 +65,6 @@ class TaggingRecord(models.Model):
     pic_id = fields.Many2one(
         "tagging.pic",
         string="PIC",
-        index=True,
         ondelete="restrict",
         tracking=True,
     )
@@ -75,7 +72,6 @@ class TaggingRecord(models.Model):
     category_problem_id = fields.Many2one(
         "category.problem",
         string="Category Problem",
-        index=True,
         ondelete="restrict",
         tracking=True,
     )
@@ -95,7 +91,6 @@ class TaggingRecord(models.Model):
     machine_bom_id = fields.Many2one(
         "tagging.machine_bom",
         string="Equipment (Master)",
-        index=True,
         ondelete="restrict",
         tracking=True,
     )
@@ -243,7 +238,6 @@ class TaggingRecord(models.Model):
         default="open",
         tracking=True,
         required=True,
-        index=True,
     )
 
     reject_reason = fields.Text(string="Reject Reason", tracking=True)
@@ -560,14 +554,14 @@ class TaggingRecord(models.Model):
 
         records = super().create(vals_list)
 
-        for rec in records:
-            try:
-                rec._send_email_to_department()
-            except Exception as e:
-                _logger.exception("Gagal kirim email tagging untuk %s", rec.name)
-                # optional: catat ke chatter kalau model punya mail.thread
-                if hasattr(rec, "message_post"):
-                    rec.message_post(body=f"⚠️ Gagal kirim email otomatis: {e}")
+        # for rec in records:
+        #     try:
+        #         rec._send_email_to_department()
+        #     except Exception as e:
+        #         _logger.exception("Gagal kirim email tagging untuk %s", rec.name)
+        #         # optional: catat ke chatter kalau model punya mail.thread
+        #         if hasattr(rec, "message_post"):
+        #             rec.message_post(body=f"⚠️ Gagal kirim email otomatis: {e}")
 
         return records
 

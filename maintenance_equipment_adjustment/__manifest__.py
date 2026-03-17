@@ -10,6 +10,7 @@
     "data": [
         "security/ir.model.access.csv",
         "data/sequence.xml",
+        "data/parameter.xml",
         "data/ic_cron.xml",
         "views/business_area_views.xml",
         "views/maintenance_equipment_views.xml",
@@ -18,4 +19,5 @@
     ],
     "application": False,
     "installable": True,
+    'category': 'PM',
 }

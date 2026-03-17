@@ -10,7 +10,6 @@ class CategoryProblem(models.Model):
         string="Sistem",
         required=True,
         ondelete="restrict",
-        index=True,
     )
 
     subsystem_id = fields.Many2one(
@@ -18,7 +17,6 @@ class CategoryProblem(models.Model):
         string="Sub Sistem",
         required=True,
         ondelete="restrict",
-        index=True,
         domain="[('system_id', '=', system_id)]",
     )
 

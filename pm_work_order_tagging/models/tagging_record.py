@@ -9,7 +9,7 @@ class InheritTaggingRecord(models.Model):
         for rec in self:
             if rec.status == 'validated':
                 if not rec.parent_equipment_id:
-                    raise ValidationError("Untuk membentuk WO harus mengisi Equipment terlebih dahulu!")
+                    raise ValidationError("Untuk membentuk WO harus mengisi Parent Equipment terlebih dahulu!")
                 if not rec.equipment_id:
                     raise ValidationError("Untuk membentuk WO harus mengisi Equipment terlebih dahulu!")
                 

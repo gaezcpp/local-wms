@@ -96,6 +96,7 @@
                     </group>
 
                     <group string="QR Code">
+                        <field name="qr_link" force_save="1" readonly="1"/>
                         <field name="qr_image" widget="image" options="{'preview_image': 'qr_image'}"/>
                         <div class="o_form_label">
                             Klik Generate QR untuk membuat QR dari barcode_code.

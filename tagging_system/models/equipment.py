@@ -2,7 +2,7 @@ import requests
 import json
 import logging
 from odoo import models, fields, api, _
-from odoo.exceptions import UserError
+from odoo.exceptions import UserError, ValidationError
 
 _logger = logging.getLogger(__name__)
 
@@ -12,22 +12,16 @@ class TaggingSystem(models.Model):
     _description = "Tagging System"
     _order = "name asc"
 
-    name = fields.Char(required=True, index=True)
-    code = fields.Char(required=True, index=True)
+    name = fields.Char(required=True)
+    code = fields.Char(required=True)
     active = fields.Boolean(default=True)
 
-    company_id = fields.Many2one(
-        "res.company",
-        string="Plant",
-        required=True,
-        default=lambda self: self.env.company,
-        index=True,
-    )
+    company_id = fields.Many2one("res.company", string="Plant", required=True, default=lambda self: self.env.company)
     # =========================
     # INTEGRATION AUDIT FIELDS
     # =========================
-    sap_tplnr = fields.Char(string="SAP Functional Location Code", index=True)  # biasanya sama dengan code
-    sap_werks = fields.Char(string="SAP Plant Code (WERKS)", index=True)
+    sap_tplnr = fields.Char(string="SAP Functional Location Code")  # biasanya sama dengan code
+    sap_werks = fields.Char(string="SAP Plant Code (WERKS)")
     last_sync_at = fields.Datetime(string="Last Sync At", readonly=True)
     sync_status = fields.Selection(
         [("success", "Success"), ("failed", "Failed")],
@@ -35,6 +29,7 @@ class TaggingSystem(models.Model):
         readonly=True,
     )
     sync_message = fields.Text(string="Sync Message", readonly=True)
+    sap_synchronize = fields.Boolean(string="SAP Synchronize")
     _sql_constraints = [
     (
         "tagging_system_code_company_uniq",
@@ -49,15 +44,15 @@ class TaggingSubSystem(models.Model):
     _description = "Tagging Sub System"
     _order = "name asc"
 
-    name = fields.Char(required=True, index=True)
-    code = fields.Char(required=True, index=True)
-    system_id = fields.Many2one("tagging.system", required=True, ondelete="cascade", index=True)
+    name = fields.Char(required=True)
+    code = fields.Char(required=True)
+    system_id = fields.Many2one("tagging.system", required=True, ondelete="cascade")
     active = fields.Boolean(default=True)
        # =========================
     # INTEGRATION AUDIT FIELDS
     # =========================
-    sap_tplnr = fields.Char(string="SAP Functional Location Code", index=True)  # biasanya sama dengan code
-    sap_werks = fields.Char(string="SAP Plant Code (WERKS)", index=True)
+    sap_tplnr = fields.Char(string="SAP Functional Location Code")  # biasanya sama dengan code
+    sap_werks = fields.Char(string="SAP Plant Code (WERKS)")
     last_sync_at = fields.Datetime(string="Last Sync At", readonly=True)
     sync_status = fields.Selection(
         [("success", "Success"), ("failed", "Failed")],
@@ -65,6 +60,8 @@ class TaggingSubSystem(models.Model):
         readonly=True,
     )
     sync_message = fields.Text(string="Sync Message", readonly=True)
+    sap_synchronize = fields.Boolean(string="SAP Synchronize", readonly=True)
+    company_id = fields.Many2one("res.company", string="Plant", required=True, default=lambda self: self.env.company)
     
     _sql_constraints = [
         ("tagging_subsystem_code_per_system_uniq",
@@ -78,9 +75,9 @@ class TaggingMachineUnit(models.Model):
     _description = "Tagging Unit Mesin"
     _order = "name asc"
 
-    name = fields.Char(required=True, index=True)
-    subsystem_id = fields.Many2one("tagging.subsystem", required=True, ondelete="cascade", index=True)
-    bu_id = fields.Many2one("tagging.bu", required=True, ondelete="restrict", index=True)
+    name = fields.Char(required=True)
+    subsystem_id = fields.Many2one("tagging.subsystem", required=True, ondelete="cascade")
+    bu_id = fields.Many2one("tagging.bu", required=True, ondelete="restrict")
     active = fields.Boolean(default=True)
 
 
@@ -89,8 +86,8 @@ class TaggingMachinePart(models.Model):
     _description = "Tagging Bagian Mesin"
     _order = "name asc"
 
-    name = fields.Char(required=True, index=True)
-    unit_id = fields.Many2one("tagging.machine_unit", required=True, ondelete="cascade", index=True)
+    name = fields.Char(required=True)
+    unit_id = fields.Many2one("tagging.machine_unit", required=True, ondelete="cascade")
     active = fields.Boolean(default=True)
 
 
@@ -99,15 +96,14 @@ class TaggingSparePart(models.Model):
     _description = "Tagging Spare Part Master"
     _order = "name asc"
 
-    name = fields.Char(required=True, index=True)
+    name = fields.Char(required=True)
     specification = fields.Text(string="Spesifikasi Spare Part")
-    sku = fields.Char(string="SKU", index=True)
-    bu_id = fields.Many2one("tagging.bu", string="BU", ondelete="restrict", index=True)
+    sku = fields.Char(string="SKU")
+    bu_id = fields.Many2one("tagging.bu", string="BU", ondelete="restrict")
     company_id = fields.Many2one(
         "res.company",
         string="Plant",
         ondelete="restrict",
-        index=True,
         required=True,
         default=lambda self: self.env.company,
     )
@@ -118,7 +114,6 @@ class TaggingSparePart(models.Model):
         "product.product",
         string="Product",
         required=False,
-        index=True,
         ondelete="restrict",
     )
 
@@ -131,13 +126,12 @@ class TaggingMachineBOM(models.Model):
     _description = "Equipment Tree / BOM"
     _order = "system_id, subsystem_id, unit_id, part_id, spare_part_id"
 
-    system_id = fields.Many2one("tagging.system", required=True, ondelete="restrict", index=True)
+    system_id = fields.Many2one("tagging.system", required=True, ondelete="restrict")
 
     subsystem_id = fields.Many2one(
         "tagging.subsystem",
         required=True,
         ondelete="restrict",
-        index=True,
         domain="[('system_id', '=', system_id)]",
     )
 
@@ -145,7 +139,6 @@ class TaggingMachineBOM(models.Model):
         "tagging.machine_unit",
         required=True,
         ondelete="restrict",
-        index=True,
         domain="[('subsystem_id', '=', subsystem_id)]",
     )
 
@@ -153,16 +146,15 @@ class TaggingMachineBOM(models.Model):
         "tagging.machine_part",
         required=True,
         ondelete="restrict",
-        index=True,
         domain="[('unit_id', '=', unit_id)]",
     )
 
-    spare_part_id = fields.Many2one("tagging.spare_part", required=True, ondelete="restrict", index=True)
+    spare_part_id = fields.Many2one("tagging.spare_part", required=True, ondelete="restrict")
 
     # snapshot dari spare part master (auto keisi saat pilih spare_part_id)
     specification = fields.Text(string="Spesifikasi (Snapshot)")
-    sku = fields.Char(string="SKU (Snapshot)", index=True)
-    bu_id = fields.Many2one("tagging.bu", string="BU (Snapshot)", ondelete="restrict", index=True)
+    sku = fields.Char(string="SKU (Snapshot)")
+    bu_id = fields.Many2one("tagging.bu", string="BU (Snapshot)", ondelete="restrict")
 
     active = fields.Boolean(default=True)
     display_name = fields.Char(compute="_compute_display_name", store=True)
@@ -276,20 +268,144 @@ class TaggingMachineBOM(models.Model):
 class TaggingSapSyncService(models.AbstractModel):
     _name = "tagging.sap.sync.service"
     _description = "SAP → Odoo Sync Service (Functional Location)"
+    
+    #### FIXING, TUNNING & CLEANSING CODE ####
+    
+    @api.model
+    def cron_synchronize_sap_functional_location(self):
+        raise ValidationError("GAJADI PAKE PUNYA GAEZ, masih tetep pakai [cron_sync_functional_location]")
+        icp = self.env['ir.config_parameter'].sudo()
+
+        x_i_api_key = icp.get_param('x_i_api_key')
+        ip_sap_rfc = icp.get_param('ip_sap_rfc')
+        query_funcloc_sap = icp.get_param('query_funcloc_sap')
+
+        if not x_i_api_key:
+            raise ValidationError("x_i_api_key belum disetting!")
+        if not ip_sap_rfc:
+            raise ValidationError("ip_sap_rfc belum disetting!")
+        if not query_funcloc_sap:
+            raise ValidationError("query_funcloc_sap belum disetting!")
+
+        headers = {
+            "x-i-api-key": str(x_i_api_key),
+            "Content-Type": "application/json"
+        }
+
+        url = f"{ip_sap_rfc}/api/v1/zfm-query-data"
+        body = {
+            "I_QUERY": str(query_funcloc_sap),
+            "I_MOD": "CRON cron_synchronize_sap_functional_location"
+        }
+
+        try:
+            response = requests.post(url=url, headers=headers, data=json.dumps(body))
+            res = response.json()
+        except Exception as e:
+            raise ValidationError(str(e))
+
+        if res.get('error'):
+            raise ValidationError(json.dumps(res.get('error')))
+
+        if not res.get('success'):
+            _logger.info("=== CRON NOT SUCCESS ===")
+            return True
+
+        data_list = res.get('data', [])
+        _logger.info(f"TOTAL DATA FUNCLOC : {len(data_list)}")
+
+        system_model = self.env['tagging.system'].sudo()
+        subsystem_model = self.env['tagging.subsystem'].sudo()
+        company_model = self.env['res.company'].sudo()
+
+        # cache untuk performa
+        company_cache = {}
+        system_cache = {}
+        subsystem_cache = set()
+
+        existing_subsystems = subsystem_model.search([]).mapped(lambda r: (r.code, r.company_id.id, r.system_id.id))
+        subsystem_cache.update(existing_subsystems)
+
+        unique_data = {}
+        for d in data_list:
+            key = (d.get('TPLNR'), d.get('TPLMA'), d.get('SWERK'))
+            unique_data[key] = d
+
+        for data in unique_data.values():
+            company_registry = data.get('SWERK')
+            if not company_registry:
+                continue
+
+            if company_registry not in company_cache:
+                company_cache[company_registry] = company_model.search([
+                    ('company_registry', '=', company_registry),
+                    ('sync_pm', '=', True)
+                ], limit=1)
+
+            company = company_cache.get(company_registry)
+            if not company:
+                continue
+
+            code_ref = (data.get('TPLNR') or '').strip()
+            name_ref = (data.get('PLTXU') or '').strip()
+            parent_ref = (data.get('TPLMA') or '').strip()
+
+            if not parent_ref:
+                continue
+
+            system_key = (parent_ref, company.id)
+            if system_key not in system_cache:
+                parent = system_model.search([('code', '=', parent_ref),('company_id', '=', company.id)], limit=1)
+                if not parent:
+                    parent = system_model.create({
+                        'company_id': company.id,
+                        'name': parent_ref,
+                        'code': parent_ref,
+                        'sap_synchronize': True,
+                        'active': True,
+                        "last_sync_at": fields.Datetime.now(),
+                    })
+                    _logger.info(f"SYSTEM {parent_ref} CREATED")
+                system_cache[system_key] = parent
+            else:
+                parent = system_cache[system_key]
+            
+            subsystem_key = (code_ref, company.id, parent.id)
+            if subsystem_key in subsystem_cache:
+                continue
+            
+            if len(parent.code) >= 11:
+                subsystem_model.create({
+                    'company_id': company.id,
+                    'system_id': parent.id,
+                    'name': name_ref,
+                    'code': code_ref,
+                    'sap_tplnr': code_ref,
+                    'sap_werks': company_registry,
+                    'sap_synchronize': True,
+                    'active': True,
+                })
+
+                subsystem_cache.add(subsystem_key)
+                _logger.info(f"SUBSYSTEM {code_ref} CREATED")
+
+    #### FIXING, TUNNING & CLEANSING CODE ####
 
     # -------------------------
     # Config helpers
     # -------------------------
     def _get_sap_endpoint(self):
-        return self.env["ir.config_parameter"].sudo().get_param(
-            "tagging_system.sap.endpoint",
-            default="https://saprfc-dev.cpp.co.id/api/v1/zfm-query-data"
-        )
-
+        # GAEZ Benerin biar ga bingung confignya
+        ip_sap_rfc = self.env['ir.config_parameter'].sudo().get_param('ip_sap_rfc')
+        url = f"{str(ip_sap_rfc)}/api/v1/zfm-query-data"
+        return url
+        # return self.env["ir.config_parameter"].sudo().get_param(
+        #     "tagging_system.sap.endpoint",
+        #     default="https://saprfc-dev.cpp.co.id/api/v1/zfm-query-data"
+        # )
     
     def _normalize_row_keys(self, row: dict) -> dict:
         return { (k or "").lower(): v for k, v in (row or {}).items() }
-
 
     def action_sync_functional_location_test(self):
         """Manual test: show popup success/failed."""
@@ -325,10 +441,15 @@ class TaggingSapSyncService(models.AbstractModel):
             }
             
     def _get_sap_api_key(self):
-        key = self.env["ir.config_parameter"].sudo().get_param("tagging_system.sap.api_key")
+        # GAEZ Benerin biar ga bingung confignya
+        key = self.env["ir.config_parameter"].sudo().get_param("x_i_api_key")
         if not key:
-            raise UserError(_("SAP API key is not configured (tagging_system.sap.api_key)."))
+            raise UserError(_("SAP API key is not configured (x_i_api_key)."))
         return key
+        # key = self.env["ir.config_parameter"].sudo().get_param("tagging_system.sap.api_key")
+        # if not key:
+        #     raise UserError(_("SAP API key is not configured (tagging_system.sap.api_key)."))
+        # return key
 
     def _post_sap_query(self, query: str, mod: str = ""):
         """
@@ -389,12 +510,6 @@ class TaggingSapSyncService(models.AbstractModel):
             if c:
                 return c
 
-        # 2) fallback: kalau masih ada company_code dipakai juga
-        if company_id and "company_code" in Company._fields:
-            c = Company.search([("company_code", "=", company_id)], limit=1)
-            if c:
-                return c
-
         # 3) fallback: match name ilike COMPANY_NAME
         if company_name:
             c = Company.search([("name", "=ilike", company_name)], limit=1)
@@ -450,7 +565,6 @@ class TaggingSapSyncService(models.AbstractModel):
         sap_company_id = (row.get("company_id") or "").strip()
         sap_company_name = (row.get("company_name") or "").strip()
 
-        # mapping company pakai helper kamu (company_registry -> company_code -> name)
         company = self._find_company_from_sap(sap_company_id, sap_company_name)
 
         # pakai env company yg benar (multi-company safe)
@@ -531,9 +645,10 @@ class TaggingSapSyncService(models.AbstractModel):
         1) create/update System (level 4)
         2) create/update Subsystem (level 5), relasi ke parent system
         """
-        query = """
-                select a.tplnr as code, d.pltxu as name, a.tplma as parent ,b.swerk as company_id, c.name1 as company_name, b.abckz as abc_indc from iflot a join iflotx d on a.mandt=d.mandt and a.tplnr=d.tplnr join iloa b on a.mandt=b.mandt and a.tplnr=b.tplnr join t001w c on b.mandt=c.mandt and b.swerk=c.werks where a.tplnr like 'CPB%'
-                """
+        # query = """
+        #         select a.tplnr as code, d.pltxu as name, a.tplma as parent ,b.swerk as company_id, c.name1 as company_name, b.abckz as abc_indc from iflot a join iflotx d on a.mandt=d.mandt and a.tplnr=d.tplnr join iloa b on a.mandt=b.mandt and a.tplnr=b.tplnr join t001w c on b.mandt=c.mandt and b.swerk=c.werks where a.tplnr like 'CPB%'
+        #         """
+        query = self.env['ir.config_parameter'].sudo().get_param('query_funcloc_sap')
         try:
             sap = self._post_sap_query(query, mod="")
             rows = self._extract_rows(sap)

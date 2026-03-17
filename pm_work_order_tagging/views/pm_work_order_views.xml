@@ -46,18 +46,20 @@
                     </h1>
                     <group>
                         <group name="pm_left">
+                            <field name="wo_sap" force_save="1" readonly="1"/>
                             <field name="type_mo" force_save="1" readonly="1"/>
-                            <field name="tagging_id" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1"/>
-                            <field name="company_id" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1"/>
-                            <field name="create_date" force_save="1" readonly="1"/>
                             <field name="maintenance_type" force_save="1" readonly="1"/>
+                            <field name="priority" force_save="1" readonly="1"/>
+                            <field name="tagging_id" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1"/>
+                            <field name="sap_synchronize" force_save="1" readonly="1"/>
                         </group>
                         <group name="pm_right">
                             <field name="system_id" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1"/>
                             <field name="sub_system_id" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1"/>
                             <field name="equipment_id" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1"/>
                             <field name="sub_equipment_id" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1"/>
-                            <field name="priority" force_save="1" readonly="1"/>
+                            <field name="company_id" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1"/>
+                            <field name="create_date" force_save="1" readonly="1"/>
                         </group>
                         <field name="pm_wo_material_line_ids" readonly="1">
                             <list create="0" edit="0" delete="0">
@@ -71,13 +73,13 @@
                                 <field name="pm_work_order_id" readonly="1" options="{'no_open': True, 'no_create': True}"/>
                             </form>
                         </field>
-                        <separator string="Close Evidence"/>
-                            <group>
-                                <field name="date_from" readonly="state != 'draft'"/>
-                                <field name="date_to" readonly="state != 'draft'"/>
-                                <field name="analysis" readonly="state != 'draft'"/>
-                                <field name="problem_handling" readonly="state != 'draft'"/>
-                                <field name="photo_attachment" readonly="state != 'draft'"/>
+                        <separator string="Close Evidence" invisible="not sap_synchronize"/>
+                            <group invisible="not sap_synchronize">
+                                <field name="date_from" readonly="state != 'draft' and not sap_synchronize"/>
+                                <field name="date_to" readonly="state != 'draft' and not sap_synchronize"/>
+                                <field name="analysis" readonly="state != 'draft' and not sap_synchronize"/>
+                                <field name="problem_handling" readonly="state != 'draft' and not sap_synchronize"/>
+                                <field name="photo_attachment" readonly="state != 'draft' and not sap_synchronize"/>
                             </group>
                     </group>
                 </sheet>

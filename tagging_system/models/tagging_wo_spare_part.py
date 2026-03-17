@@ -10,15 +10,13 @@ class TaggingWOSparePart(models.Model):
     record_id = fields.Many2one(
         "tagging.record",
         required=True,
-        ondelete="cascade",
-        index=True,
+        ondelete="cascade"
     )
 
     machine_bom_id = fields.Many2one(
         "tagging.machine_bom",
         string="Kategori Unit Mesin",
-        ondelete="restrict",
-        index=True,
+        ondelete="restrict"
     )
 
     equipment_id = fields.Many2one(
@@ -32,20 +30,18 @@ class TaggingWOSparePart(models.Model):
     part_id = fields.Many2one(
         "tagging.machine_part",
         string="Kategori Bagian Mesin",
-        ondelete="restrict",
-        index=True,
+        ondelete="restrict"
     )
 
     spare_part_id = fields.Many2one(
         "product.product",
         string="Spare Part",
         required=True,
-        ondelete="restrict",
-        index=True,
+        ondelete="restrict"
     )
 
     specification = fields.Text(string="Spesifikasi Spare Part")
-    sku = fields.Char(string="SKU", index=True)
+    sku = fields.Char(string="SKU")
     qty = fields.Float(string="Jumlah Spare Part", default=1.0)
 
     remarks = fields.Text(string="Remarks", required=True)

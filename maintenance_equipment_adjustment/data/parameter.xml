@@ -1,0 +1,9 @@
+<?xml version="1.0" ?>
+<odoo>
+    <data noupdate="1">
+        <record id="query_equipment_sku_sap" model="ir.config_parameter">
+            <field name="key">query_equipment_sku_sap</field>
+            <field name="value">select a.equnr as code, b.eqktx as equipment_name, c.hequi as parent, e.idnrk as sku, g.maktg as name, f.abckz as abc_indc, h.werks as company_id, h.name1 as company_name, f.tplnr as functional_location from equi a join eqkt b on a.mandt=b.mandt and a.equnr=b.equnr join equz c on a.mandt=c.mandt and a.equnr=c.equnr left join eqst d on a.mandt=d.mandt and a.equnr=d.equnr left join stpo e on d.mandt=e.mandt and d.stlnr=e.stlnr and e.stlty = 'E' join iloa f on c.mandt=f.mandt and c.iloan=f.iloan left join makt g on e.mandt=g.mandt and e.idnrk=g.matnr left join t001w h on f.mandt=h.mandt and f.swerk=h.werks</field>
+        </record>
+    </data>
+</odoo>

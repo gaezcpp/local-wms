@@ -17,7 +17,6 @@ class BarcodeTagging(models.Model):
         required=True,
         copy=False,
         readonly=True,
-        index=True,
         default=lambda self: self.env["ir.sequence"].next_by_code("barcode.tagging.code") or _("New"),
     )
     display_name = fields.Char(compute="_compute_display_name", store=True)
@@ -27,7 +26,6 @@ class BarcodeTagging(models.Model):
         "res.company",
         string="Plant",
         required=True,
-        index=True,
         default=lambda self: self.env.company,
         ondelete="restrict",
     )
@@ -69,14 +67,12 @@ class BarcodeTagging(models.Model):
         string="System",
         required=True,
         ondelete="restrict",
-        index=True,
     )
 
     subsystem_id = fields.Many2one(
         "tagging.subsystem",
         string="Sub System",
         ondelete="restrict",
-        index=True,
     )
     system_code = fields.Char(related="system_id.code", store=True, readonly=True)
     subsystem_code = fields.Char(related="subsystem_id.code", store=True, readonly=True)
@@ -96,6 +92,8 @@ class BarcodeTagging(models.Model):
         readonly=True,
         attachment=True,
     )
+    
+    qr_link = fields.Text(string="QR Link", readonly=True)
 
 
     _sql_constraints = [
@@ -193,6 +191,7 @@ class BarcodeTagging(models.Model):
             img.save(buff, format="PNG")
 
             rec.qr_image = base64.b64encode(buff.getvalue())
+            rec.qr_link = qr_url
 
         return {
             "type": "ir.actions.client",

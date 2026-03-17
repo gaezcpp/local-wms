@@ -18,13 +18,6 @@ class TaggingDepartment(models.Model):
         ondelete="restrict",
     )
 
-    company_code = fields.Char(
-        string="Company Code",
-        related="company_id.company_code",
-        store=True,
-        readonly=True,
-    )
-
 
 class TaggingBU(models.Model):
     _name = "tagging.bu"
@@ -45,7 +38,7 @@ class TaggingPic(models.Model):
     _order = "email asc"
     _rec_name = "email"
 
-    email = fields.Char(string="Email PIC", required=True, index=True)
+    email = fields.Char(string="Email PIC", required=True)
     cc = fields.Text(string="CC Emails")  # <--- TEXT, bukan Boolean
 
     department_ids = fields.Many2many(

@@ -23,6 +23,8 @@ Handover task dari Bayu (tagging dan maintenance)
     'data': [
         'security/ir.model.access.csv',
         'data/sequence.xml',
+        'data/parameter.xml',
+        'data/cron.xml',
         'views/pm_work_order_views.xml',
         'views/tagging_record_views.xml',
         'views/menuitem.xml',
