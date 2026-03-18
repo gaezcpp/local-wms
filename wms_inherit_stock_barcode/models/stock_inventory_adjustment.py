@@ -22,12 +22,18 @@ class StockInventoryAdjustment(models.Model):
     quant_count = fields.Integer(compute='_compute_quant_count')
     state = fields.Selection([
         ('draft', 'Draft'),
+        ('ready', 'Ready'),
         ('in_progress', 'In Progress'),
         ('validated', 'Validated'),
         ('cancelled', 'Cancelled')
     ], default='draft')
     notes = fields.Text(string="Notes")
-    adjustment_line_ids = fields.One2many('stock.inventory.adjustment.line', 'stock_adjustment_id', copy=False)
+    stock_type = fields.Selection([
+        ('QI', 'QI'),
+        ('Blocked', 'Blocked'),
+        ('UU', 'UU')], string="Stock Type", default=False)
+    adjustment_line_ids = fields.One2many('stock.inventory.adjustment.line', 'stock_adjustment_id', copy=False, ondelete='cascade')
+    summary_line_ids = fields.One2many('stock.inventory.adjustment.summary', 'stock_adjustment_id', copy=False, ondelete='cascade')
     
     def action_in_progress(self):
         Quant = self.env['stock.quant'].sudo()

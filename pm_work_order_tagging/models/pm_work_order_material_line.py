@@ -8,6 +8,6 @@ class PMWorkOrderMaterialLine(models.Model):
     
     pm_work_order_id = fields.Many2one(comodel_name='pm.work.order')
     sequence = fields.Integer(string="Sequence")
-    product_sparepart_id = fields.Many2one(comodel_name='tagging.spare_part', string="SKU")
-    product_material = fields.Char(string='Material')
+    product_sparepart_id = fields.Many2one(comodel_name='tagging.spare_part', string="Material")
+    product_material = fields.Char(string='SKU')
     quantity = fields.Float(string="Quantity")

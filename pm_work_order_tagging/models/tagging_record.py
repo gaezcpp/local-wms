@@ -5,6 +5,17 @@ from odoo.exceptions import ValidationError
 class InheritTaggingRecord(models.Model):
     _inherit = 'tagging.record'
     
+    tagging_type_notification_id = fields.Many2one(comodel_name='tagging.type.notification', string="Notification Type", tracking=True)
+    notification_desc = fields.Text(string="Notification Desc", tracking=True)
+    
+    @api.onchange('tagging_type_notification_id')
+    def _onchange_tagging_notif(self):
+        for rec in self:
+            if rec.tagging_type_notification_id:
+                rec.notification_desc = rec.tagging_type_notification_id.desc
+            else:
+                rec.notification_desc = False
+    
     def action_set_create_work_order(self):
         for rec in self:
             if rec.status == 'validated':

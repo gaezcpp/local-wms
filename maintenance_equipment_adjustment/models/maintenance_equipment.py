@@ -172,6 +172,8 @@ class MaintenanceEquipment(models.Model):
     def _get_sap_endpoint(self):
         # GAEZ Benerin biar ga bingung confignya
         ip_sap_rfc = self.env['ir.config_parameter'].sudo().get_param('ip_sap_rfc')
+        if not ip_sap_rfc:
+            ip_sap_rfc = self.env['ir.config_parameter'].sudo().get_param('ip_sap_rfc_tagging')
         url = f"{str(ip_sap_rfc)}/api/v1/zfm-query-data"
         return url
         # return self.env["ir.config_parameter"].sudo().get_param(
@@ -183,7 +185,7 @@ class MaintenanceEquipment(models.Model):
         # GAEZ Benerin biar ga bingung confignya
         key = self.env["ir.config_parameter"].sudo().get_param("x_i_api_key")
         if not key:
-            raise UserError(_("SAP API key is not configured (x_i_api_key)."))
+            key = self.env["ir.config_parameter"].sudo().get_param("x_i_api_key_tagging")
         return key
 
     def _post_sap_query(self, query: str, mod: str = ""):

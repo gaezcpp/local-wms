@@ -148,11 +148,11 @@
             </group>
           </group>
 
-          <group string="Category Problem">
+          <group name="tag_categ" string="Category Problem">
             <field name="category_problem_id" readonly="1" />
           </group>
 
-          <group string="Equipment"
+          <group name="tag_equipment" string="Equipment"
             invisible="status not in ('validated','open_wo','closed')">
 
             <field name="system_id" invisible="1" />

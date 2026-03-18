@@ -12,4 +12,12 @@
         action="pm_work_order_tagging.pm_work_order_action"
         sequence="1"
     />
+
+    <menuitem
+        id="tagging_type_notification_menu"
+        name="Type Notification"
+        parent="tagging_system.menu_equipment_master_root"
+        action="pm_work_order_tagging.tagging_type_notification_action"
+        sequence="70"
+    />
 </odoo>

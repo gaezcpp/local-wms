@@ -55,9 +55,11 @@ class PlanMaintenanceWorkOrder(models.Model):
         query_work_order_material_sap = icp.get_param('query_work_order_material_sap')
 
         if not x_i_api_key:
-            raise ValidationError("x_i_api_key belum disetting!")
+            x_i_api_key = icp.get_param('x_i_api_key_tagging')
+            # raise ValidationError("x_i_api_key belum disetting!")
         if not ip_sap_rfc:
-            raise ValidationError("ip_sap_rfc belum disetting!")
+            ip_sap_rfc = icp.get_param('ip_sap_rfc_tagging')
+            # raise ValidationError("ip_sap_rfc belum disetting!")
         if not query_work_order_material_sap:
             raise ValidationError("query_work_order_material_sap belum disetting!")
 
@@ -124,32 +126,36 @@ class PlanMaintenanceWorkOrder(models.Model):
                 qty = float(rec.get('BDMNG') or 0.0)
                 if not sku:
                     continue
-                if sku not in unique_materials:
-                    unique_materials[sku] = qty
-                # else:
-                #     unique_materials[sku] += qty
+                unique_materials[sku] = qty
 
-            existing_skus = set(work_order.pm_wo_material_line_ids.mapped('product_material'))
+            existing_lines = {
+                line.product_sparepart_id.sku: line
+                for line in work_order.pm_wo_material_line_ids
+                if line.product_sparepart_id and line.product_sparepart_id.sku
+            }
+
             sequence = len(work_order.pm_wo_material_line_ids)
 
             create_vals = []
             for sku, qty in unique_materials.items():
-                if sku in existing_skus:
-                    continue
-
                 product = spare_part_model.search([('sku', '=', sku)], limit=1)
                 if not product:
                     continue
 
-                sequence += 1
-
-                create_vals.append({
-                    'pm_work_order_id': work_order.id,
-                    'sequence': sequence,
-                    'product_sparepart_id': product.id,
-                    'product_material': product.name,
-                    'quantity': qty,
-                })
+                if sku in existing_lines:
+                    existing_lines[sku].write({
+                        'product_material': product.sku,
+                        'quantity': qty,
+                    })
+                else:
+                    sequence += 1
+                    create_vals.append({
+                        'pm_work_order_id': work_order.id,
+                        'sequence': sequence,
+                        'product_sparepart_id': product.id,
+                        'product_material': product.sku,
+                        'quantity': qty,
+                    })
 
             if create_vals:
                 wo_material_line_model.create(create_vals)

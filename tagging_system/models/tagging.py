@@ -554,14 +554,14 @@ class TaggingRecord(models.Model):
 
         records = super().create(vals_list)
 
-        # for rec in records:
-        #     try:
-        #         rec._send_email_to_department()
-        #     except Exception as e:
-        #         _logger.exception("Gagal kirim email tagging untuk %s", rec.name)
-        #         # optional: catat ke chatter kalau model punya mail.thread
-        #         if hasattr(rec, "message_post"):
-        #             rec.message_post(body=f"⚠️ Gagal kirim email otomatis: {e}")
+        for rec in records:
+            try:
+                rec._send_email_to_department()
+            except Exception as e:
+                _logger.exception("Gagal kirim email tagging untuk %s", rec.name)
+                # optional: catat ke chatter kalau model punya mail.thread
+                if hasattr(rec, "message_post"):
+                    rec.message_post(body=f"⚠️ Gagal kirim email otomatis: {e}")
 
         return records
 
