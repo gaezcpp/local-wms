@@ -22,6 +22,7 @@ Long description of module's purpose
     # always loaded
     'data': [
         'data/parameter.xml',
+        'data/sequence.xml',
         'security/ir.model.access.csv',
         'views/product_template_views.xml',
         'views/stock_package_views.xml',

@@ -11,6 +11,11 @@ class StockInventoryAdjustmentLine(models.Model):
     location_id = fields.Many2one('stock.location', required=True)
     lot_id = fields.Many2one('stock.lot')
     package_id = fields.Many2one('stock.package')
+    package_status = fields.Selection([
+        ('QI', 'QI'),
+        ('Blocked', 'Blocked'),
+        ('UU', 'UU')
+    ], string="Package Status", default=False)
     quantity = fields.Float()
     inventory_quantity = fields.Float()
     inventory_diff_quantity = fields.Float()

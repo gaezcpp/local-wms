@@ -1,0 +1,11 @@
+<?xml version='1.0' encoding='utf-8'?>
+<odoo>
+    <data noupdate="1">
+        <record id="seq_stock_inventory_adjustment" model="ir.sequence">
+            <field name="name">Stock Inventory Adjustment</field>
+            <field name="code">stock.inventory.adjustment</field>
+            <field name="prefix">SIA-</field>
+            <field name="padding">4</field>
+        </record>
+    </data>
+</odoo>

@@ -33,8 +33,10 @@
         <field name="model">stock.inventory.adjustment</field>
         <field name="arch" type="xml">
             <form string="Inventory Adjustment">
+                <field name="is_checked" invisible="1"/>
                 <header>
-                    <button name="action_in_progress" string="Confirm" type="object" class="oe_highlight" invisible="state != 'draft'"/>
+                    <button name="check_details" string="Get Details" type="object" class="oe_highlight" invisible="state != 'draft'"/>
+                    <button name="action_in_progress" string="Confirm" type="object" class="oe_highlight" invisible="state != 'draft' or not is_checked"/>
                     <button name="action_validated" string="Validate" type="object" class="btn btn-success" invisible="state != 'in_progress'"/>
                     <button name="action_cancelled" string="Cancel" type="object" class="btn btn-danger" invisible="state != 'in_progress'"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,in_progress,validated"/>
@@ -44,19 +46,23 @@
                         <button name="action_view_quant" type="object" class="oe_stat_button" icon="fa-cubes">
                             <field name="quant_count" widget="statinfo" string="Quant"/>
                         </button>
+                        <button name="action_open_kanban_barcode" type="object" class="oe_stat_button" icon="fa-barcode" string="Barcode"/>
                     </div>
                     <h1>
-                        <field name="name" placeholder="e.g Inventory Adjustment" required="1"/>
+                        <field name="name" placeholder="e.g Inventory Adjustment" readonly="1"/>
                     </h1>
                     <group>
                         <group>
                             <field name="location_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" domain="[('usage', '=', 'internal')]"/>
                             <field name="product_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}"/>
+                            <field name="stock_type" readonly="state != 'draft'"/>
                         </group>
                         <group>
                             <field name="date_time" readonly="state != 'draft'"/>
                             <field name="company_id" options="{'no_open': True, 'no_create': True}" required="1" readonly="state != 'draft'"/>
                         </group>
+                        <separator string="Notes"/>
+                        <field name="notes" readonly="state != 'draft'" required="state == 'draft'" placeholder="Harus Opname . . ."/>
                     </group>
                     <notebook>
                         <page string="Details">
@@ -67,9 +73,10 @@
                                     <field name="location_id" options="{'no_open': True, 'no_create': True}"/>
                                     <field name="lot_id" options="{'no_open': True, 'no_create': True}"/>
                                     <field name="package_id" options="{'no_open': True, 'no_create': True}"/>
-                                    <field name="quantity"/>
-                                    <field name="inventory_quantity"/>
-                                    <field name="inventory_diff_quantity"/>
+                                    <field name="package_status"/>
+                                    <field name="quantity" sum="total_qty"/>
+                                    <field name="inventory_quantity" sum="total_inv_qty"/>
+                                    <field name="inventory_diff_quantity" sum="total_diff_qty"/>
 								</list>
 								<form create="0" edit="0" delete="0">
                                     <group>
@@ -92,9 +99,9 @@
                                     <field name="product_id" options="{'no_open': True, 'no_create': True}"/>
                                     <field name="sloc_name"/>
                                     <field name="stock_type"/>
-                                    <field name="quantity"/>
-                                    <field name="inventory_quantity"/>
-                                    <field name="inventory_diff_quantity"/>
+                                    <field name="quantity" sum="total_qty"/>
+                                    <field name="inventory_quantity" sum="total_inv_qty"/>
+                                    <field name="inventory_diff_quantity" sum="total_diff_qty"/>
 								</list>
 								<form create="0" edit="0" delete="0">
                                     <group>
@@ -110,8 +117,6 @@
                             </field>
                         </page>
                     </notebook>
-                    <separator string="Notes"/>
-                    <field name="notes" readonly="state != 'draft'"/>
                 </sheet>
                 <chatter/>
             </form>

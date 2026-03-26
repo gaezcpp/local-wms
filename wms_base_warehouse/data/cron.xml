@@ -2,7 +2,7 @@
 <odoo>
     <data noupdate="1">
         <record id="ir_cron_synchronize_sap_master_data" model="ir.cron">
-            <field name="name">Synchronize Product SAP</field>
+            <field name="name">Cron Synchronize Product SAP</field>
             <field name="model_id" ref="model_product_template"/>
             <field name="state">code</field>
             <field name="code">model.cron_synchronize_sap_master_data()</field>
@@ -10,7 +10,7 @@
             <field name="interval_type">days</field>
         </record>
         <record id="ir_cron_synchronize_sap_stock" model="ir.cron">
-            <field name="name">Synchronize Stock SAP</field>
+            <field name="name">Cron Synchronize Stock SAP</field>
             <field name="model_id" ref="model_stock_sap"/>
             <field name="state">code</field>
             <field name="code">model.cron_synchronize_sap_stock()</field>

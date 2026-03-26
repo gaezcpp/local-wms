@@ -2,7 +2,7 @@
 <odoo>
     <data noupdate="1">
         <record id="ir_cron_synchronize_sap_production_order" model="ir.cron">
-            <field name="name">Synchronize Production Order SAP</field>
+            <field name="name">Cron Synchronize Production Order SAP</field>
             <field name="model_id" ref="model_production_order_sap"/>
             <field name="state">code</field>
             <field name="code">model.cron_synchronize_sap_production_order()</field>

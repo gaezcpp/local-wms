@@ -26,7 +26,7 @@
     </record>
 
     <record id="ir_cron_sync_equipment" model="ir.cron">
-        <field name="name">Synchronize Equipment SKU SAP</field>
+        <field name="name">Cron Synchronize Equipment SKU SAP</field>
         <field name="model_id" ref="model_maintenance_equipment"/>
         <field name="state">code</field>
         <field name="code">model.cron_sync_equipment()</field>
