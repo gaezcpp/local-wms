@@ -23,6 +23,7 @@ Long description of module's purpose
     'data': [
         'security/ir.model.access.csv',
         'data/sequence.xml',
+        'wizards/package_wizards_views.xml',
         'views/quality_packages_views.xml',
         'views/menuitem.xml',
     ],

@@ -38,8 +38,10 @@
         <field name="arch" type="xml">
             <form string="Quality Packages">
                 <header>
-					<button name="action_completed" string="Completed" type="object" confirm="Yakin?" class="btn btn-success" invisible="state != 'draft'"/>
-					<button name="action_failed" string="Failed" type="object" confirm="Yakin?" class="btn btn-danger" invisible="state != 'draft'"/>
+					<button name="action_in_progress" string="Confirm" type="object" confirm="Yakin?" class="oe_highlight" invisible="state != 'draft'"/>
+					<button name="action_open_wizard_packages" string="Check Packages" type="object" class="oe_highlight" invisible="state != 'in_progress'"/>
+					<button name="action_failed" string="Failed" type="object" confirm="Yakin?" class="btn btn-danger" invisible="state != 'in_progress'"/>
+					<button name="action_draft" string="Draft" type="object" confirm="Yakin?" class="btn btn-danger" invisible="1"/> <!--invisible="state in ['draft', 'completed', 'failed']"-->
                     <field name="state" widget="statusbar"/>
                 </header>
                 <sheet>
@@ -49,34 +51,37 @@
                     </h1>
                     <group>
                         <group>
-                            <field name="picking_id" options="{'no_open': True, 'no_create': True}" readonly="state != 'draft'"/>
-                            <!-- <field name="packages_ids" options="{'no_open': True, 'no_create': True}" widget="many2many_tags" readonly="state != 'draft'"/> -->
+                            <field name="picking_id" options="{'no_open': True, 'no_create': True}" readonly="state != 'draft'" domain="[('picking_type_code', '=', 'incoming')]"/>
                             <field name="company_id" force_save="1" readonly="1" options="{'no_open': True, 'no_create': True}"/>
                         </group>
                     </group>
+                    <group>
+                        <field name="notes" placeholder="e.g Packages sedang rusak" readonly="state != 'draft'" required="1"/>
+                    </group>
                     <notebook>
-                        <page string="Packages">
-                            <field name="packages_ids" readonly="state != 'draft'">
-								<!-- <list editable="bottom" create="0" delete="0">
-									<field name="name" readonly="1"/>
-									<field name="pl"/>
-									<field name="cv"/>
-									<field name="panjang"/>
-									<field name="jumlah_benur"/>
-									<field name="jumlah_kompetitor_benur"/>
-									<field name="strain"/>
-									<field name="kode_bak"/>
-									<field name="tanggal_tebar"/>
-									<field name="tanggal_do"/>
+                        <page name="packages" string="Packages">
+                            <field name="packages_ids" force_save="1" readonly="1">
+								<list create="0" delete="0" edit="0">
+                                    <field name="name"/>
+                                    <field name="parent_package_id" options="{'no_open': True, 'no_create': True}"/>
+                                    <field name="package_type_id" options="{'no_open': True, 'no_create': True}"/>
+                                    <field name="location_id" options="{'no_open': True, 'no_create': True}"/>
+                                    <field name="pallet_status"/>
+                                    <field name="pack_date"/>
+                                    <field name="state"/>
 								</list>
 								<form create="0" edit="0" delete="0">
-									<field name="name" readonly="1"/>
-								</form> -->
+                                    <group>
+                                        <field name="name" readonly="1"/>
+                                        <field name="pallet_status"/>
+                                        <field name="state" readonly="1"/>
+                                        <field name="location_id" readonly="1" options="{'no_open': True, 'no_create': True}"/>
+                                    </group>
+								</form>
 							</field>
 						</page>
 					</notebook>
-                    <separator string="Notes"/>
-                    <field name="notes" placeholder="e.g Packages sedang rusak" readonly="state != 'draft'" required="1"/>
+                    <!-- <separator string="Notes"/> -->
                 </sheet>
                 <chatter reload_on_follower="True"/>
             </form>

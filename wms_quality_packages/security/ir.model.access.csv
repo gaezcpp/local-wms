@@ -1,2 +1,4 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_user_quality_packages,access_user_quality_packages,model_quality_packages,base.group_user,1,1,1,1
+access_package_wizards,access_package_wizards,model_package_wizards,base.group_user,1,1,1,1
+access_package_wizards_line,access_package_wizards_line,model_package_wizards_line,base.group_user,1,1,1,1

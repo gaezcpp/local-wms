@@ -175,23 +175,45 @@ class StockInventoryAdjustment(models.Model):
                 rec.quant_count = 0
                 continue
             domain = [
-                ('product_id', '=', rec.product_id.id),
-                ('location_id', '=', rec.location_id.id),
                 ('company_id', '=', rec.company_id.id),
             ]
+            
+            if rec.product_id:
+                domain.append(('product_id', '=', rec.product_id.id))
+            if rec.location_id:
+                domain.append(('location_id', '=', rec.location_id.id))
+            if rec.package_id:
+                domain.append(('package_id', '=', rec.package_id.id))
+            if rec.stock_type:
+                domain.append(('package_id.state', '=', rec.stock_type))
+            if rec.lot_id:
+                domain.append(('lot_id', '=', rec.lot_id.id))
+            
             rec.quant_count = Quant.search_count(domain)
     
     def action_view_quant(self):
         self.ensure_one()
+        domain = [
+            ('company_id', '=', self.company_id.id),
+        ]
+        
+        if self.product_id:
+            domain.append(('product_id', '=', self.product_id.id))
+        if self.location_id:
+            domain.append(('location_id', '=', self.location_id.id))
+        if self.package_id:
+            domain.append(('package_id', '=', self.package_id.id))
+        if self.stock_type:
+            domain.append(('package_id.state', '=', self.stock_type))
+        if self.lot_id:
+            domain.append(('lot_id', '=', self.lot_id.id))
+        
         return {
             'type': 'ir.actions.act_window',
             'name': 'Physical Inventory',
             'view_mode': 'list',
             'res_model': 'stock.quant',
-            'domain': [
-                ('product_id', '=', self.product_id.id),
-                ('location_id', '=', self.location_id.id),
-            ],
+            'domain': domain,
         }
     
     def action_open_barcode_inventory(self):

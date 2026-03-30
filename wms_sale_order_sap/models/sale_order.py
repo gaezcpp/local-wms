@@ -6,6 +6,7 @@ import requests
 import json
 import logging
 import re
+import pytz
 _logger = logging.getLogger(__name__)
 
 
@@ -18,6 +19,29 @@ class InheritSaleOrderSAP(models.Model):
     sales_sap_name = fields.Char(string="Sales Name", tracking=True)
     nomor_polisi_desc = fields.Text(string="Nomor Polisi", tracking=True)
     date_order_sap = fields.Date(string="Date Order", tracking=True)
+
+    def now_jakarta(self):
+        tz = pytz.timezone('Asia/Jakarta')
+        now_jakarta = datetime.now(tz)
+        return now_jakarta
+
+    # def _prepare_picking(self):
+    #     res = super()._prepare_picking()
+    #     _logger.info(f"PREPARE PICKING {res}")
+    #     jkt_now = self.now_jakarta()
+    #     now_hour = jkt_now.strftime("%H%M")
+    #     prod_shift = self.env['production.shift'].sudo().search([
+    #         ('date_start', '<=', now_hour),
+    #         ('date_end', '>=', now_hour),
+    #     ], limit=1)
+    #     _logger.info(f"PRODDDDDD {prod_shift} {now_hour}")
+    #     if prod_shift:
+    #         res['production_shift_id'] = prod_shift.id
+    #     if self.do_sap:
+    #         po_sap = self.env['production.order.sap'].sudo().search([('po_number', '=', self.do_sap)], limit=1)
+    #         if po_sap:
+    #             res['po_sap_id'] = po_sap.id
+    #     return res
     
     @api.depends('name', 'do_sap')
     def _compute_display_name(self):

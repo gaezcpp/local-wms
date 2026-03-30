@@ -6,6 +6,7 @@
         <field name="arch" type="xml">
             <search>
                 <field name="name"/>
+                <field name="code"/>
                 <field name="company_ids"/>
             </search>
         </field>
@@ -17,6 +18,9 @@
         <field name="arch" type="xml">
             <list string="Production Shift">
                 <field name="name"/>
+                <field name="code"/>
+                <field name="date_start"/>
+                <field name="date_end"/>
                 <field name="company_ids"/>
             </list>
         </field>
@@ -30,6 +34,9 @@
                 <sheet>
                     <group>
                         <field name="name"/>
+                        <field name="code"/>
+                        <field name="date_start"/>
+                        <field name="date_end"/>
                         <field name="company_ids" options="{'no_open': True, 'no_create': True}" widget="many2many_tags"/>
                     </group>
                 </sheet>
