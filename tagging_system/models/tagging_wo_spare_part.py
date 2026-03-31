@@ -33,11 +33,17 @@ class TaggingWOSparePart(models.Model):
         ondelete="restrict"
     )
 
+    # spare_part_id = fields.Many2one(
+    #     "product.product",
+    #     string="Spare Part",
+    #     required=True,
+    #     ondelete="restrict"
+    # )
+    
     spare_part_id = fields.Many2one(
-        "product.product",
+        "tagging.spare_part",
         string="Spare Part",
-        required=True,
-        ondelete="restrict"
+        ondelete="restrict",
     )
 
     specification = fields.Text(string="Spesifikasi Spare Part")

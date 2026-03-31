@@ -105,4 +105,4 @@ class InheritResPartner(models.Model):
                 _logger.info(f"Partner {ref} Created")
             else:
                 partner.write(vals)
-                _logger.info(f"Partner {ref} Updated")
+                # _logger.info(f"Partner {ref} Updated")

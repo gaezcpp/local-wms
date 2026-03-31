@@ -18,6 +18,7 @@ Handover task dari Bayu (tagging dan maintenance)
 
     # any module necessary for this one to work correctly
     'depends': ['base', 'maintenance', 'wms_base_company', 'tagging_system'],
+    'license': 'LGPL-3',
 
     # always loaded
     'data': [

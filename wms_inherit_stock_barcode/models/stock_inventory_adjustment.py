@@ -59,7 +59,7 @@ class StockInventoryAdjustment(models.Model):
             if rec.product_id:
                 domain.append(('product_id', '=', rec.product_id.id))
             if rec.location_id:
-                domain.append(('location_id', '=', rec.location_id.id))
+                domain.append(('location_id', 'child_of', rec.location_id.id))
             if rec.package_id:
                 domain.append(('package_id', '=', rec.package_id.id))
             if rec.stock_type:

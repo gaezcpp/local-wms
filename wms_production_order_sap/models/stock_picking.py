@@ -13,6 +13,23 @@ class InheritBaseStockPicking(models.Model):
         # return now_jakarta.date()
         return now_jakarta
 
+    @api.onchange('po_sap_id')
+    def _onchange_po_sap_product(self):
+        for rec in self:
+            if not rec.po_sap_id:
+                continue
+
+            product = rec.po_sap_id.product_id
+            qty = rec.po_sap_id.order_qty
+
+            rec.move_ids = [(5, 0, 0)]
+
+            rec.move_ids = [(0, 0, {
+                'product_id': product.id,
+                'product_uom_qty': qty,
+                'product_uom': product.uom_id.id,
+            })]
+
     def button_validate(self):
         res = super().button_validate()
         for picking in self:

@@ -15,9 +15,10 @@ Long description of module's purpose
     # for the full list
     'category': 'WMS',
     'version': '0.1',
+    'license': 'LGPL-3',
 
     # any module necessary for this one to work correctly
-    'depends': ['base'],
+    'depends': ['base', 'mail'],
 
     # always loaded
     'data': [

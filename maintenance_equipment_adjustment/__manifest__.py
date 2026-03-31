@@ -7,6 +7,7 @@
     "license": "LGPL-3",
     "category": "Maintenance",
     "depends": ["maintenance","product","hr_maintenance", "tagging_system"],
+    'license': 'LGPL-3',
     "data": [
         "security/ir.model.access.csv",
         "data/sequence.xml",

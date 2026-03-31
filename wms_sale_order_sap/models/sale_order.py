@@ -185,11 +185,11 @@ class InheritSaleOrderSAP(models.Model):
                 so.message_post(body=f"SO SAP {nomor_do} Created from Cron")
                 so.action_confirm()
                 _logger.info(f"SO Created {nomor_do}")
-            else:
-                if self._needs_update(so, vals):
-                    so.write(vals)
-                    so.message_post(body=f"SO Updated {so.name} | {so.do_sap}")
-                    _logger.info(f"SO Updated {so.name} | {so.do_sap}")
+            # else:
+            #     if self._needs_update(so, vals):
+            #         so.write(vals)
+            #         so.message_post(body=f"SO Updated {so.name} | {so.do_sap}")
+            #         _logger.info(f"SO Updated {so.name} | {so.do_sap}")
 
             for row in rows:
                 product_code = row.get('MATNR')
