@@ -273,7 +273,7 @@ class TaggingSapSyncService(models.AbstractModel):
     
     @api.model
     def cron_synchronize_sap_functional_location(self):
-        raise ValidationError("GAJADI PAKE PUNYA GAEZ, masih tetep pakai [cron_sync_functional_location]")
+        # raise ValidationError("GAJADI PAKE PUNYA GAEZ, masih tetep pakai [cron_sync_functional_location]")
         icp = self.env['ir.config_parameter'].sudo()
 
         x_i_api_key = icp.get_param('x_i_api_key')
@@ -359,7 +359,7 @@ class TaggingSapSyncService(models.AbstractModel):
                 if not parent:
                     parent = system_model.create({
                         'company_id': company.id,
-                        'name': parent_ref,
+                        'name': name_ref,
                         'code': parent_ref,
                         'sap_synchronize': True,
                         'active': True,
@@ -514,10 +514,10 @@ class TaggingSapSyncService(models.AbstractModel):
                 return c
 
         # 3) fallback: match name ilike COMPANY_NAME
-        if company_name:
-            c = Company.search([("name", "=ilike", company_name)], limit=1)
-            if c:
-                return c
+        # if company_name:
+        #     c = Company.search([("name", "=ilike", company_name)], limit=1)
+        #     if c:
+        #         return c
 
         # 4) fallback terakhir
         return self.env.company

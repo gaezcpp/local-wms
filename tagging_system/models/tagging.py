@@ -96,7 +96,7 @@ class TaggingRecord(models.Model):
     )
     
     allowed_spare_part_ids = fields.Many2many(
-        "product.product",
+        "tagging.spare_part",
         compute="_compute_allowed_spare_part_ids",
         store=False,
         readonly=True,
@@ -399,17 +399,20 @@ class TaggingRecord(models.Model):
     
     @api.depends("equipment_id")
     def _compute_allowed_spare_part_ids(self):
-        Product = self.env["product.product"].sudo()
+        # Product = self.env["product.product"].sudo()
+        Product = self.env["tagging.spare_part"].sudo()
         LineTmp = self.env["tagging.wo.sparepart.wizard.line"].sudo()
-
+        print("0000000000000000000000000000000")
         for rec in self:
             eq = rec.equipment_id
+            print(f"99999999999999999999 {eq}")
             if not eq:
                 rec.allowed_spare_part_ids = Product.browse([])
                 continue
 
             tmp = LineTmp.new({})
             plines = tmp._get_equipment_product_lines(eq)
+            print(f"88888888888888888888888888 {plines}")
             if not plines:
                 rec.allowed_spare_part_ids = Product.browse([])
                 continue

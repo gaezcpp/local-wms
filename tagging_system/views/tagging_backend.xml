@@ -289,7 +289,8 @@
   </record>
 
   <!-- ===================== MENUS ===================== -->
-  <menuitem id="menu_tagging_root" name="Tagging System" sequence="5" />
+  <menuitem id="menu_tagging_root" name="Tagging System" sequence="5" 
+        web_icon="tagging_system,static/description/icon.png"/>
   <menuitem id="menu_tagging_list" name="Tagging" parent="menu_tagging_root"
     action="action_tagging_records" sequence="40" />
 

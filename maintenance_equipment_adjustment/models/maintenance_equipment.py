@@ -281,10 +281,10 @@ class MaintenanceEquipment(models.Model):
             if comp:
                 return comp
 
-        if name1:
-            comp = Company.search([("name", "=ilike", name1)], limit=1)
-            if comp:
-                return comp
+        # if name1:
+        #     comp = Company.search([("name", "=ilike", name1)], limit=1)
+        #     if comp:
+        #         return comp
 
         return self.env.company
 

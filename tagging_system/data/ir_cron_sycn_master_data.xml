@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-  <data>
+  <!-- <data>
 
     <record id="ir_cron_tagging_sap_sync_fl" model="ir.cron">
       <field name="name">SAP Sync Functional Location</field>
@@ -11,11 +11,10 @@
       <field name="interval_number">1</field>
       <field name="interval_type">hours</field>
 
-      <!-- optional, tapi bagus buat control jadwal pertama kali jalan -->
       <field name="nextcall">2026-02-13 08:00:00</field>
 
       <field name="active">True</field>
     </record>
 
-  </data>
+  </data> -->
 </odoo>

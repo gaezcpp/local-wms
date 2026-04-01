@@ -21,7 +21,7 @@
         # Sequences
         "data/sequence.xml",
         "data/ir_cron.xml",
-        "data/ir_cron_sycn_master_data.xml",
+        # "data/ir_cron_sycn_master_data.xml",
         "data/barcode_tagging_sequence.xml",
         "data/parameter.xml",
 
@@ -64,4 +64,5 @@
     "installable": True,
     "application": True,
     'category': 'PM',
+    "icon": "/tagging_system/static/description/icon.png",
 }
