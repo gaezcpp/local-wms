@@ -12,6 +12,36 @@
                 <xpath expr="//field[@name='use_create_lots']" position="after">
                     <field name="production_shift_id" options="{'no_open': True, 'no_create': True}" readonly="state in ('done', 'cancel')"/>
                 </xpath>
+                <xpath expr="//field[@name='product_id']" position="after">
+                    <field name="qty_packaging_sap" readonly="not is_quantity_done_editable"/>
+                    <!-- <field name="product_packaging_id" domain="[('product_id', '=', product_id)]" options="{'no_create': True}"/> -->
+                </xpath>
+                <xpath expr="//page[@name='extra']" position="before">
+                    <page name="product_packaging_sap" string="Packaging Details">
+                        <field name="product_packaging_ids">
+                            <list create="0" delete="0" edit="0">
+                                <field name="picking_id" column_invisible="1"/>
+                                <field name="product_id"/>
+                                <field name="qty_packaging_sap"/>
+                                <field name="product_uom_desc"/>
+                                <field name="packaging_code"/>
+                                <field name="packaging_desc"/>
+                                <field name="company_id"/>
+                            </list>
+                            <form create="0" edit="0" delete="0">
+                                <group>
+                                    <field name="picking_id" column_invisible="1"/>
+                                    <field name="product_id"/>
+                                    <field name="qty_packaging_sap"/>
+                                    <field name="product_uom_desc"/>
+                                    <field name="packaging_code"/>
+                                    <field name="packaging_desc"/>
+                                    <field name="company_id"/>
+                                </group>
+                            </form>
+                        </field>
+                    </page>
+                </xpath>
             </field>
         </record>
     </data>

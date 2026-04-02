@@ -12,3 +12,4 @@ from . import stock_move_line
 from . import uom_uom
 from . import stock_sap
 from . import product_packaging
+from . import picking_packaging_line

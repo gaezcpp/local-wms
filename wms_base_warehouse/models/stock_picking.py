@@ -7,6 +7,7 @@ class InheritBaseStockPicking(models.Model):
     over_delivery = fields.Boolean(string="Over Delivery", tracking=True)
     production_shift_id = fields.Many2one(comodel_name='production.shift', string="Shift", tracking=True)
     production_order_name = fields.Char(string="Production Order", tracking=True)
+    product_packaging_ids = fields.One2many('picking.packaging.line', 'picking_id')
     
     # Pindah ke production_order_sap
     # def button_validate(self):

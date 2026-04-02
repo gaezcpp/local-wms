@@ -10,6 +10,7 @@ class ProductPackagingSAP(models.Model):
     _name = 'product.packaging.sap'
     _inherit = ['mail.thread', 'mail.activity.mixin']
     _description = 'Product Packaging SAP'
+    _rec_name = 'packaging_code'
     _order = 'id desc'
     
     product_id = fields.Many2one(comodel_name='product.template', string="Product")
