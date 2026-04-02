@@ -17,6 +17,55 @@ class InheritBaseStockMoveLine(models.Model):
     production_shift_id = fields.Many2one(related='picking_id.production_shift_id', string="Shift")
     production_order_name = fields.Char(related='picking_id.production_order_name', string="Production Order")
     
+    # ini dipake kalo odoo.sh salah
+    def _skip_custom_logic(self):
+        ctx = self.env.context
+        return (
+            ctx.get('inventory_mode') or
+            ctx.get('install_mode') or
+            ctx.get('install_demo') or
+            ctx.get('test_enable')
+        )
+    
+    def _get_or_create_lot(self):
+        self.ensure_one()
+        if not self.expiration_date or not self.move_id.product_id:
+            return False
+
+        lot_name = f"{self.move_id.picking_id.po_sap_id.po_number}-{self.expiration_date.strftime("%d%m%Y")}"
+
+        lot = self.env['stock.lot'].search([
+            ('name', '=', lot_name),
+            ('product_id', '=', self.move_id.product_id.id)
+        ], limit=1)
+
+        if not lot:
+            lot = self.env['stock.lot'].create({
+                'name': lot_name,
+                'product_id': self.move_id.product_id.id,
+            })
+
+        return lot
+
+    @api.model_create_multi
+    def create(self, vals):
+        rec = super().create(vals)
+        if rec._is_prod_in():
+            lot = rec._get_or_create_lot()
+            if lot:
+                rec.lot_id = lot.id
+        return rec
+
+
+    def write(self, vals):
+        res = super().write(vals)
+        for rec in self:
+            if 'expiration_date' in vals and rec._is_prod_in():
+                lot = rec._get_or_create_lot()
+                if lot:
+                    rec.lot_id = lot.id
+        return res
+    
     def _is_prod_in(self, vals=None):
         picking = False
         if vals and vals.get('picking_id'):
@@ -32,3 +81,14 @@ class InheritBaseStockMoveLine(models.Model):
         for rec in self:
             if not rec._is_prod_in():
                 raise ValidationError("Production fields hanya boleh diedit pada Operation Type PROD-IN")
+            
+    # @api.onchange('expiration_date')
+    # def _onchange_expiration_date_c(self):
+    #     for rec in self:
+    #         if rec.expiration_date:
+    #             today_lot = self.env['stock.lot'].sudo().create({
+    #                 'name': rec.expiration_date.strftime("%d%m%Y"),
+    #                 'product_id': rec.move_id.product_id.id,
+    #             })
+    #             if today_lot:
+    #                 rec.lot_id = today_lot.id

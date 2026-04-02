@@ -88,8 +88,8 @@ class InheritProductTemplate(models.Model):
 
         create_products = []
         write_map = {}
-
         for key, records in grouped.items():
+            expiration = 0
             matnr, werks = key.split("__")
             company = company_map.get(werks)
             if not company:
@@ -106,6 +106,21 @@ class InheritProductTemplate(models.Model):
                 product_name = data.get('MAKTX') or product_name
                 weight = float(data.get('NTGEW') or weight)
                 categ_name = data.get('MTBEZ') or categ_name
+                iprkz = (data.get('IPRKZ') or '').strip()
+                mhdhb = int(data.get('MHDHB') or 0)
+                print(f"XXXXXXXXX {product_name}\nDDDDDDDDDDDDDD{iprkz}=={mhdhb}")
+
+                if iprkz == '1':
+                    exp_val = int(mhdhb * 7)
+                elif iprkz == '2':
+                    exp_val = int(mhdhb * 30)
+                elif iprkz == '3':
+                    exp_val = int(mhdhb * 365)
+                else:
+                    exp_val = int(mhdhb)
+
+                if exp_val > expiration:
+                    expiration = exp_val
 
                 if data.get('MTART') == "FERT" and data.get('SPRAS') == "E":
                     if data.get('MATKL') == "REMX":
@@ -196,7 +211,7 @@ class InheritProductTemplate(models.Model):
                 'is_storable': True,
                 'use_expiration_date': True,
                 'tracking': 'lot',
-                'expiration_time': 365,
+                'expiration_time': expiration,
                 'responsible_id': self.env.user.id,
                 'company_id': company.id,
                 'active': lvorm != 'X',

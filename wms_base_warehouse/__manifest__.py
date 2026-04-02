@@ -18,7 +18,7 @@ Long description of module's purpose
     'license': 'LGPL-3',
 
     # any module necessary for this one to work correctly
-    'depends': ['base', 'stock', 'wms_base_company'],
+    'depends': ['base', 'mail', 'stock', 'wms_base_company'],
 
     # always loaded
     'data': [
@@ -37,6 +37,7 @@ Long description of module's purpose
         'views/uom_uom_views.xml',
         'views/stock_location_views.xml',
         'views/stock_sap_views.xml',
+        'views/product_packaging_views.xml',
         'views/menuitem.xml',
     ],
 }

@@ -3,8 +3,8 @@ from odoo import models, fields, api
 class StockQuant(models.Model):
     _inherit = 'stock.quant'
     
-    inbound_date = fields.Datetime(string="Inbound Date", tracking=True)
-    exp_group = fields.Datetime(string="Exp Group", tracking=True)
+    exp_group = fields.Datetime(string="Exp Group")
+    inbound_date = fields.Datetime(string="Inbound Date")
     
     @api.model
     def _gather(self, product_id, location_id, lot_id=None, package_id=None, owner_id=None, strict=False, qty=None):

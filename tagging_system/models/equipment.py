@@ -273,17 +273,11 @@ class TaggingSapSyncService(models.AbstractModel):
     
     @api.model
     def cron_synchronize_sap_functional_location(self):
-        # raise ValidationError("GAJADI PAKE PUNYA GAEZ, masih tetep pakai [cron_sync_functional_location]")
         icp = self.env['ir.config_parameter'].sudo()
-
-        x_i_api_key = icp.get_param('x_i_api_key')
-        ip_sap_rfc = icp.get_param('ip_sap_rfc')
+        x_i_api_key = icp.get_param('x_i_api_key') or icp.get_param('x_i_api_key_tagging')
+        ip_sap_rfc = icp.get_param('ip_sap_rfc') or icp.get_param('ip_sap_rfc_tagging')
         query_funcloc_sap = icp.get_param('query_funcloc_sap')
 
-        if not x_i_api_key:
-            raise ValidationError("x_i_api_key belum disetting!")
-        if not ip_sap_rfc:
-            raise ValidationError("ip_sap_rfc belum disetting!")
         if not query_funcloc_sap:
             raise ValidationError("query_funcloc_sap belum disetting!")
 
@@ -308,86 +302,75 @@ class TaggingSapSyncService(models.AbstractModel):
             raise ValidationError(json.dumps(res.get('error')))
 
         if not res.get('success'):
-            _logger.info("=== CRON NOT SUCCESS ===")
             return True
 
         data_list = res.get('data', [])
-        _logger.info(f"TOTAL DATA FUNCLOC : {len(data_list)}")
 
         system_model = self.env['tagging.system'].sudo()
         subsystem_model = self.env['tagging.subsystem'].sudo()
         company_model = self.env['res.company'].sudo()
 
-        # cache untuk performa
-        company_cache = {}
-        system_cache = {}
-        subsystem_cache = set()
-
-        existing_subsystems = subsystem_model.search([]).mapped(lambda r: (r.code, r.company_id.id, r.system_id.id))
-        subsystem_cache.update(existing_subsystems)
-
-        unique_data = {}
-        for d in data_list:
-            key = (d.get('TPLNR'), d.get('TPLMA'), d.get('SWERK'))
-            unique_data[key] = d
-
-        for data in unique_data.values():
-            company_registry = data.get('SWERK')
+        for data in data_list:
+            tplnr = data.get('TPLNR') or ''
+            pltxu = data.get('PLTXU') or ''
+            tplma = data.get('TPLMA') or ''
+            eqfnr = (data.get('EQFNR') or '').upper()
+            company_registry = data.get('SWERK') or ''
+            
             if not company_registry:
                 continue
-
-            if company_registry not in company_cache:
-                company_cache[company_registry] = company_model.search([
-                    ('company_registry', '=', company_registry),
-                    ('sync_pm', '=', True)
+            company_id = company_model.search([
+                ('company_registry', '=', company_registry),
+                ('sync_pm', '=', True)
+            ], limit=1)
+            if not company_id:
+                continue
+            
+            if eqfnr != 'SUB':
+                existing_system = system_model.search([
+                    ('code', '=', tplnr),
+                    ('company_id', '=', company_id.id)
                 ], limit=1)
-
-            company = company_cache.get(company_registry)
-            if not company:
-                continue
-
-            code_ref = (data.get('TPLNR') or '').strip()
-            name_ref = (data.get('PLTXU') or '').strip()
-            parent_ref = (data.get('TPLMA') or '').strip()
-
-            if not parent_ref:
-                continue
-
-            system_key = (parent_ref, company.id)
-            if system_key not in system_cache:
-                parent = system_model.search([('code', '=', parent_ref),('company_id', '=', company.id)], limit=1)
-                if not parent:
-                    parent = system_model.create({
-                        'company_id': company.id,
-                        'name': name_ref,
-                        'code': parent_ref,
-                        'sap_synchronize': True,
-                        'active': True,
-                        "last_sync_at": fields.Datetime.now(),
-                    })
-                    _logger.info(f"SYSTEM {parent_ref} CREATED")
-                system_cache[system_key] = parent
-            else:
-                parent = system_cache[system_key]
-            
-            subsystem_key = (code_ref, company.id, parent.id)
-            if subsystem_key in subsystem_cache:
-                continue
-            
-            if len(parent.code) >= 11:
-                subsystem_model.create({
-                    'company_id': company.id,
-                    'system_id': parent.id,
-                    'name': name_ref,
-                    'code': code_ref,
-                    'sap_tplnr': code_ref,
-                    'sap_werks': company_registry,
-                    'sap_synchronize': True,
+                vals = {
+                    'company_id': company_id.id,
+                    'name': pltxu,
+                    'code': tplnr,
                     'active': True,
-                })
+                    'sap_synchronize': True,
+                    'last_sync_at': fields.Datetime.now(),
+                }
+                if existing_system:
+                    existing_system.write(vals)
+                else:
+                    system_model.create(vals)
+            else:
+                system_id = system_model.search([
+                    ('code', '=', tplma),
+                    ('company_id', '=', company_id.id)
+                ], limit=1)
+                if not system_id:
+                    continue
 
-                subsystem_cache.add(subsystem_key)
-                _logger.info(f"SUBSYSTEM {code_ref} CREATED")
+                existing_subsystem = subsystem_model.search([
+                    ('code', '=', tplnr),
+                    ('system_id', '=', system_id.id),
+                    ('company_id', '=', company_id.id)
+                ], limit=1)
+                vals = {
+                    'name': pltxu,
+                    'system_id': system_id.id,
+                    'sap_tplnr': tplnr,
+                    'last_sync_at': fields.Datetime.now(),
+                    'sap_synchronize': True,
+                    'code': tplnr,
+                    'active': True,
+                    'sap_werks': company_id.company_registry,
+                    'company_id': company_id.id,
+                }
+                if existing_subsystem:
+                    existing_subsystem.write(vals)
+                else:
+                    subsystem_model.create(vals)
 
     #### FIXING, TUNNING & CLEANSING CODE ####
 

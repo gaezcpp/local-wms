@@ -26,8 +26,8 @@ class InheritBaseStockPicking(models.Model):
 
             rec.move_ids = [(0, 0, {
                 'product_id': product.id,
-                'product_uom_qty': qty,
-                'product_uom': product.uom_id.id,
+                # 'product_uom_qty': qty,
+                # 'product_uom': product.uom_id.id,
             })]
 
     def button_validate(self):

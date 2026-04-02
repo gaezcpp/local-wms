@@ -11,11 +11,15 @@
         </record>
         <record id="query_master_data_sap" model="ir.config_parameter">
             <field name="key">query_master_data_sap</field>
-            <field name="value">select c.maktx, a.meins, a.mtart, a.matkl, d.mtbez, a.ntgew, a.matnr, a.LVORM, b.werks, b.xchpf, e.meinh, e.umrez, e.umren, d.spras from mara a join marc b on a.mandt=b.mandt and a.matnr=b.matnr join makt c on a.mandt=c.mandt and a.matnr=c.matnr join t134t d on a.mandt=d.mandt and a.mtart=d.mtart and d.spras='E' join marm e on a.matnr=e.matnr where a.mtart = 'FERT' and a.lvorm &lt;&gt; 'X'</field>
+            <field name="value">select c.maktx, a.meins, a.mtart, a.matkl, d.mtbez, a.ntgew, a.matnr, a.LVORM, b.werks, b.xchpf, e.meinh, e.umrez, e.umren, d.spras, a.mhdhb, a.IPRKZ from mara a join marc b on a.mandt=b.mandt and a.matnr=b.matnr join makt c on a.mandt=c.mandt and a.matnr=c.matnr join t134t d on a.mandt=d.mandt and a.mtart=d.mtart and d.spras='E' join marm e on a.matnr=e.matnr where a.mtart = 'FERT'</field>
         </record>
         <record id="query_stock_sap" model="ir.config_parameter">
             <field name="key">query_stock_sap</field>
             <field name="value">select a.matnr, b.maktx, a.werks, a.lgort, c.meins, a.labst, a.insme, a.speme from mard a join mara c on a.matnr = c.matnr left join makt b on a.matnr = b.matnr and b.spras = 'E' where a.lgort = 'FINI'</field>
+        </record>
+        <record id="query_product_packaging_sap" model="ir.config_parameter">
+            <field name="key">query_product_packaging_sap</field>
+            <field name="value">select a.fnsh_good, a.PCKLBL,a.BAG_UOM, a.pack_desc,a.plant from ZPPAFDPACK a</field>
         </record>
     </data>
 </odoo>
