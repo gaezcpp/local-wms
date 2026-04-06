@@ -154,12 +154,8 @@ class TaggingWOSparePartWizardLine(models.TransientModel):
     def _onchange_spare_part_id(self):
         for line in self:
             if line.spare_part_id:
-                line.sku = line.spare_part_id.default_code or ""
-                line.specification = (
-                    line.spare_part_id.description_sale
-                    or line.spare_part_id.description
-                    or ""
-                )
+                line.sku = line.spare_part_id.sku or ""
+                line.specification or ""
             else:
                 line.sku = False
                 line.specification = False

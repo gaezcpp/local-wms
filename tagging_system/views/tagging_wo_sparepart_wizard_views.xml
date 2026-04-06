@@ -23,9 +23,9 @@
                 options="{'no_create': True, 'no_create_edit': True}"
                 domain="[('id','in', parent.allowed_spare_part_ids)]" />
 
-              <button name="action_qty_minus" type="object" string="-" class="btn-secondary" />
+              <!-- <button name="action_qty_minus" type="object" string="-" class="btn-secondary" /> -->
               <field name="qty" string="Jumlah" />
-              <button name="action_qty_plus" type="object" string="+" class="btn-secondary" />
+              <!-- <button name="action_qty_plus" type="object" string="+" class="btn-secondary" /> -->
 
               <field name="sku" readonly="1" />
               <field name="specification" readonly="1" />

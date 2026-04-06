@@ -29,7 +29,7 @@
                 <field name="subsystem_id"/>            
             
 
-                <field name="abc_indic"/>
+                <field name="abc_indic" force_save="1" readonly="1"/>
                 <field name="superord_functional_loc"/>
                 <field name="active"/>
 
@@ -86,7 +86,7 @@
                         
                             
 
-                            <field name="abc_indic"/>
+                            <field name="abc_indic" force_save="1" readonly="1"/>
                             <field name="superord_functional_loc"/>
 
                             <!-- legacy hidden -->

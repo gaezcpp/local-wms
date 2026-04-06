@@ -214,3 +214,11 @@ class BarcodeTagging(models.Model):
             "url": f"/web/content/barcode.tagging/{self.id}/qr_image?download=true&filename=QR_{self.barcode_code}.png",
             "target": "self",
         }
+
+    @api.onchange('subsystem_id')
+    def _onchange_subsystem_set(self):
+        for rec in self:
+            if rec.subsystem_id:
+                rec.write({'abc_indic': rec.subsystem_id.abc_indicator})
+            else:
+                rec.write({'abc_indic': False})

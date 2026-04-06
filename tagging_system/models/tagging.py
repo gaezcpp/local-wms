@@ -492,6 +492,7 @@ class TaggingRecord(models.Model):
 
                 vals = {
                     "status": "closed",
+                    "close_end_date": fields.Datetime.now(),
                 }
 
                 # ====== NEW FLOW (maintenance.equipment) ======

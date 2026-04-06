@@ -62,6 +62,7 @@ class TaggingSubSystem(models.Model):
     sync_message = fields.Text(string="Sync Message", readonly=True)
     sap_synchronize = fields.Boolean(string="SAP Synchronize", readonly=True)
     company_id = fields.Many2one("res.company", string="Plant", required=True, default=lambda self: self.env.company)
+    abc_indicator = fields.Char(string="ABC Indicator")
     
     _sql_constraints = [
         ("tagging_subsystem_code_per_system_uniq",
@@ -315,6 +316,7 @@ class TaggingSapSyncService(models.AbstractModel):
             pltxu = data.get('PLTXU') or ''
             tplma = data.get('TPLMA') or ''
             eqfnr = (data.get('EQFNR') or '').upper()
+            abckz = data.get('ABCKZ') or ''
             company_registry = data.get('SWERK') or ''
             
             if not company_registry:
@@ -365,6 +367,7 @@ class TaggingSapSyncService(models.AbstractModel):
                     'code': tplnr,
                     'active': True,
                     'sap_werks': company_id.company_registry,
+                    'abc_indicator': abckz,
                     'company_id': company_id.id,
                 }
                 if existing_subsystem:
