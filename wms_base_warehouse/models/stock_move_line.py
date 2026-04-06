@@ -32,7 +32,9 @@ class InheritBaseStockMoveLine(models.Model):
         if not self.expiration_date or not self.move_id.product_id:
             return False
 
-        lot_name = f"{self.move_id.picking_id.po_sap_id.po_number}-{self.expiration_date.strftime("%d%m%Y")}"
+        date_str = self.expiration_date.strftime("%d%m%Y")
+        po_number = self.move_id.picking_id.po_sap_id.po_number or ''
+        lot_name = f"{po_number}-{date_str}"
 
         lot = self.env['stock.lot'].search([
             ('name', '=', lot_name),
@@ -48,13 +50,14 @@ class InheritBaseStockMoveLine(models.Model):
         return lot
 
     @api.model_create_multi
-    def create(self, vals):
-        rec = super().create(vals)
-        if rec._is_prod_in():
-            lot = rec._get_or_create_lot()
-            if lot:
-                rec.lot_id = lot.id
-        return rec
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        for rec in records:
+            if rec._is_prod_in():
+                lot = rec._get_or_create_lot()
+                if lot:
+                    rec.lot_id = lot.id
+        return records
 
 
     def write(self, vals):
@@ -81,14 +84,3 @@ class InheritBaseStockMoveLine(models.Model):
         for rec in self:
             if not rec._is_prod_in():
                 raise ValidationError("Production fields hanya boleh diedit pada Operation Type PROD-IN")
-            
-    # @api.onchange('expiration_date')
-    # def _onchange_expiration_date_c(self):
-    #     for rec in self:
-    #         if rec.expiration_date:
-    #             today_lot = self.env['stock.lot'].sudo().create({
-    #                 'name': rec.expiration_date.strftime("%d%m%Y"),
-    #                 'product_id': rec.move_id.product_id.id,
-    #             })
-    #             if today_lot:
-    #                 rec.lot_id = today_lot.id

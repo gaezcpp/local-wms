@@ -51,7 +51,7 @@ class StockMove(models.Model):
         products = self.mapped('product_id.product_tmpl_id')
         packaging_map = {
             p.product_id.id: p
-            for p in packaging_model.search([('product_id', 'in', products.ids)])
+            for p in packaging_model.search([('product_id', 'in', products.ids),('company_id', '=', self.company_id.id)])
         }
 
         for picking in self.mapped('picking_id'):
