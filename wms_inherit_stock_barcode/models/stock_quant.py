@@ -7,10 +7,10 @@ _logger = logging.getLogger(__name__)
 class InheritStockQuant(models.Model):
     _inherit = 'stock.quant'
 
-    uom_bag_id = fields.Many2one('uom.uom',  tracking=True)
-    bag_qty = fields.Float(string="Bag", tracking=True)
-    uom_pallet_id = fields.Many2one('uom.uom', tracking=True)
-    pallet_qty = fields.Float(string="Pallet Qty", tracking=True)
+    uom_bag_id = fields.Many2one('uom.uom')
+    bag_qty = fields.Float(string="Bag")
+    uom_pallet_id = fields.Many2one('uom.uom')
+    pallet_qty = fields.Float(string="Pallet Qty")
     bag_dummy_qty = fields.Float(string="Bag")
     pallet_dummy_qty = fields.Float(string="Pallet Qty", compute='_compute_pallet_dummy_qty')
 

@@ -13,6 +13,9 @@
                     <field name="uu_only"/>
                     <field name="production_only"/>
                 </xpath>
+                <xpath expr="//field[@name='return_picking_type_id']" position="after">
+                    <field name="packaging_type_id"/>
+                </xpath>
             </field>
         </record>
     </data>

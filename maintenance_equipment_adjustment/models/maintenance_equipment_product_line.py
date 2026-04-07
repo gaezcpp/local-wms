@@ -29,7 +29,6 @@ class MaintenanceEquipmentProductLine(models.Model):
     # Multi-company safe (mengikuti equipment)
     company_id = fields.Many2one(
         related="equipment_id.company_id",
-        store=True,
         readonly=True,
     )
 
@@ -42,7 +41,6 @@ class MaintenanceEquipmentProductLine(models.Model):
     sku = fields.Char(
         string="SKU",
         compute="_compute_spare_part_info",
-        store=True,
         readonly=True,
     )
     
@@ -50,7 +48,6 @@ class MaintenanceEquipmentProductLine(models.Model):
     product_name = fields.Char(
         string="Name",
         compute="_compute_spare_part_info",
-        store=False,
         readonly=True,
     )
 

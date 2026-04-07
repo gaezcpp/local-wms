@@ -18,7 +18,7 @@ Long description of module's purpose
     'license': 'LGPL-3',
 
     # any module necessary for this one to work correctly
-    'depends': ['base', 'stock', 'stock_barcode', 'wms_base_warehouse'],
+    'depends': ['base', 'mail', 'stock', 'stock_barcode', 'wms_base_warehouse'],
     
     # always loaded
     'data': [

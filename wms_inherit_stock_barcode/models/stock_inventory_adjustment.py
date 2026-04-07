@@ -33,8 +33,8 @@ class StockInventoryAdjustment(models.Model):
         ('Blocked', 'Blocked'),
         ('UU', 'UU')], string="Stock Type", default=False)
     is_checked = fields.Boolean(string="Is Checked?", default=False)
-    adjustment_line_ids = fields.One2many('stock.inventory.adjustment.line', 'stock_adjustment_id', copy=False, ondelete='cascade')
-    summary_line_ids = fields.One2many('stock.inventory.adjustment.summary', 'stock_adjustment_id', copy=False, ondelete='cascade')
+    adjustment_line_ids = fields.One2many('stock.inventory.adjustment.line', 'stock_adjustment_id')
+    summary_line_ids = fields.One2many('stock.inventory.adjustment.summary', 'stock_adjustment_id')
     
     @api.model_create_multi
     def create(self, vals_list):

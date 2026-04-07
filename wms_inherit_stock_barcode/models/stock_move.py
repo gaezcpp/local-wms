@@ -8,6 +8,18 @@ class InheritStockMove(models.Model):
     uom_pallet_id = fields.Many2one('uom.uom', related='product_id.uom_pallet_id', store=True)
     bag_qty = fields.Float(string="Bag Qty", compute="_compute_bag_qty", store=True)
     pallet_qty = fields.Float(string="Pallet Qty", compute="_compute_pallet_qty", store=True)
+    product_packaging_id = fields.Many2one(comodel_name='product.packaging.sap', string="Product Packaging")
+    qty_packaging_sap = fields.Float(string="Qty Packaging", compute='_compute_qty_packaging_sap')
+    
+    @api.model_create_multi
+    def create(self, vals_list):
+        moves = super().create(vals_list)
+        moves.create_packaging_line()
+        return moves
+
+    def write(self, vals):
+        res = super().write(vals)
+        return res
 
     def _get_fields_stock_barcode(self):
         res = super()._get_fields_stock_barcode()
@@ -16,6 +28,7 @@ class InheritStockMove(models.Model):
             'pallet_qty',
             'uom_bag_id',
             'uom_pallet_id',
+            'qty_packaging_sap',
         ]
         
     @api.depends('quantity', 'uom_bag_id', 'uom_pallet_id')
@@ -35,63 +48,61 @@ class InheritStockMove(models.Model):
                 continue
 
             line.pallet_qty = line.quantity / (line.uom_pallet_id.factor / 1000)
-    
-    # ini untuk next transfer
-    def _get_new_picking_values(self):
-        vals = super()._get_new_picking_values()
+            
+    @api.depends('move_line_ids.qty_packaging_sap')
+    def _compute_qty_packaging_sap(self):
+        print("_compute_qty_packaging_sap _compute_qty_packaging_sap")
+        for move in self:
+            move.qty_packaging_sap = sum(move.move_line_ids.mapped('qty_packaging_sap'))
+            
+    def create_packaging_line(self):
+        print("create_packaging_line")
+        Packaging = self.env['product.packaging.sap']
+        PickingPackaging = self.env['picking.packaging.line']
+        pickings = self.mapped('picking_id').filtered(lambda p: p)
+        for picking in pickings:
+            moves = picking.move_ids
+            if not moves:
+                print("create_packaging_line masuk sini 111111111111")
+                continue
 
-        picking = self[:1].picking_id  # ambil representatif
+            product_templates = moves.mapped('product_id.product_tmpl_id')
+            packaging_data = Packaging.search([
+                ('product_id', 'in', product_templates.ids),
+                ('company_id', '=', picking.company_id.id)
+            ])
 
-        if picking:
-            vals.update({
-                'po_sap_id': picking.po_sap_id.id,
-                'production_shift_id': picking.production_shift_id.id,
-            })
+            packaging_map = {p.product_id.id: p for p in packaging_data}
+            existing_products = set(picking.product_packaging_ids.mapped('product_id').ids)
+            origin_picking = self.env['stock.picking'].sudo().search([
+                ('name', '=', picking.origin),
+                ('picking_type_id.production_only', '=', True)
+            ], limit=1, order='id desc')
 
-        return vals
-    
-    def _prepare_move_line_vals(self, quantity=None, reserved_quant=None):
-        res = super()._prepare_move_line_vals(
-            quantity=quantity,
-            reserved_quant=reserved_quant
-        )
+            packaging_type = (origin_picking.picking_type_id.packaging_type_id if origin_picking else picking.picking_type_id.packaging_type_id)
+            
+            create_vals = []
+            for move in moves:
+                print(f"create_packaging_line moveeeee {move}")
+                tmpl_id = move.product_id.product_tmpl_id.id
+                if tmpl_id in existing_products:
+                    print("create_packaging_line masuk sini 22222222")
+                    continue
 
-        if not self.move_orig_ids:
-            return res
+                packaging = packaging_map.get(tmpl_id)
+                if not packaging:
+                    print("create_packaging_line masuk sini 333333333333")
+                    continue
 
-        origin_lines = self.move_orig_ids.move_line_ids
-        matched_line = False
+                create_vals.append({
+                    'picking_id': picking.id,
+                    'product_id': tmpl_id,
+                    'product_uom_desc': packaging.product_uom_desc,
+                    'packaging_code': packaging.packaging_code,
+                    'packaging_desc': packaging.packaging_desc,
+                    'packaging_type_id': packaging_type.id,
+                    'company_id': picking.company_id.id,
+                })
 
-        if reserved_quant:
-            if reserved_quant.package_id:
-                matched_line = origin_lines.filtered(
-                    lambda l: l.package_history_id.id == reserved_quant.package_id.id
-                )[:1]
-
-            if not matched_line and reserved_quant.package_id:
-                matched_line = origin_lines.filtered(
-                    lambda l: l.result_package_id.id == reserved_quant.package_id.id
-                )[:1]
-
-            if not matched_line and reserved_quant.lot_id:
-                matched_line = origin_lines.filtered(
-                    lambda l: l.lot_id.id == reserved_quant.lot_id.id
-                )[:1]
-
-        if not matched_line and origin_lines:
-            matched_line = origin_lines.filtered(
-                lambda l: l.product_id == self.product_id and l.qty_done == quantity
-            )[:1]
-
-        if not matched_line and origin_lines:
-            matched_line = origin_lines[:1]
-
-        if matched_line:
-            res.update({
-                'production_line_id': matched_line.production_line_id.id,
-                'first_count': matched_line.first_count,
-                'last_count': matched_line.last_count,
-                'detail_text': matched_line.detail_text,
-            })
-
-        return res
+            if create_vals:
+                PickingPackaging.create(create_vals)

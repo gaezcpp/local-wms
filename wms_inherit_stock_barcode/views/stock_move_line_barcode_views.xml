@@ -62,6 +62,13 @@
                     </div>
                     <field name="detail_text" placeholder="Detail Text"/>
                 </div>
+                <div name="qty_packaging_sap" class="row" invisible="not production_only">
+                    <div class="text-black-50 mt-2 fs-5">
+                        <span class="fa fa-map-marker me-1"/>
+                        <label for="qty_packaging_sap" string="Packaging Qty" class="p-0"/>
+                    </div>
+                    <field name="qty_packaging_sap" placeholder="Packaging Qty"/>
+                </div>
             </xpath>
         </field>
     </record>

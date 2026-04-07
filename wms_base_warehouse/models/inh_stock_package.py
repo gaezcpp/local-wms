@@ -10,11 +10,11 @@ class InhStockPackage(models.Model):
     state = fields.Selection([
         ('QI', 'QI'),
         ('Blocked', 'Blocked'),
-        ('UU', 'UU')], string="State", default="QI", tracking=True)
+        ('UU', 'UU')], string="State", default="QI")
     pallet_status = fields.Selection([
         ('full_pallet', 'Full Pallet'),
         ('eceran', 'Eceran'),
-    ], string="Pallet Status", default=False, tracking=True)
+    ], string="Pallet Status", default=False)
     
     def write(self, vals):
         res = super().write(vals)
