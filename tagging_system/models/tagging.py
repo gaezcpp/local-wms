@@ -232,6 +232,7 @@ class TaggingRecord(models.Model):
         [
             ("open", "Open"),
             ("validated", "Validated"),
+            ("waiting_sap ", "Waiting SAP"),
             ("open_wo", "Open - WO"),
             ("closed", "Closed"),
         ],
@@ -256,6 +257,7 @@ class TaggingRecord(models.Model):
         string="Deskripsi Penutupan",
         tracking=True,
     )
+    nomor_notifikasi = fields.Char(string="Nomor Notifikasi")
 
     # =========================
     # HARD LOCK WHEN CLOSED
@@ -480,8 +482,9 @@ class TaggingRecord(models.Model):
                 if rec.status == "closed":
                     continue
 
-                if rec.status not in ("validated", "open_wo"):
-                    raise UserError(_("Close hanya bisa setelah Validated / Open - WO."))
+                # if rec.status not in ("validated", "open_wo"):
+                if rec.status not in ("validated", "waiting_sap"):
+                    raise UserError(_("Close hanya bisa setelah Validated / Waiting SAP."))
 
                 if not rec.close_photo:
                     raise UserError(_("Photo Close wajib diupload sebelum Close."))

@@ -6,3 +6,4 @@ from . import stock_move_line
 from . import stock_inventory_adjustment
 from . import stock_inventory_adjustment_line
 from . import stock_inventory_adjustment_summary
+from . import stock_picking

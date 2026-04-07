@@ -113,7 +113,8 @@ class TaggingWOSparePartWizard(models.TransientModel):
 
         self.env["tagging.wo.sparepart"].sudo().create(vals_list)
 
-        rec.write({"status": "open_wo"})
+        # rec.write({"status": "open_wo"})
+        rec.write({"status": "waiting_sap"})
 
         return {"type": "ir.actions.act_window_close"}
     

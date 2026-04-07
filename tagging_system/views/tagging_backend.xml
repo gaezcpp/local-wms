@@ -64,7 +64,7 @@
 
         <field name="status" widget="badge"
           decoration-danger="status == 'open'"
-          decoration-warning="status in ('validated','open_wo')"
+          decoration-warning="status in ('validated','open_wo','waiting_sap')"
           decoration-success="status == 'closed'" />
 
         <field name="name" string="Ticket" />
@@ -87,7 +87,7 @@
       <form string="Tagging">
         <header>
           <field name="status" widget="statusbar"
-            statusbar_visible="open,validated,open_wo,closed" />
+            statusbar_visible="open,validated,waiting_sap,open_wo,closed" />
 
           <button name="action_validate" type="object" string="Validate"
             class="btn-primary"
@@ -144,6 +144,7 @@
               <field name="sub_system_code" readonly="1" />
               <field name="functional_location" readonly="1"
                 string="Functional Location (Legacy)" />
+              <field name="nomor_notifikasi" readonly="1" />
             </group>
           </group>
 
