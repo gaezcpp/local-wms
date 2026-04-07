@@ -1,6 +1,7 @@
 from odoo import models, fields, api
 from collections import defaultdict
-
+import logging
+_logger = logging.getLogger(__name__)
 
 class InheritStockLocation(models.Model):
     _inherit = 'stock.location'
@@ -11,7 +12,8 @@ class InheritStockLocation(models.Model):
         self = self._check_access_putaway()
         products = self.env.context.get('products', self.env['product.product'])
         products |= product
-        print("PUTAWAY STRATEGY KEPANGGIL")
+        _logger.info("_get_putaway_strategy PUTAWAY STRATEGY KEPANGGIL")
+        print("_get_putaway_strategy PUTAWAY STRATEGY KEPANGGIL")
 
         package_type = self.env['stock.package.type']
         if package:

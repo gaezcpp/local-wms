@@ -51,7 +51,6 @@ class InheritBaseStockPicking(models.Model):
             next_moves = picking.move_ids.mapped('move_dest_ids')
             next_pickings = next_moves.mapped('picking_id').filtered(lambda p: p)
 
-            # tentukan shift
             right_now = self.now_jakarta()
             now_hour = right_now.strftime('%H%M')
 
@@ -72,7 +71,6 @@ class InheritBaseStockPicking(models.Model):
                     'po_sap_id': picking.po_sap_id.id,
                 })
 
-            # ✅ SYNC PACKAGING (CURRENT + NEXT)
             (picking | next_pickings)._sync_packaging_lines()
 
         return res
@@ -87,34 +85,23 @@ class InheritBaseStockPicking(models.Model):
                 continue
 
             product_templates = moves.mapped('product_id.product_tmpl_id')
-
             packaging_data = Packaging.search([
                 ('product_id', 'in', product_templates.ids),
                 ('company_id', '=', picking.company_id.id)
             ])
 
             packaging_map = {p.product_id.id: p for p in packaging_data}
-
-            existing_products = set(
-                picking.product_packaging_ids.mapped('product_id').ids
-            )
-
+            existing_products = set(picking.product_packaging_ids.mapped('product_id').ids)
             origin_picking = self.env['stock.picking'].sudo().search([
                 ('name', '=', picking.origin),
                 ('picking_type_id.production_only', '=', True)
             ], limit=1, order='id desc')
 
-            packaging_type = (
-                origin_picking.picking_type_id.packaging_type_id
-                if origin_picking else
-                picking.picking_type_id.packaging_type_id
-            )
+            packaging_type = (origin_picking.picking_type_id.packaging_type_id if origin_picking else picking.picking_type_id.packaging_type_id)
 
             create_vals = []
-
             for move in moves:
                 tmpl_id = move.product_id.product_tmpl_id.id
-
                 if tmpl_id in existing_products:
                     continue
 

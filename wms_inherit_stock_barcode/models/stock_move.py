@@ -1,5 +1,6 @@
 from odoo import models, fields, api
-
+import logging
+_logger = logging.getLogger(__name__)
 
 class InheritStockMove(models.Model):
     _inherit = 'stock.move'
@@ -56,6 +57,7 @@ class InheritStockMove(models.Model):
             move.qty_packaging_sap = sum(move.move_line_ids.mapped('qty_packaging_sap'))
             
     def create_packaging_line(self):
+        _logger.info("create_packaging_line KEPANGGIL")
         print("create_packaging_line")
         Packaging = self.env['product.packaging.sap']
         PickingPackaging = self.env['picking.packaging.line']
@@ -100,8 +102,10 @@ class InheritStockMove(models.Model):
                     'product_uom_desc': packaging.product_uom_desc,
                     'packaging_code': packaging.packaging_code,
                     'packaging_desc': packaging.packaging_desc,
-                    'packaging_type_id': packaging_type.id,
                     'company_id': picking.company_id.id,
+                    'packaging_type_id': packaging_type.id,
+                    'sloc_packaging': packaging_type.default_location_src_id.sloc_name,
+                    'move_type_sap': packaging_type.move_type_sap,
                 })
 
             if create_vals:

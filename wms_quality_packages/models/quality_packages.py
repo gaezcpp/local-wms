@@ -67,47 +67,6 @@ class QualityPackages(models.Model):
             'res_id': wizard.id,
             'target': 'new',
         }
-    
-    # def action_open_wizard_packages(self):
-    #     self.ensure_one()
-    #     view = self.env.ref('wms_quality_packages.package_wizards_form_views')
-    #     wizard = self.env['package.wizards'].create({'quality_package_id': self.id,})
-    #     line_vals = []
-    #     for pack in self.packages_ids:
-    #         line_vals.append({
-    #             'package_id': wizard.id,
-    #             'parent_package_id': pack.parent_package_id.id,
-    #             'package_type_id': pack.package_type_id.id,
-    #             'location_id': pack.location_id.id,
-    #             'pack_date': pack.create_date,
-    #             'pallet_status': pack.pallet_status,
-    #             'state': pack.state,
-    #         })
-    #     if not line_vals:
-    #         raise ValidationError("Packages empty!")
-        
-    #     wizard.write({'package_wizards_ids': line_vals})
-    #     return {
-    #         'name': 'Packages Wizards',
-    #         'type': 'ir.actions.act_window',
-    #         'view_mode': 'form',
-    #         'res_model': 'package.wizards',
-    #         'views': [(view.id, 'form')],
-    #         'res_id': wizard.id,
-    #         'target': 'new',
-    #     }
-    #     # return {
-    #     #     'name': 'Packages Wizards',
-    #     #     'type': 'ir.actions.act_window',
-    #     #     'view_mode': 'form',
-    #     #     'res_model': 'package.wizards',
-    #     #     'views': [(view.id, 'form')],
-    #     #     'target': 'new',
-    #     #     'context': {
-    #     #         'default_quality_package_id': self.id,
-    #     #         'default_package_wizards_ids': line_vals,
-    #     #     },
-    #     # }
 
     def action_draft(self):
         for rec in self:
