@@ -8,7 +8,8 @@ class StockInventoryAdjustmentSummary(models.Model):
     
     stock_adjustment_id = fields.Many2one('stock.inventory.adjustment', required=True)
     product_id = fields.Many2one('product.product', required=True)
-    sloc_name = fields.Char(string="SLOC")
+    sloc_name = fields.Char(string="SLOC Name")
+    sloc_id = fields.Many2one(comodel_name='storage.location', string="SLOC")
     stock_type = fields.Selection([
         ('QI', 'QI'),
         ('Blocked', 'Blocked'),

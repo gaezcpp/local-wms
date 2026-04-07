@@ -21,5 +21,13 @@
             <field name="key">query_product_packaging_sap</field>
             <field name="value">select a.fnsh_good, a.PCKLBL,a.BAG_UOM, a.pack_desc,a.plant from ZPPAFDPACK a</field>
         </record>
+        <record id="query_production_line_sap" model="ir.config_parameter">
+            <field name="key">query_production_line_sap</field>
+            <field name="value">select a.zkey1, a.zkey2, a.zkey3 from zcpro_trx a where a.group_id = 'ZPP_FEED_LINE'</field>
+        </record>
+        <record id="query_storage_location_sap" model="ir.config_parameter">
+            <field name="key">query_storage_location_sap</field>
+            <field name="value">select a.lgort, a.werks, a.lgobe from t001l a</field>
+        </record>
     </data>
 </odoo>

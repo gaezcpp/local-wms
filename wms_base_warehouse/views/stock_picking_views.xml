@@ -11,8 +11,6 @@
                 </xpath>
                 <xpath expr="//field[@name='use_create_lots']" position="after">
                     <field name="production_shift_id" options="{'no_open': True, 'no_create': True}" readonly="state in ('done', 'cancel')"/>
-                </xpath>
-                <xpath expr="//field[@name='carrier_id']" position="before">
                     <field name="synchronize_sap" force_save="1" readonly="1"/>
                 </xpath>
                 <xpath expr="//page[@name='extra']" position="before">
@@ -23,6 +21,7 @@
                                 <field name="packaging_type_id" options="{'no_open': True, 'no_create': True}"/>
                                 <field name="move_type_sap"/>
                                 <field name="sloc_packaging"/>
+                                <field name="sloc_id"/>
                                 <field name="product_id" options="{'no_open': True, 'no_create': True}"/>
                                 <field name="qty_packaging_sap"/>
                                 <field name="product_uom_desc"/>
@@ -36,6 +35,7 @@
                                     <field name="packaging_type_id" options="{'no_open': True, 'no_create': True}"/>
                                     <field name="move_type_sap"/>
                                     <field name="sloc_packaging"/>
+                                    <field name="sloc_id"/>
                                     <field name="product_id" options="{'no_open': True, 'no_create': True}"/>
                                     <field name="qty_packaging_sap"/>
                                     <field name="product_uom_desc"/>

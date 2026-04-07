@@ -5,38 +5,33 @@ import requests
 import json
 import logging
 _logger = logging.getLogger(__name__)
-class ProductionLineCustom(models.Model):
-    _name = 'production.line'
-    _description = 'Production Line'
+
+
+class StorageLocation(models.Model):
+    _name = 'storage.location'
+    _description = 'Storage Location'
     _rec_name = 'code'
+    _order = 'id desc'
     
     active = fields.Boolean(string="Active", default=True)
-    code = fields.Char(string="Code")
     name = fields.Char(string="Name")
+    code = fields.Char(string="Code")
     sap_sync = fields.Boolean(string="SAP Sync")
     company_id = fields.Many2one(comodel_name='res.company', string="Company", default=lambda self: self.env.company)
     
-    _sql_constraints = [
-        (
-            "code_uniq",
-            "unique (code)",
-            "code sudah digunakan",
-        )
-    ]
-    
     @api.model
-    def cron_synchronize_sap_production_line(self):
+    def cron_synchronize_sap_storage_location(self):
         icp = self.env['ir.config_parameter'].sudo()
         x_i_api_key = icp.get_param('x_i_api_key')
         ip_sap_rfc = icp.get_param('ip_sap_rfc')
-        query_production_line_sap = icp.get_param('query_production_line_sap')
+        query_storage_location_sap = icp.get_param('query_storage_location_sap')
         
         if not x_i_api_key:
             raise ValidationError("x_i_api_key belum disetting!")
         if not ip_sap_rfc:
             raise ValidationError("ip_sap_rfc belum disetting!")
-        if not query_production_line_sap:
-            raise ValidationError("query_production_line_sap belum disetting!")
+        if not query_storage_location_sap:
+            raise ValidationError("query_storage_location_sap belum disetting!")
         
         headers = {
             "x-i-api-key": str(x_i_api_key),
@@ -45,8 +40,8 @@ class ProductionLineCustom(models.Model):
         
         url = f"{str(ip_sap_rfc)}/api/v1/zfm-query-data"
         body = {
-            "I_QUERY": str(query_production_line_sap),
-            "I_MOD": "CRON cron_synchronize_sap_production_line"
+            "I_QUERY": str(query_storage_location_sap),
+            "I_MOD": "CRON cron_synchronize_sap_storage_location"
         }
         
         try:
@@ -59,21 +54,21 @@ class ProductionLineCustom(models.Model):
         if res.get('error'):
             raise ValidationError(json.dumps(res.get('error')))
         if not res.get('success'):
-            _logger.info("=== CRON cron_synchronize_sap_production_line NOT SUCCESS ===")
+            _logger.info("=== CRON cron_synchronize_sap_storage_location NOT SUCCESS ===")
             return True
         
         data_list = res.get('data', [])
-        _logger.info(f"TOTAL DATA aufk: {len(data_list)}")
+        _logger.info(f"TOTAL DATA t001l: {len(data_list)}")
         
-        production_line = self.env['production.line'].sudo()
+        storage_location = self.env['storage.location'].sudo()
         companies = self.env['res.company'].sudo()
         
         for data in data_list:
-            code = data.get('ZKEY2') or ''
+            code = data.get('LGORT') or ''
             if not code or code == '':
                 _logger.info(f"CODE {code} SKIPPED!")
             
-            company_registry = data.get('ZKEY1') or ''
+            company_registry = data.get('WERKS') or ''
             if company_registry:
                 company_id = companies.search([
                     ('company_registry', '=', company_registry),
@@ -83,22 +78,22 @@ class ProductionLineCustom(models.Model):
                     _logger.info(f"company_id {company_id} SKIPPED")
                     continue
             
-            pl_name = data.get('ZKEY3') or ''
+            sloc_name = data.get('LGOBE') or ''
             
             vals = {
                 'active': True,
+                'name': sloc_name,
                 'code': code,
-                'name': pl_name,
                 'sap_sync': True,
                 'company_id': company_id.id,
             }
             
-            existing_production_line = production_line.search([
+            existing_storage_location = storage_location.search([
                 ('code','=',code),
                 ('company_id','=',company_id.id)
             ],limit=1)
-            if not existing_production_line:
-                production_line.create(vals)
+            if not existing_storage_location:
+                storage_location.create(vals)
                 _logger.info(f"Production Line {code} Created")
             else:
-                existing_production_line.write(vals)
+                existing_storage_location.write(vals)

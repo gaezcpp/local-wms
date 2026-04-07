@@ -39,7 +39,7 @@
                         <span class="fa fa-map-marker me-1"/>
                         <label for="production_line_id" string="Production Line" class="p-0"/>
                     </div>
-                    <field name="production_line_id" placeholder="Production Line" options="{'no_create': True, 'no_open': True}"/>
+                    <field name="production_line_id" placeholder="Production Line" options="{'no_create': True, 'no_open': True}" domain="[('company_id', '=', company_id)]"/>
                 </div>
                 <div name="first_count" class="row" invisible="not production_only">
                     <div class="text-black-50 mt-2 fs-5">

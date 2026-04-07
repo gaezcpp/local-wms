@@ -7,6 +7,15 @@ class InheritTaggingRecord(models.Model):
     
     tagging_type_notification_id = fields.Many2one(comodel_name='tagging.type.notification', string="Notification Type", tracking=True)
     notification_desc = fields.Text(string="Notification Desc", tracking=True)
+    nomor_notifikasi = fields.Text(string="Nomor Notifikasi", tracking=True)
+    # status = fields.Selection(selection_add=[('waiting_sap', 'Waiting SAP')])
+    status = fields.Selection([
+        ("open", "Open"),
+        ("validated", "Validated"),
+        ("waiting_sap", "Waiting SAP"),
+        ("open_wo", "Open - WO"),
+        ("closed", "Closed"),
+    ], default="open", tracking=True, required=True,)
     
     @api.onchange('tagging_type_notification_id')
     def _onchange_tagging_notif(self):
@@ -35,6 +44,7 @@ class InheritTaggingRecord(models.Model):
                     'state': 'draft',
                 }
                 self.env['pm.work.order'].create(vals)
-                rec.status = 'open_wo'
+                # rec.status = 'open_wo'
+                rec.write({'status': 'waiting_sap'})
             else:
                 raise ValidationError("Work Order hanya bisa dibentuk saat status Validated!")

@@ -17,6 +17,7 @@ class PickingPackagingLine(models.Model):
     company_id = fields.Many2one(comodel_name='res.company', string="Company")
     packaging_type_id = fields.Many2one(comodel_name='stock.picking.type', string="Packaging Type")
     sloc_packaging = fields.Char(string="SLOC")
+    sloc_id = fields.Many2one(comodel_name='storage.location', string="SLOC")
     move_type_sap = fields.Char(string="Move Type")
     
     @api.depends('picking_id.move_ids', 'product_id')

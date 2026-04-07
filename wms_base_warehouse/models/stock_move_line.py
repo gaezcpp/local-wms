@@ -12,7 +12,8 @@ class InheritBaseStockMoveLine(models.Model):
     production_only = fields.Boolean(string="Production Only", related='picking_type_id.production_only')
     
     # fields buat chriss
-    sloc_name = fields.Char(related='location_dest_id.sloc_name', string="SLOC")
+    sloc_name = fields.Char(related='location_dest_id.sloc_name', string="SLOC Name")
+    sloc_id = fields.Many2one(related='location_dest_id.sloc_id', string="SLOC")
     destination_package_status = fields.Selection(related='result_package_id.state')
     production_shift_id = fields.Many2one(related='picking_id.production_shift_id', string="Shift")
     production_order_name = fields.Char(related='picking_id.production_order_name', string="Production Order")

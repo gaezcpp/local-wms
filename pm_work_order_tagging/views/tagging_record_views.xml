@@ -18,6 +18,9 @@
                         <field name="notification_desc" force_save="1" readonly="1"/>
                     </group>
                 </xpath>
+                <xpath expr="//field[@name='functional_location']" position="after">
+                    <field name="nomor_notifikasi" force_save="1" readonly="1"/>
+                </xpath>
             </field>
         </record>
     </data>

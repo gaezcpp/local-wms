@@ -31,6 +31,7 @@ class InheritBaseStockPicking(models.Model):
 
         if not prod_shift:
             now = self.now_jakarta().time()
+            print(f"NOW PROD SHIFT {now}")
             prod_shift = self.env['production.shift'].sudo().search([
                 ('date_start', '<=', now),
                 ('date_end', '>=', now),
@@ -42,6 +43,24 @@ class InheritBaseStockPicking(models.Model):
         })
 
         return vals
+    
+    def action_confirm(self):
+        res = super().action_confirm()
+        Shift = self.env['production.shift'].sudo()
+        for picking in self:
+            right_now = self.now_jakarta()
+            now_hour = right_now.strftime('%H%M')
+            print(f"NOW HOUR {now_hour}")
+            prod_shift = picking.production_shift_id
+            if not prod_shift:
+                prod_shift = Shift.search([
+                    ('date_start', '<=', now_hour),
+                    ('date_end', '>=', now_hour),
+                ], limit=1)
+
+            if prod_shift:
+                picking.production_shift_id = prod_shift.id
+        return res
 
     def button_validate(self):
         res = super().button_validate()

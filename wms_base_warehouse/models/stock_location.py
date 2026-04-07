@@ -7,6 +7,7 @@ class InheritStockLocation(models.Model):
     _inherit = 'stock.location'
     
     sloc_name = fields.Char(string="SAP SLOC")
+    sloc_id = fields.Many2one(comodel_name='storage.location', string="SLOC")
     
     def _get_putaway_strategy(self,product,quantity=0,package=None,packaging=None,additional_qty=None):
         self = self._check_access_putaway()

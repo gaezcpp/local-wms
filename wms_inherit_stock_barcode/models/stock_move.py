@@ -105,6 +105,7 @@ class InheritStockMove(models.Model):
                     'company_id': picking.company_id.id,
                     'packaging_type_id': packaging_type.id,
                     'sloc_packaging': packaging_type.default_location_src_id.sloc_name,
+                    'sloc_id': packaging_type.default_location_src_id.sloc_id.id,
                     'move_type_sap': packaging_type.move_type_sap,
                 })
 
