@@ -1,4 +1,5 @@
 from odoo import models, fields, api
+from odoo.exceptions import ValidationError
 from collections import defaultdict
 import logging
 _logger = logging.getLogger(__name__)
@@ -8,6 +9,19 @@ class InheritStockLocation(models.Model):
     
     sloc_name = fields.Char(string="SAP SLOC")
     sloc_id = fields.Many2one(comodel_name='storage.location', string="SLOC")
+    
+    def write(self, vals):
+        res = super().write(vals)
+        if 'sloc_id' in vals:
+            view_locations = self.filtered(lambda l: l.location_id.usage == 'view')
+            if view_locations:
+                all_children = self.env['stock.location'].sudo().search([
+                    ('id', 'child_of', view_locations.ids),
+                    ('usage', '=', 'internal')
+                ])
+                all_children = all_children.filtered(lambda l: l.id not in view_locations.ids)
+                all_children.write({'sloc_id': vals.get('sloc_id')})
+        return res
     
     def _get_putaway_strategy(self,product,quantity=0,package=None,packaging=None,additional_qty=None):
         self = self._check_access_putaway()

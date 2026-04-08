@@ -8,7 +8,6 @@ class InheritTaggingRecord(models.Model):
     tagging_type_notification_id = fields.Many2one(comodel_name='tagging.type.notification', string="Notification Type", tracking=True)
     notification_desc = fields.Text(string="Notification Desc", tracking=True)
     nomor_notifikasi = fields.Text(string="Nomor Notifikasi", tracking=True)
-    # status = fields.Selection(selection_add=[('waiting_sap', 'Waiting SAP')])
     status = fields.Selection([
         ("open", "Open"),
         ("validated", "Validated"),
