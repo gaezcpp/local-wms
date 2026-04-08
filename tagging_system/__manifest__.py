@@ -50,7 +50,8 @@
         "views_website/templates.xml",
 
         # Menus MUST be last (refer actions)
-        "views/tagging_master_menu.xml",
+        # "views/tagging_master_menu.xml",
+        "views/menuitem.xml",
     ],
     "assets": {
         "web.assets_backend": [

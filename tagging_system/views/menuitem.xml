@@ -1,0 +1,88 @@
+<?xml version='1.0' encoding='utf-8'?>
+<odoo>
+    <menuitem 
+  			id="menu_tagging_root" 
+  			name="Tagging System" sequence="5" 
+        	web_icon="tagging_system,static/description/icon.png"
+	/>
+    
+    <menuitem
+        id="g_dashboard_tagging_menu"
+        name="Dashboard"
+        parent="tagging_system.menu_tagging_root"
+        action="tagging_system.action_tagging_dashboard_client"
+        sequence="10"
+    />
+
+    <menuitem
+        id="g_barcode_menu"
+        name="Barocde"
+        parent="tagging_system.menu_tagging_root"
+        action="tagging_system.action_barcode_tagging"
+        sequence="20"
+    />
+
+    <menuitem
+        id="g_tagging_record_menu"
+        name="Tagging"
+        parent="tagging_system.menu_tagging_root"
+        action="tagging_system.action_tagging_records"
+        sequence="30"
+    />
+
+    <menuitem
+        id="g_configuration_menu"
+        name="Configuration"
+        parent="tagging_system.menu_tagging_root"
+        sequence="100"
+    />
+        <menuitem
+            id="g_pic_tagging_menu"
+            name="PIC"
+            parent="tagging_system.g_configuration_menu"
+            action="tagging_system.action_tagging_pic"
+            sequence="1"
+        />
+        <menuitem
+            id="g_department_tagging_menu"
+            name="Department"
+            parent="tagging_system.g_configuration_menu"
+            action="tagging_system.action_tagging_department"
+            sequence="2"
+        />
+        <menuitem
+            id="g_system_tagging_menu"
+            name="System"
+            parent="tagging_system.g_configuration_menu"
+            action="tagging_system.action_tagging_system"
+            sequence="10"
+        />
+        <menuitem
+            id="g_sub_system_tagging_menu"
+            name="Sub System"
+            parent="tagging_system.g_configuration_menu"
+            action="tagging_system.action_tagging_subsystem"
+            sequence="20"
+        />
+        <menuitem
+            id="g_maintenance_equipment_tagging_menu"
+            name="Equipment"
+            parent="tagging_system.g_configuration_menu"
+            action="maintenance.hr_equipment_action"
+            sequence="30"
+        />
+        <menuitem
+            id="g_spare_part_tagging_menu"
+            name="Spare Part"
+            parent="tagging_system.g_configuration_menu"
+            action="tagging_system.action_tagging_spare_part"
+            sequence="40"
+        />
+        <menuitem
+            id="g_category_problem_tagging_menu"
+            name="Category Problem"
+            parent="tagging_system.g_configuration_menu"
+            action="tagging_system.action_category_problem"
+            sequence="50"
+        />
+</odoo>

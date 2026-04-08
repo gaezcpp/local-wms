@@ -4,26 +4,22 @@
       <field name="model">maintenance.equipment</field>
       <field name="inherit_id" ref="maintenance.hr_equipment_view_tree"/>
       <field name="arch" type="xml">
-  
         <xpath expr="//list" position="replace">
           <list string="Equipment">
-  
-            <field name="functional_loc_tagging_id" string="Functional Location" optional="show"/>
             <field name="parent_equipment_id" string="Parent Equipment" optional="show"/>
-            <field name="child_count" string="Sub Equip." optional="show"/>
-            <field name="equipment_no" string="No Equipment" optional="show"/>
             <field name="name" string="Equipment Name" optional="show"/>
-  
+            <field name="system_id" optional="show"/>
+            <field name="sub_system_id" optional="show"/>
+            <field name="company_id" optional="show"/>
+            <field name="equipment_no" string="No Equipment" optional="hide"/>
             <field name="serial_no" optional="hide"/>
             <field name="category_id" optional="hide"/>
             <field name="company_id" optional="hide"/>
             <field name="employee_id" optional="hide"/>
             <field name="assign_date" optional="hide"/>
             <field name="technician_user_id" optional="hide"/>
-  
           </list>
         </xpath>
-  
       </field>
     </record>
   </odoo>

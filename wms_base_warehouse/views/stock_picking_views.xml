@@ -14,7 +14,7 @@
                     <field name="synchronize_sap" force_save="1" readonly="1"/>
                 </xpath>
                 <xpath expr="//page[@name='extra']" position="before">
-                    <page name="product_packaging_sap" string="Packaging Details" invisible="not picking_type_id.packaging_only">
+                    <page name="product_packaging_sap" string="Packaging Details" invisible="not picking_type_id.production_only">
                         <field name="product_packaging_ids">
                             <list create="0" delete="0" edit="0">
                                 <field name="picking_id" column_invisible="1"/>

@@ -5,85 +5,39 @@
         <field name="model">maintenance.equipment</field>
         <field name="inherit_id" ref="maintenance.hr_equipment_view_form"/>
         <field name="arch" type="xml">
-
-            <!-- =========================
-             TAGGING / STRUCTURE
-             ========================= -->
             <xpath expr="//field[@name='company_id']/ancestor::group[1]" position="after">
                 <group string="Tagging Structure" col="4" colspan="2">
-
                     <field name="equipment_no" readonly="1"/>
                     <field name="bu_id"/>
-
                     <field name="abc_indc"/>
                     <field name="system_id"/>
-
                     <field name="maint_plant_id" readonly="1"/>
                     <field name="sub_system_id"/>
-
                     <field name="parent_equipment_id"/>
-                    <field name="business_area_id"/>
-
-                    <field name="functional_loc_tagging_id"
-                           readonly="1"
-                           options="{'no_create': True, 'no_open': True}"
-                           context="{'show_functional_location_only': 1}"
-                           colspan="4"/>
-
+                    <field name="business_area_id" invisible="1"/>
                     <field name="functional_location_code"
                            readonly="1"
                            colspan="4"/>
                 </group>
             </xpath>
-
-            <!-- =========================
-             HIDE FIELDS (Odoo 19 safe: selector by name)
-             ========================= -->
-
-            <!-- Hide Technician row -->
             <xpath expr="//field[@name='technician_user_id']" position="attributes">
                 <attribute name="invisible">1</attribute>
             </xpath>
             <xpath expr="//field[@name='technician_user_id']/ancestor::group[1]" position="attributes">
                 <attribute name="invisible">1</attribute>
             </xpath>
-
-            <!-- Hide Assigned Date row (kalau ada) -->
             <xpath expr="//field[@name='assign_date']" position="attributes">
                 <attribute name="invisible">1</attribute>
             </xpath>
             <xpath expr="//field[@name='assign_date']/ancestor::group[1]" position="attributes">
                 <attribute name="invisible">1</attribute>
             </xpath>
-
-            <!-- Hide Scrap Date row -->
             <xpath expr="//field[@name='scrap_date']" position="attributes">
                 <attribute name="invisible">1</attribute>
             </xpath>
             <xpath expr="//field[@name='scrap_date']/ancestor::group[1]" position="attributes">
                 <attribute name="invisible">1</attribute>
             </xpath>
-
-           <!-- Used in location (seringnya location_id) -->
-            <!-- <xpath expr="//field[@name='location_id']" position="attributes">
-                <attribute name="invisible">1</attribute>
-            </xpath>
-            <xpath expr="//field[@name='location_id']/ancestor::group[1]" position="attributes">
-                <attribute name="invisible">1</attribute>
-            </xpath> -->
-
-            <!--
-            <xpath expr="//field[@name='location_id']" position="attributes">
-                <attribute name="invisible">1</attribute>
-            </xpath>
-            <xpath expr="//field[@name='location_id']/ancestor::group[1]" position="attributes">
-                <attribute name="invisible">1</attribute>
-            </xpath>
-            -->
-
-            <!-- =========================
-             PRODUCTS TAB
-             ========================= -->
             <xpath expr="//notebook" position="inside">
                 <page string="Products">
                     <field name="product_line_ids" nolabel="1">
@@ -97,26 +51,18 @@
                     </field>
                 </page>
             </xpath>
-
         </field>
     </record>
 
-    <!-- =========================
-         TREE VIEW
-         ========================= -->
     <record id="view_maintenance_equipment_tree_inherit_adjustment" model="ir.ui.view">
         <field name="name">maintenance.equipment.tree.inherit.adjustment</field>
         <field name="model">maintenance.equipment</field>
         <field name="inherit_id" ref="maintenance.hr_equipment_view_tree"/>
         <field name="arch" type="xml">
-
-            <!-- Odoo 19 uses <list> -->
             <xpath expr="//list" position="inside">
                 <field name="equipment_no" optional="show"/>
                 <field name="functional_location_code" optional="show"/>
             </xpath>
-
         </field>
     </record>
-
 </odoo>

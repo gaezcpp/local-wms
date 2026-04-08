@@ -1,13 +1,10 @@
 <odoo>
-
-    <!-- Action -->
     <record id="action_category_problem" model="ir.actions.act_window">
         <field name="name">Category Problem</field>
         <field name="res_model">category.problem</field>
         <field name="view_mode">list,form</field>
     </record>
 
-    <!-- List View -->
     <record id="view_category_problem_list" model="ir.ui.view">
         <field name="name">category.problem.list</field>
         <field name="model">category.problem</field>
@@ -21,7 +18,6 @@
         </field>
     </record>
 
-    <!-- Form View -->
     <record id="view_category_problem_form" model="ir.ui.view">
         <field name="name">category.problem.form</field>
         <field name="model">category.problem</field>
@@ -31,10 +27,8 @@
                     <group>
                         <group string="Classification">
                             <field name="system_id"/>
-                            <field name="subsystem_id"
-                                   domain="[('system_id', '=', system_id)]"/>
+                            <field name="subsystem_id" domain="[('system_id', '=', system_id)]"/>
                         </group>
-
                         <group string="Details">
                             <field name="cat_masalah"/>
                             <field name="active"/>
@@ -44,5 +38,4 @@
             </form>
         </field>
     </record>
-
 </odoo>
