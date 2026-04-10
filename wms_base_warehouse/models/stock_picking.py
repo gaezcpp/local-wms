@@ -9,3 +9,4 @@ class InheritBaseStockPicking(models.Model):
     production_order_name = fields.Char(string="Production Order", tracking=True)
     product_packaging_ids = fields.One2many('picking.packaging.line', 'picking_id')
     synchronize_sap = fields.Boolean(string="Synchronize SAP", default=False, tracking=True)
+    production_only = fields.Boolean(related='picking_type_id.production_only', store=True, readonly=True)

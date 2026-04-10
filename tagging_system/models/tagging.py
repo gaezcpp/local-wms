@@ -476,61 +476,57 @@ class TaggingRecord(models.Model):
         return (b.functional_location_name or b.functional_location or system_code or "Others")
 
     def action_set_closed(self):
-            for rec in self:
-                if rec.status == "closed":
-                    continue
+        for rec in self:
+            if rec.status == "closed":
+                continue
 
-                if rec.status not in ("validated", "open_wo"):
-                    raise UserError(_("Close hanya bisa setelah Validated / Open - WO."))
+            if rec.status not in ("validated", "open_wo"):
+                raise UserError(_("Close hanya bisa setelah Validated / Open - WO."))
 
-                if not rec.close_photo:
-                    raise UserError(_("Photo Close wajib diupload sebelum Close."))
-                if not rec.close_description:
-                    raise UserError(_("Deskripsi Close wajib diisi sebelum Close."))
-                if not rec.close_end_date:
-                    raise UserError(_("End Date wajib diisi sebelum Close."))
+            if not rec.close_photo:
+                raise UserError(_("Photo Close wajib diupload sebelum Close."))
+            if not rec.close_description:
+                raise UserError(_("Deskripsi Close wajib diisi sebelum Close."))
 
-                vals = {
-                    "status": "closed",
-                    "close_end_date": fields.Datetime.now(),
-                }
+            vals = {
+                "status": "closed",
+                "end_date": fields.Datetime.now(),
+            }
 
-                # ====== NEW FLOW (maintenance.equipment) ======
-                if rec.equipment_id:
-                    vals.update({
-                        "equipment": rec.equipment_id.display_name or rec.equipment_id.name or "",
-                        "spare_part": rec.sparepart_product_id.display_name if rec.sparepart_product_id else "",
-                        # sesuaikan: banyak DB pakai default_code untuk SKU
-                        "sku": (rec.sparepart_product_id.default_code if rec.sparepart_product_id else "") or "",
-                    })
+            # ====== NEW FLOW (maintenance.equipment) ======
+            if rec.equipment_id:
+                vals.update({
+                    "equipment": rec.equipment_id.display_name or rec.equipment_id.name or "",
+                    "spare_part": rec.sparepart_product_id.display_name if rec.sparepart_product_id else "",
+                    # sesuaikan: banyak DB pakai default_code untuk SKU
+                    "sku": (rec.sparepart_product_id.default_code if rec.sparepart_product_id else "") or "",
+                })
 
-                # ====== LEGACY FLOW (tagging.machine_bom) ======
-                elif rec.machine_bom_id:
-                    bom = rec.machine_bom_id
-                    vals.update({
-                        "equipment": bom.unit_id.name if bom.unit_id else "",
-                        "spare_part": bom.spare_part_id.name if bom.spare_part_id else "",
-                        "sku": bom.sku or (bom.spare_part_id.sku if bom.spare_part_id else ""),
-                    })
+            # ====== LEGACY FLOW (tagging.machine_bom) ======
+            elif rec.machine_bom_id:
+                bom = rec.machine_bom_id
+                vals.update({
+                    "equipment": bom.unit_id.name if bom.unit_id else "",
+                    "spare_part": bom.spare_part_id.name if bom.spare_part_id else "",
+                    "sku": bom.sku or (bom.spare_part_id.sku if bom.spare_part_id else ""),
+                })
 
-                else:
-                    # kalau mau: ganti teks error jadi lebih akurat
-                    raise UserError(_("Equipment wajib dipilih sebelum Close."))
+            else:
+                # kalau mau: ganti teks error jadi lebih akurat
+                raise UserError(_("Equipment wajib dipilih sebelum Close."))
 
-                if not rec.start_date:
-                    vals["start_date"] = rec.end_date
+            if not rec.start_date:
+                vals["start_date"] = rec.end_date
 
-                super(TaggingRecord, rec).write(vals)
+            super(TaggingRecord, rec).write(vals)
 
-                try:
-                    rec._send_email_close_to_tagger()
-                except Exception as e:
-                    _logger.exception("Gagal kirim email close untuk %s", rec.name)
-                    if hasattr(rec, "message_post"):
-                        rec.message_post(body=f"⚠️ Gagal kirim email close: {e}")
+            try:
+                rec._send_email_close_to_tagger()
+            except Exception as e:
+                _logger.exception("Gagal kirim email close untuk %s", rec.name)
 
 
-            return True
+        return True
 
 
     def action_open_reject_wizard(self):

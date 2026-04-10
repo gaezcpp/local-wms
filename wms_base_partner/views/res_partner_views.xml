@@ -10,6 +10,7 @@
                     <field name="ref" force_save="1" readonly="1"/>
                     <field name="cust_mobile" force_save="1" readonly="1"/>
                     <field name="sap_synchronize" force_save="1" readonly="1"/>
+                    <field name="plant_sap" force_save="1" readonly="1"/>
                 </xpath>
             </field>
         </record>

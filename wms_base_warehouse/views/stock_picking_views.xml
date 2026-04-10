@@ -12,9 +12,10 @@
                 <xpath expr="//field[@name='use_create_lots']" position="after">
                     <field name="production_shift_id" options="{'no_open': True, 'no_create': True}" readonly="state in ('done', 'cancel')"/>
                     <field name="synchronize_sap" force_save="1" readonly="1"/>
+                    <field name="production_only" invisible="1"/>
                 </xpath>
                 <xpath expr="//page[@name='extra']" position="before">
-                    <page name="product_packaging_sap" string="Packaging Details" invisible="not picking_type_id.production_only">
+                    <page name="product_packaging_sap" string="Packaging Details" invisible="not production_only">
                         <field name="product_packaging_ids">
                             <list create="0" delete="0" edit="0">
                                 <field name="picking_id" column_invisible="1"/>

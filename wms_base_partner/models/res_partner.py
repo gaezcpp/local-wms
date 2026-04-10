@@ -11,6 +11,7 @@ class InheritResPartner(models.Model):
     _inherit = 'res.partner'
 
     sap_synchronize = fields.Boolean(string="SAP Synchronize", default=False, tracking=True)
+    plant_sap = fields.Boolean(string="Plant SAP", default=False, tracking=True)
     cust_mobile = fields.Char(string="Mobile")
 
     @api.model
@@ -68,7 +69,7 @@ class InheritResPartner(models.Model):
 
             name = data.get('NAME1') or ''
             if not name:
-                _logger.warning(f"KUNNR {ref} skipped karena NAME1 kosong")
+                _logger.info(f"KUNNR {ref} skipped karena NAME1 kosong")
                 continue
 
             street = data.get('STRAS') or ''
@@ -106,3 +107,86 @@ class InheritResPartner(models.Model):
             else:
                 partner.write(vals)
                 # _logger.info(f"Partner {ref} Updated")
+                
+    @api.model
+    def cron_synchronize_sap_plan_as_partner(self):
+        icp = self.env['ir.config_parameter'].sudo()
+
+        x_i_api_key = icp.get_param('x_i_api_key')
+        ip_sap_rfc = icp.get_param('ip_sap_rfc')
+        query_plan_as_partner_sap = icp.get_param('query_plan_as_partner_sap')
+
+        if not x_i_api_key:
+            raise ValidationError("x_i_api_key belum disetting!")
+        if not ip_sap_rfc:
+            raise ValidationError("ip_sap_rfc belum disetting!")
+        if not query_plan_as_partner_sap:
+            raise ValidationError("query_plan_as_partner_sap belum disetting!")
+
+        headers = {
+            "x-i-api-key": str(x_i_api_key),
+            "Content-Type": "application/json"
+        }
+
+        url = f"{str(ip_sap_rfc)}/api/v1/zfm-query-data"
+        body = {
+            "I_QUERY": str(query_plan_as_partner_sap),
+            "I_MOD": "CRON cron_synchronize_sap_plan_as_partner"
+        }
+
+        try:
+            response = requests.post(url=url, headers=headers, data=json.dumps(body),)
+        except Exception as e:
+            raise ValidationError(str(e))
+
+        res = response.json()
+
+        if res.get('error'):
+            raise ValidationError(json.dumps(res.get('error')))
+
+        if not res.get('success'):
+            _logger.info("=== CRON cron_synchronize_sap_plan_as_partner NOT SUCCESS ===")
+            return True
+
+        data_list = res.get('data', [])
+        _logger.info(f"TOTAL DATA T001W : {len(data_list)}")
+        
+        Partner = self.env['res.partner'].sudo()
+        Country = self.env['res.country'].sudo()
+        country_cache = {c.code: c.id for c in Country.search([])}
+        
+        for data in data_list:
+            ref = data.get('WERKS')
+            if not ref:
+                _logger.info(f"PLANT {ref} SKIPPED !!")
+                continue
+            
+            name = data.get('NAME1')
+            if not name:
+                continue
+            
+            street = data.get('STRAS')
+            city = data.get('ORTO1')
+            country_code = data.get('LAND1')
+            
+            vals = {
+                'ref': ref,
+                'name': name,
+                'street': street,
+                'city': city,
+                'country_id': country_cache.get(country_code),
+                'sap_synchronize': True,
+                'plant_sap': True,
+                # additional
+                'type': 'contact',
+                'company_type': 'person',
+                'comment': 'Plant Created from Cron',
+            }
+            
+            existing_plant = Partner.search([('ref', '=', ref)], limit=1)
+            if not existing_plant:
+                new_plant = Partner.create(vals)
+                new_plant.message_post(body=f"PLANT {ref} Created from Cron")
+                _logger.info(f"PLANT {ref} Created from Cron")
+            else:
+                existing_plant.write(vals)

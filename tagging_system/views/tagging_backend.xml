@@ -71,7 +71,7 @@
               <field name="status" readonly="1" />
               <field name="maintenance_team_id" readonly="status not in ('validated','open_wo','closed')" invisible="1"/>
               <field name="start_date" readonly="1" />
-              <field name="close_end_date" force_save="1" readonly="1" />
+              <field name="end_date" force_save="1" readonly="1" />
             </group>
             <group string="Location Snapshot">
               <field name="plant_code" readonly="1" />
@@ -114,7 +114,7 @@
                 </group>
                 <group string="Close Evidence" invisible="status not in ('validated','open_wo','closed')">
                   <field name="close_start_date" string="Work Start Date" readonly="status == 'closed'" />
-                  <field name="close_end_date" string="Work End Date" force_save="1" readonly="1" />
+                  <field name="close_end_date" string="Work End Date"/>
                   <field name="close_description" readonly="status == 'closed'" />
                   <field name="close_photo" widget="image" filename="close_photo_filename" readonly="status == 'closed'" />
                   <field name="close_photo_filename" invisible="1" />
