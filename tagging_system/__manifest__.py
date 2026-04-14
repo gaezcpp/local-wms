@@ -29,6 +29,7 @@
         "views/category_problem_view.xml",
         "views/barcode_tagging_views.xml",
         "views/barcode_tagging_actions.xml",
+        "views/tagging_problem_views.xml",
 
         # PIC / Department / BU 
         "views/tagging_pic_action.xml",

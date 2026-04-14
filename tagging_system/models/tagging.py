@@ -84,6 +84,7 @@ class TaggingRecord(models.Model):
     store=True,
     )
     problem_category = fields.Char(string="Problem Category", related="category_problem_id.cat_masalah", store=True, tracking=True)
+    problem_id = fields.Many2one(string="Problem Category", related="category_problem_id.problem_id", store=True, tracking=True)
 
     # =========================
     # EQUIPMENT MASTER (legacy - existing)
@@ -939,8 +940,96 @@ class TaggingRecord(models.Model):
         dt_local = fields.Datetime.context_timestamp(self, dt)
         return dt_local.strftime("%d %B %Y pukul %H:%M")
 
+    @api.model
     def cron_remind_open_tagging(self):
-        """Cron harian: kirim reminder listing utk semua tagging yang belum closed."""
+        Tagging = self.env['tagging.record'].sudo()
+        Dept = self.env['tagging.department'].sudo()
+        PIC = self.env['tagging.pic'].sudo()
+
+        open_taggings = Tagging.search([('status', '!=', 'closed')])
+
+        if not open_taggings:
+            return True
+
+        dept_map = {d.name: d.id for d in Dept.search([])}
+
+        dept_pic_map = defaultdict(list)
+        for pic in PIC.search([]):
+            for dept in pic.department_ids:
+                if pic.email:
+                    dept_pic_map[dept.id].append(pic.email)
+
+        tagging_by_dept = defaultdict(list)
+        for ot in open_taggings:
+            dept_id = dept_map.get(ot.pic_department_names)
+            if dept_id:
+                tagging_by_dept[dept_id].append(ot)
+
+        base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url')
+
+        mails = []
+
+        for dept_id, records in tagging_by_dept.items():
+            emails = list(set(dept_pic_map.get(dept_id, [])))
+            if not emails:
+                continue
+
+            rows = ""
+            for i, ot in enumerate(records, start=1):
+                open_url = f"{base_url}/web#id={ot.id}&model=tagging.record&view_type=form"
+                rows += f"""
+                    <tr>
+                        <td>{i}</td>
+                        <td><a href="{open_url}">{escape(ot.name or '')}</a></td>
+                        <td>{escape(str(ot.start_date or ''))}</td>
+                        <td>{escape(ot.system_name or '')}</td>
+                        <td>{escape(ot.status or '')}</td>
+                        <td>{escape(ot.description or '')}</td>
+                        <td>{escape(ot.problem_id.name or '')}</td>
+                        <td>{escape(ot.tagger_name or (ot.user_id.name if ot.user_id else ''))}</td>
+                    </tr>
+                """
+            subject = f"[REMINDER] Open Tagging ({len(records)} items)"
+            body_html = f"""
+                <p>Dear Team,</p>
+
+                <p>Berikut adalah daftar tagging yang masih belum selesai:</p>
+
+                <table border="1" cellspacing="0" cellpadding="5" style="border-collapse: collapse; font-size: 12px;">
+                    <thead style="background-color:#f2f2f2;">
+                        <tr>
+                            <th>No</th>
+                            <th>Name</th>
+                            <th>Start Date</th>
+                            <th>System</th>
+                            <th>Sub System</th>
+                            <th>Status</th>
+                            <th>Description</th>
+                            <th>Problem Category</th>
+                            <th>Tagger</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {rows}
+                    </tbody>
+                </table>
+
+                <p>Mohon segera ditindaklanjuti.</p>
+
+                <p>Terima kasih.</p>
+            """
+            mails.append({
+                "subject": subject,
+                "body_html": body_html,
+                "email_to": ",".join(emails),
+                "email_from": "adminitc@cpp.co.id",
+                "reply_to": "adminitc@cpp.co.id",
+            })
+
+        if mails:
+            self.env['mail.mail'].sudo().create(mails)
+
+        return True
 
     def _send_reminder_listing_to_department(self):
         """Kirim email reminder listing untuk recordset self (multi)."""
@@ -1013,7 +1102,7 @@ class TaggingRecord(models.Model):
             )
 
             tanggal_str = rec._format_dt_id(rec.create_date) if rec.create_date else "-"
-            cat_name = rec.category_problem_id.display_name if rec.category_problem_id else (rec.problem_category or "-")
+            cat_name = rec.category_problem_id.display_name if rec.category_problem_id else (rec.problem_id.name or "-")
             desc = rec.description or ""
 
             # status label
@@ -1071,7 +1160,7 @@ class TaggingRecord(models.Model):
             mail_vals["email_cc"] = first.pic_id.cc
 
         mail = self.env["mail.mail"].sudo().create(mail_vals)
-        mail.send(raise_exception=True)
+        # mail.send(raise_exception=True)
         return True
 
     def _send_email_to_department(self):
@@ -1179,7 +1268,7 @@ class TaggingRecord(models.Model):
             mail_vals["email_cc"] = self.pic_id.cc
 
         mail = self.env["mail.mail"].sudo().create(mail_vals)
-        mail.send(raise_exception=True)
+        # mail.send(raise_exception=True)
         return True
     
     def _send_email_close_to_tagger(self):
@@ -1234,5 +1323,5 @@ class TaggingRecord(models.Model):
         }
 
         mail = self.env["mail.mail"].sudo().create(mail_vals)
-        mail.send(raise_exception=True)
+        # mail.send(raise_exception=True)
         return True

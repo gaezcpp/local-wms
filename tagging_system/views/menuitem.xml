@@ -16,7 +16,7 @@
 
     <menuitem
         id="g_barcode_menu"
-        name="Barocde"
+        name="Barcode"
         parent="tagging_system.menu_tagging_root"
         action="tagging_system.action_barcode_tagging"
         sequence="20"
@@ -37,17 +37,17 @@
         sequence="100"
     />
         <menuitem
-            id="g_pic_tagging_menu"
-            name="PIC"
-            parent="tagging_system.g_configuration_menu"
-            action="tagging_system.action_tagging_pic"
-            sequence="1"
-        />
-        <menuitem
             id="g_department_tagging_menu"
             name="Department"
             parent="tagging_system.g_configuration_menu"
             action="tagging_system.action_tagging_department"
+            sequence="1"
+        />
+        <menuitem
+            id="g_pic_tagging_menu"
+            name="PIC"
+            parent="tagging_system.g_configuration_menu"
+            action="tagging_system.action_tagging_pic"
             sequence="2"
         />
         <menuitem
@@ -77,6 +77,13 @@
             parent="tagging_system.g_configuration_menu"
             action="tagging_system.action_tagging_spare_part"
             sequence="40"
+        />
+        <menuitem
+            id="g_tagging_problem"
+            name="Tagging Problem"
+            parent="tagging_system.g_configuration_menu"
+            action="tagging_system.tagging_problem_action"
+            sequence="45"
         />
         <menuitem
             id="g_category_problem_tagging_menu"

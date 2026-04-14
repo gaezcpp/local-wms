@@ -1,4 +1,4 @@
-from odoo import models, fields
+from odoo import models, fields, api
 
 class CategoryProblem(models.Model):
     _name = "category.problem"
@@ -25,4 +25,13 @@ class CategoryProblem(models.Model):
     subsystem_code = fields.Char(related="subsystem_id.code", store=True, readonly=True)
 
     cat_masalah = fields.Char(string="Category Masalah", required=True)
+    problem_id = fields.Many2one(comodel_name='tagging.problem', string="Problem", required=True)
     active = fields.Boolean(default=True)
+    
+    @api.onchange('problem_id')
+    def _onchange_problem(self):
+        for rec in self:
+            if rec.problem_id:
+                rec.cat_masalah = rec.problem_id.name
+            else:
+                rec.cat_masalah = "-"

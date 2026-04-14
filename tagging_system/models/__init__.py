@@ -8,3 +8,4 @@ from . import barcode_tagging
 from . import tagging_wo_spare_part
 from . import tagging_wo_spare_part_wizard
 from . import tagging_bom_import_wizard
+from . import tagging_problem

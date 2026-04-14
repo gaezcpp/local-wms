@@ -56,10 +56,11 @@ class TaggingController(http.Controller):
         departments = pics_all.mapped("department_ids")
         departments = departments.sorted(key=lambda d: (d.name or "").lower())
 
-        category_problems = request.env["category.problem"].sudo().search(
-            [("active", "=", True)],
-            order="system_id asc, subsystem_id asc, cat_masalah asc"
-        )
+        category_problems = request.env["category.problem"].sudo().search([
+            ("active", "=", True),
+            ('system_id', '=', barcode.system_id.id),
+            ('subsystem_id', '=', barcode.subsystem_id.id),
+        ], order="system_id asc, subsystem_id asc")
 
         values = {
             "barcode_code": barcode_code,
@@ -214,6 +215,7 @@ class TaggingController(http.Controller):
 
             # snapshot kategori masalah dari barcode
             "problem_category": getattr(cp, "cat_masalah", "") or "",
+            "pdoblem_id": cp.problem_id.id or False,
 
             "description": (post.get("description") or "").strip(),
         }

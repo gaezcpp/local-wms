@@ -12,7 +12,7 @@
             <list string="Category Problem">
                 <field name="system_id"/>
                 <field name="subsystem_id"/>
-                <field name="cat_masalah"/>
+                <field name="problem_id"/>
                 <field name="active"/>
             </list>
         </field>
@@ -26,11 +26,12 @@
                 <sheet>
                     <group>
                         <group string="Classification">
-                            <field name="system_id"/>
-                            <field name="subsystem_id" domain="[('system_id', '=', system_id)]"/>
+                            <field name="system_id" options="{'no_open': True, 'no_create': True}"/>
+                            <field name="subsystem_id" domain="[('system_id', '=', system_id)]" options="{'no_open': True, 'no_create': True}"/>
                         </group>
                         <group string="Details">
-                            <field name="cat_masalah"/>
+                            <field name="cat_masalah" force_save="1" readonly="1" invisible="1"/>
+                            <field name="problem_id" options="{'no_open': True, 'no_create': True}"/>
                             <field name="active"/>
                         </group>
                     </group>
