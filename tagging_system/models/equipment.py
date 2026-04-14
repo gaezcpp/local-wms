@@ -30,13 +30,13 @@ class TaggingSystem(models.Model):
     )
     sync_message = fields.Text(string="Sync Message", readonly=True)
     sap_synchronize = fields.Boolean(string="SAP Synchronize")
-    _sql_constraints = [
-    (
-        "tagging_system_code_company_uniq",
-        "unique(code, company_id)",
-        "System code must be unique per Plant.",
-    ),
-]
+#     _sql_constraints = [
+#     (
+#         "tagging_system_code_company_uniq",
+#         "unique(code, company_id)",
+#         "System code must be unique per Plant.",
+#     ),
+# ]
 
 
 class TaggingSubSystem(models.Model):
@@ -64,11 +64,11 @@ class TaggingSubSystem(models.Model):
     company_id = fields.Many2one("res.company", string="Plant", required=True, default=lambda self: self.env.company)
     abc_indicator = fields.Char(string="ABC Indicator")
     
-    _sql_constraints = [
-        ("tagging_subsystem_code_per_system_uniq",
-         "unique(system_id, code)",
-         "Sub System code must be unique per System."),
-    ]
+    # _sql_constraints = [
+    #     ("tagging_subsystem_code_per_system_uniq",
+    #      "unique(system_id, code)",
+    #      "Sub System code must be unique per System."),
+    # ]
 
 
 class TaggingMachineUnit(models.Model):

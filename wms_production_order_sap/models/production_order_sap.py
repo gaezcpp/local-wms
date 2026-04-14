@@ -78,7 +78,6 @@ class ProductionOrderSAP(models.Model):
         for data in data_list:
             po_number = data.get('AUFNR')
             if not po_number:
-                _logger.info(f"PO NUMBER {po_number} SKIPPED")
                 continue
             
             order_type = data.get('AUART') or ''
@@ -90,14 +89,12 @@ class ProductionOrderSAP(models.Model):
                     ('sync_pm', '=', False),
                 ], limit=1)
                 if not company_id:
-                    _logger.info(f"company_id {company_id} SKIPPED")
                     continue
             
             product_code = data.get('MATNR') or ''
             if product_code:
                 product_id = product_template.search([('default_code', '=', product_code)], limit=1)
                 if not product_id:
-                    _logger.info(f"product_id {product_id} SKIPPED")
                     continue
                 
             unit = data.get('MEINS') or ''
@@ -106,7 +103,6 @@ class ProductionOrderSAP(models.Model):
                     unit = 'kg'
                 uom_id = unit_of_measure.search([('name', '=', unit)], limit=1)
                 if not uom_id:
-                    _logger.info(f"uom_id {uom_id} SKIPPED")
                     continue
             
             raw_start = data.get('GSTRP')

@@ -71,13 +71,11 @@ class ProductPackagingSAP(models.Model):
                     ('sync_wms', '=', True),
                 ], limit=1)
                 if not company_id:
-                    _logger.info(f"company_id {company_id} SKIPPED")
                     continue
             
             finish_good = (data.get('FNSH_GOOD') or "").lstrip('0')
             product_id = self.env['product.template'].sudo().search([('default_code', '=', finish_good)], limit=1)
             if not product_id:
-                _logger.info(f"product_id {product_id} SKIPPED")
                 continue
             
             bag_uom = data.get('BAG_UOM') or ''

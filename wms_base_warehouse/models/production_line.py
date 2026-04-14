@@ -63,7 +63,7 @@ class ProductionLineCustom(models.Model):
         for data in data_list:
             code = data.get('ZKEY2') or ''
             if not code or code == '':
-                _logger.info(f"CODE {code} SKIPPED!")
+                continue
             
             company_registry = data.get('ZKEY1') or ''
             if company_registry:
@@ -72,7 +72,6 @@ class ProductionLineCustom(models.Model):
                     ('sync_wms', '=', True),
                 ], limit=1)
                 if not company_id:
-                    _logger.info(f"company_id {company_id} SKIPPED")
                     continue
             
             pl_name = data.get('ZKEY3') or ''

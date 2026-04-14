@@ -1,0 +1,1 @@
+from . import sloc_barcode

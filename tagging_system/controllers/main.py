@@ -215,7 +215,7 @@ class TaggingController(http.Controller):
 
             # snapshot kategori masalah dari barcode
             "problem_category": getattr(cp, "cat_masalah", "") or "",
-            "pdoblem_id": cp.problem_id.id or False,
+            "problem_id": cp.problem_id.id or False,
 
             "description": (post.get("description") or "").strip(),
         }

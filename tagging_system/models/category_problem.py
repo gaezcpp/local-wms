@@ -21,8 +21,8 @@ class CategoryProblem(models.Model):
     )
 
     # opsional (kalau kamu butuh cepat cari/filter berdasarkan code)
-    system_code = fields.Char(related="system_id.code", store=True, readonly=True)
-    subsystem_code = fields.Char(related="subsystem_id.code", store=True, readonly=True)
+    system_code = fields.Char(string="Sys Code", related="system_id.code", store=True, readonly=True)
+    subsystem_code = fields.Char(string="Sub Code", related="subsystem_id.code", store=True, readonly=True)
 
     cat_masalah = fields.Char(string="Category Masalah", required=True)
     problem_id = fields.Many2one(comodel_name='tagging.problem', string="Problem", required=True)

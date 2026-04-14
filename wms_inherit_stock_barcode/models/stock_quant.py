@@ -10,8 +10,8 @@ class InheritStockQuant(models.Model):
     uom_bag_id = fields.Many2one('uom.uom')
     bag_qty = fields.Float(string="Bag")
     uom_pallet_id = fields.Many2one('uom.uom')
-    pallet_qty = fields.Float(string="Pallet Qty")
-    bag_dummy_qty = fields.Float(string="Bag")
+    pallet_qty = fields.Float(string="Pallet Dummy")
+    bag_dummy_qty = fields.Float(string="Bag Dummy")
     pallet_dummy_qty = fields.Float(string="Pallet Qty", compute='_compute_pallet_dummy_qty')
 
     def _skip_custom_logic(self):

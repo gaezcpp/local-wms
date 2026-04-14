@@ -55,13 +55,13 @@ class MaintenanceEquipmentProductLine(models.Model):
     note = fields.Char(string="Note")
 
     
-    _sql_constraints = [
-    (
-        "uniq_equipment_spare_part",
-        "unique(equipment_id, spare_part_id)",
-        "Spare part already exists for this equipment.",
-    )
-]
+#     _sql_constraints = [
+#     (
+#         "uniq_equipment_spare_part",
+#         "unique(equipment_id, spare_part_id)",
+#         "Spare part already exists for this equipment.",
+#     )
+# ]
     @api.depends("spare_part_id", "spare_part_id.sku", "spare_part_id.product_id")
     def _compute_spare_part_info(self):
         for rec in self:

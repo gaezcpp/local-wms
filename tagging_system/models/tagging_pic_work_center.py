@@ -28,9 +28,9 @@ class TaggingBU(models.Model):
     code = fields.Char(required=True)
     active = fields.Boolean(default=True)
 
-    _sql_constraints = [
-        ("tagging_bu_code_uniq", "unique(code)", "Business Unit code must be unique."),
-    ]
+    # _sql_constraints = [
+    #     ("tagging_bu_code_uniq", "unique(code)", "Business Unit code must be unique."),
+    # ]
     
 class TaggingPic(models.Model):
     _name = "tagging.pic"

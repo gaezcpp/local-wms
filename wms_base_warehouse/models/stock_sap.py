@@ -79,14 +79,12 @@ class StockSAP(models.Model):
             if company_registry:
                 company_id = companies.search([('company_registry', '=', company_registry),('sync_wms', '=', True)], limit=1)
                 if not company_id:
-                    _logger.info(f"company_id {company_id.company_registry} SKIPPED")
                     continue
                 
             product_code = data.get('MATNR') or ''
             if product_code:
                 product_id = product_template.search([('default_code', '=', product_code),('company_id', '=', company_id.id)], limit=1)
                 if not product_id:
-                    _logger.info(f"product_id {product_id.default_code} SKIPPED")
                     continue
             
             unit = data.get('MEINS') or ''
@@ -95,7 +93,6 @@ class StockSAP(models.Model):
                     unit = 'kg'
                 uom_id = unit_of_measure.search([('name', '=', unit)], limit=1)
                 if not uom_id:
-                    _logger.info(f"uom_id {uom_id.name} SKIPPED")
                     continue
             
             location_code = data.get('LGORT')
@@ -105,7 +102,6 @@ class StockSAP(models.Model):
                     ('company_id', '=', company_id.id)
                 ], limit=1)
                 if not location_id:
-                    _logger.info(f"location_id {location_id.name} SKIPPED")
                     continue
             
             odoo_stock = 0.0

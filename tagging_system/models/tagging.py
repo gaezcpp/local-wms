@@ -34,11 +34,12 @@ class TaggingRecord(models.Model):
     
   
     abc_indic = fields.Char(
+        string="ABC Indic",
         related="barcode_id.abc_indic",
         store=True,
         readonly=True,
     )
-    abc_indicator = fields.Char(related="barcode_id.abc_indic", store=True, readonly=True)
+    abc_indicator = fields.Char(string="Indicator", related="barcode_id.abc_indic", store=True, readonly=True)
 
 
     tagger_name = fields.Char(required=True, tracking=True)
@@ -84,7 +85,7 @@ class TaggingRecord(models.Model):
     store=True,
     )
     problem_category = fields.Char(string="Problem Category", related="category_problem_id.cat_masalah", store=True, tracking=True)
-    problem_id = fields.Many2one(string="Problem Category", related="category_problem_id.problem_id", store=True, tracking=True)
+    problem_id = fields.Many2one(string="Problem", related="category_problem_id.problem_id", store=True, tracking=True)
 
     # =========================
     # EQUIPMENT MASTER (legacy - existing)
@@ -110,7 +111,7 @@ class TaggingRecord(models.Model):
     plant_code = fields.Char(tracking=True)
     plant_name = fields.Char(string="Plant Area", tracking=True)
     work_center = fields.Char(string="Work Center")
-    functional_location = fields.Char(string="Sub System",tracking=True)
+    functional_location = fields.Char(string="FuncLoc",tracking=True)
 
     # =========================
     # SNAPSHOT EQUIPMENT (untuk report/search)
@@ -177,7 +178,7 @@ class TaggingRecord(models.Model):
     )
 
     system = fields.Char(
-        string="System",
+        string="System String",
         related="barcode_id.superord_functional_loc",
         store=True,
         readonly=True,

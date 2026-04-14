@@ -74,8 +74,8 @@ class BarcodeTagging(models.Model):
         string="Sub System",
         ondelete="restrict",
     )
-    system_code = fields.Char(related="system_id.code", store=True, readonly=True)
-    subsystem_code = fields.Char(related="subsystem_id.code", store=True, readonly=True)
+    system_code = fields.Char(string = "Sys Code", related="system_id.code", store=True, readonly=True)
+    subsystem_code = fields.Char(string="Sub Code", related="subsystem_id.code", store=True, readonly=True)
 
 
     
@@ -96,9 +96,9 @@ class BarcodeTagging(models.Model):
     qr_link = fields.Text(string="QR Link", readonly=True)
 
 
-    _sql_constraints = [
-        ("barcode_code_uniq", "unique(barcode_code)", "Barcode Code harus unik!"),
-    ]
+    # _sql_constraints = [
+    #     ("barcode_code_uniq", "unique(barcode_code)", "Barcode Code harus unik!"),
+    # ]
 
     
     @api.onchange("system_id")

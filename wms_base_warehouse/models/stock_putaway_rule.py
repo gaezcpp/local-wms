@@ -10,4 +10,4 @@ class InheritStockPutawayRule(models.Model):
     pallet_status = fields.Selection([
         ('full_pallet', 'Full Pallet'),
         ('eceran', 'Eceran'),
-    ], string="Pallet Status", default=False, tracking=True)
+    ], string="Pallet Status", default=False)

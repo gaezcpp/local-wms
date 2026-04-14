@@ -69,7 +69,6 @@ class InheritResPartner(models.Model):
 
             name = data.get('NAME1') or ''
             if not name:
-                _logger.info(f"KUNNR {ref} skipped karena NAME1 kosong")
                 continue
 
             street = data.get('STRAS') or ''
@@ -158,7 +157,6 @@ class InheritResPartner(models.Model):
         for data in data_list:
             ref = data.get('WERKS')
             if not ref:
-                _logger.info(f"PLANT {ref} SKIPPED !!")
                 continue
             
             name = data.get('NAME1')

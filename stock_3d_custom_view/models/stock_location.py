@@ -45,10 +45,10 @@ class StockLocation(models.Model):
                                   help="Maximum capacity of the location in "
                                        "terms of Units")
 
-    _sql_constraints = [
-        ('unique_code', 'UNIQUE(unique_code)',
-         "The location code must be unique per company !"),
-    ]
+    # _sql_constraints = [
+    #     ('unique_code', 'UNIQUE(unique_code)',
+    #      "The location code must be unique per company !"),
+    # ]
 
     def action_view_location_3d_button(self):
         """

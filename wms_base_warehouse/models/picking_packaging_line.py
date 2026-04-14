@@ -16,7 +16,7 @@ class PickingPackagingLine(models.Model):
     qty_packaging_sap = fields.Float(string="Qty", compute='_compute_qty_packaging', store=False)
     company_id = fields.Many2one(comodel_name='res.company', string="Company")
     packaging_type_id = fields.Many2one(comodel_name='stock.picking.type', string="Packaging Type")
-    sloc_packaging = fields.Char(string="SLOC")
+    sloc_packaging = fields.Char(string="SLOC Packaging")
     sloc_id = fields.Many2one(comodel_name='storage.location', string="SLOC")
     move_type_sap = fields.Char(string="Move Type")
     

@@ -17,6 +17,6 @@ class SapCoreApiLog(models.Model):
     response_plaintext = fields.Text(string="Response Plaintext")
     response_encrypted = fields.Text(string="Response Encrypted")
 
-    _sql_constraints = [
-        ("unique_request_id", "unique(request_id)", "Request ID must be unique."),
-    ]
+    # _sql_constraints = [
+    #     ("unique_request_id", "unique(request_id)", "Request ID must be unique."),
+    # ]

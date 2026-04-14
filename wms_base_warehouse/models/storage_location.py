@@ -66,7 +66,7 @@ class StorageLocation(models.Model):
         for data in data_list:
             code = data.get('LGORT') or ''
             if not code or code == '':
-                _logger.info(f"CODE {code} SKIPPED!")
+                continue
             
             company_registry = data.get('WERKS') or ''
             if company_registry:
@@ -75,7 +75,6 @@ class StorageLocation(models.Model):
                     ('sync_wms', '=', True),
                 ], limit=1)
                 if not company_id:
-                    _logger.info(f"company_id {company_id} SKIPPED")
                     continue
             
             sloc_name = data.get('LGOBE') or ''

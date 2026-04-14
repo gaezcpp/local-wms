@@ -19,6 +19,7 @@ class InheritSaleOrderSAP(models.Model):
     sales_sap_name = fields.Char(string="Sales Name", tracking=True)
     nomor_polisi_desc = fields.Text(string="Nomor Polisi", tracking=True)
     date_order_sap = fields.Date(string="Date Order", tracking=True)
+    so_sto = fields.Boolean(string="STO", default=False)
 
     def now_jakarta(self):
         tz = pytz.timezone('Asia/Jakarta')
@@ -122,6 +123,7 @@ class InheritSaleOrderSAP(models.Model):
         product_model = self.env['product.product'].sudo()
         uom_model = self.env['uom.uom'].sudo()
         delivery_carrier_model = self.env['delivery.carrier'].sudo()
+        location_model = self.env['stock.location'].sudo()
 
         grouped_data = defaultdict(list)
 
@@ -138,15 +140,18 @@ class InheritSaleOrderSAP(models.Model):
             company_registry = first.get('WERKS')
             ernam = first.get('ERNAM')
             delivery_method = first.get('DELIVERY_METHOD')
+            stock_warehouse = first.get('LGORT')
 
             partner = partner_model.search([('ref', '=', customer_ref)], limit=1)
             if not partner:
-                _logger.info(f"Customer {customer_ref} SKIPPED")
                 continue
 
             partner_shipping = partner_model.search([('ref', '=', delivery_ref)], limit=1)
             if not partner_shipping:
-                _logger.info(f"Delivery {delivery_ref} SKIPPED")
+                continue
+            
+            warehouse = location_model.search([('sloc_id.code', '=', stock_warehouse),('location_id.usage', '=', 'view')], limit=1)
+            if not warehouse:
                 continue
 
             company = company_model.search([
@@ -155,7 +160,6 @@ class InheritSaleOrderSAP(models.Model):
                 ('sync_pm', '=', False),
             ], limit=1)
             if not company:
-                _logger.info(f"Company {company_registry} SKIPPED")
                 continue
 
             order_date = False
@@ -179,17 +183,16 @@ class InheritSaleOrderSAP(models.Model):
                 'carrier_id': deliv_carrier.id,
                 'sales_sap_name': ernam,
                 'company_id': company.id,
+                'warehouse_id': warehouse.warehouse_id.id,
             }
             if not so:
                 so = sale_order_model.create(vals)
                 so.message_post(body=f"SO SAP {nomor_do} Created from Cron")
                 so.action_confirm()
                 _logger.info(f"SO Created {nomor_do}")
-            # else:
-            #     if self._needs_update(so, vals):
-            #         so.write(vals)
-            #         so.message_post(body=f"SO Updated {so.name} | {so.do_sap}")
-            #         _logger.info(f"SO Updated {so.name} | {so.do_sap}")
+            else:
+                if self._needs_update(so, vals):
+                    so.write(vals)
 
             for row in rows:
                 product_code = row.get('MATNR')
@@ -299,3 +302,153 @@ class InheritSaleOrderSAP(models.Model):
             if so.nomor_polisi_desc != nomor_polisi_desc:
                 so.write({'nomor_polisi_desc': nomor_polisi_desc})
                 _logger.info(f"Nopol updated DO {so.do_sap}")
+                
+    @api.model
+    def cron_synhronize_sap_so_sto(self):
+        icp = self.env['ir.config_parameter'].sudo()
+        x_i_api_key = icp.get_param('x_i_api_key')
+        ip_sap_rfc = icp.get_param('ip_sap_rfc')
+        query_so_sto_sap = icp.get_param('query_so_sto_sap')
+
+        if not x_i_api_key:
+            raise ValidationError("x_i_api_key belum disetting!")
+        if not ip_sap_rfc:
+            raise ValidationError("ip_sap_rfc belum disetting!")
+        if not query_so_sto_sap:
+            raise ValidationError("query_so_sto_sap belum disetting!")
+
+        headers = {
+            "x-i-api-key": str(x_i_api_key),
+            "Content-Type": "application/json"
+        }
+        url = f"{ip_sap_rfc}/api/v1/zfm-query-data"
+        body = {
+            "I_QUERY": str(query_so_sto_sap),
+            "I_MOD": "CRON cron_synhronize_sap_so_sto"
+        }
+
+        try:
+            response = requests.post(url=url, headers=headers, data=json.dumps(body))
+        except Exception as e:
+            raise ValidationError(str(e))
+
+        res = response.json()
+
+        if res.get('error'):
+            raise ValidationError(json.dumps(res.get('error')))
+
+        if not res.get('success'):
+            _logger.info("CRON cron_synchronize_sap_sale_order NOT SUCCESS")
+            return True
+
+        data_list = res.get('data', [])
+        _logger.info(f"TOTAL DATA SAP {len(data_list)}")
+
+        if not data_list:
+            return True
+        
+        so_model = self.env['sale.order'].sudo()
+        so_line_model = self.env['sale.order.line'].sudo()
+        partner_model = self.env['res.partner'].sudo()
+        company_model = self.env['res.company'].sudo()
+        product_model = self.env['product.product'].sudo()
+        uom_model = self.env['uom.uom'].sudo()
+        location_model = self.env['stock.location'].sudo()
+        
+        grouped_data = defaultdict(list)
+        
+        for row in data_list:
+            nomor_do = row.get('VBELN_VL')
+            if nomor_do:
+                grouped_data[nomor_do].append(row)
+        
+        for nomor_do, rows in grouped_data.items():
+            first = rows[0]
+            date_order_sap = first.get('ARRDATE')
+            nomor_polisi_desc = first.get('TRUCKNR')
+            company_registry = first.get('WERKS')
+            stock_warehouse = first.get('LGORT')
+            partner = first.get('KUNNR') or first.get('SHIP_TO')
+            sales_name = first.get('ERNAM')
+            
+            partner = partner_model.search([('ref', '=', partner)], limit=1)
+            if not partner:
+                continue
+            
+            company = company_model.search([('company_registry', '=', company_registry),('sync_wms', '=', True)], limit=1)
+            if not company:
+                continue
+            
+            warehouse = location_model.search([('sloc_id.code', '=', stock_warehouse),('location_id.usage', '=', 'view')], limit=1)
+            if not warehouse:
+                continue
+            
+            print(f"XXXXXXXXXXXXXXXXXXX {warehouse}")
+            
+            date_order = False
+            if date_order_sap and len(date_order_sap) == 8:
+                date_order = datetime.strptime(date_order_sap, "%Y%m%d")
+            
+            so = so_model.search([
+                ('do_sap', '=', nomor_do),
+                ('company_id', '=', company.id),
+                ('so_sto', '=', True)
+            ], limit=1)
+            vals = {
+                'is_sap': True,
+                'so_sto': True,
+                'do_sap': nomor_do,
+                'partner_id': partner.id,
+                'warehouse_id': warehouse.warehouse_id.id,
+                'date_order': date_order,
+                'date_order_sap': date_order,
+                'sales_sap_name': sales_name,
+                'nomor_polisi_desc': nomor_polisi_desc,
+                'company_id': company.id,
+            }
+            if not so:
+                so = so_model.create(vals)
+                so.message_post(body=f"SO SAP {nomor_do} Created from Cron")
+                _logger.info(f"SO Created {nomor_do}")
+                so.action_confirm()
+            else:
+                if self._needs_update(so, vals):
+                    so.write(vals)
+            
+            for row in rows:
+                product_code = row.get('MATNR')
+                if not product_code:
+                    continue
+                product = product_model.search([('default_code', '=', product_code),('company_id', '=', company.id)], limit=1)
+                if not product:
+                    continue
+                
+                delivery_uom = row.get('VRKME')
+                uom_numerator = float(row.get('UMREZ'))
+                uom_denominator = float(row.get('UMREN'))
+                product_uom = product.uom_bag_id
+                if delivery_uom and delivery_uom.upper() != "KG":
+                    ratio = float(uom_numerator) / float(uom_denominator)
+                    ratio = int(ratio) if ratio.is_integer() else ratio
+                    uom_name = f"{delivery_uom} {ratio}"
+                    uom = uom_model.search([('name', '=', uom_name)], limit=1)
+                    if uom:
+                        product_uom = uom
+                
+                qty = float(row.get('LFIMG') or 0)
+                existing_line = so_line_model.search([('order_id', '=', so.id),('product_id', '=', product.id)], limit=1)
+                vals_line = {
+                    'order_id': so.id,
+                    'product_id': product.id,
+                    'product_uom_qty': qty,
+                    'product_uom_id': product_uom.id,
+                }
+                
+                if not existing_line:
+                    so_line_model.create(vals_line)
+                else:
+                    if self._needs_update(existing_line, vals_line):
+                        existing_line.write({
+                            'product_uom_qty': qty,
+                            'product_uom_id': product_uom.id,
+                        })

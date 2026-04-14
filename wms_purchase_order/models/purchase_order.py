@@ -167,7 +167,6 @@ class InheritPurchaseOrder(models.Model):
                 if not uom:
                     uom = uom_kg
                 if not uom:
-                    _logger.info(f"UOM {uom} SKIPPED!")
                     continue
 
                 vals_line = {
