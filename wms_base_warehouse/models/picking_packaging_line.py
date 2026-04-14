@@ -8,7 +8,7 @@ class PickingPackagingLine(models.Model):
     _name = 'picking.packaging.line'
     _description = 'Picking Packaging Line'
     
-    picking_id = fields.Many2one(comodel_name='stock.picking', string="Picking")
+    picking_id = fields.Many2one(comodel_name='stock.picking', string="Picking", ondelete='cascade')
     product_id = fields.Many2one(comodel_name='product.template', string="Product")
     product_uom_desc = fields.Char(string="UoM")
     packaging_code = fields.Char(string="Packaging")

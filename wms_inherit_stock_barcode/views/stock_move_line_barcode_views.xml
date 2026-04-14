@@ -34,40 +34,53 @@
                 </div>
             </xpath>
             <xpath expr="//div[@name='location_src']" position="before">
-                <div name="production_line" class="row" invisible="not production_only">
-                    <div class="text-black-50 mt-2 fs-5">
-                        <span class="fa fa-map-marker me-1"/>
-                        <label for="production_line_id" string="Production Line" class="p-0"/>
+                <div name="production_text" class="row my-2" invisible="not production_only">
+                    <div class="col-6">
+                        <div class="text-black-50 mt-2 fs-5">
+                            <span class="fa fa-map-marker me-1"/>
+                            <label for="production_line_id" string="Production Line" class="p-0"/>
+                        </div>
+                        <field name="production_line_id" string="Production Line Packaging" class="w-100" placeholder="Production Line" options="{'no_open': True, 'no_create': True}" required="production_only"/>
                     </div>
-                    <field name="production_line_id" placeholder="Production Line" options="{'no_create': True, 'no_open': True}" domain="[('company_id', '=', company_id)]"/>
+                    <div class="col-6">
+                        <div class="text-black-50 mt-2 fs-5">
+                            <span class="fa fa-map-marker me-1"/>
+                            <label for="detail_text" string="Detail Text" class="p-0"/>
+                        </div>
+                        <field name="detail_text" placeholder="Detail Text" class="w-100"/>
+                    </div>
                 </div>
-                <div name="first_count" class="row" invisible="not production_only">
-                    <div class="text-black-50 mt-2 fs-5">
-                        <span class="fa fa-map-marker me-1"/>
-                        <label for="first_count" string="First Count" class="p-0"/>
+                <div name="first_last_count" class="row my-2" invisible="not production_only">
+                    <div class="col-6">
+                        <div class="text-black-50 mt-2 fs-5">
+                            <span class="fa fa-map-marker me-1"/>
+                            <label for="first_count" string="First Count" class="p-0"/>
+                        </div>
+                        <field name="first_count" placeholder="First Count"/>
                     </div>
-                    <field name="first_count" placeholder="First Count"/>
+                    <div class="col-6">
+                        <div class="text-black-50 mt-2 fs-5">
+                            <span class="fa fa-map-marker me-1"/>
+                            <label for="last_count" string="Last Count" class="p-0"/>
+                        </div>
+                        <field name="last_count" placeholder="Last Count"/>
+                    </div>
                 </div>
-                <div name="last_count" class="row" invisible="not production_only">
-                    <div class="text-black-50 mt-2 fs-5">
-                        <span class="fa fa-map-marker me-1"/>
-                        <label for="last_count" string="Last Count" class="p-0"/>
+                <div name="sloc_packaging" class="row my-2" invisible="not production_only">
+                    <div class="col-6">
+                        <div class="text-black-50 mt-2 fs-5">
+                            <span class="fa fa-map-marker me-1"/>
+                            <label for="sloc_id" string="SLOC" class="p-0"/>
+                        </div>
+                        <field name="sloc_id" string="SLOC Packaging" class="w-100" placeholder="SLOC" options="{'no_open': True, 'no_create': True}" required="production_only"/>
                     </div>
-                    <field name="last_count" placeholder="Last Count"/>
-                </div>
-                <div name="detail_text" class="row" invisible="not production_only">
-                    <div class="text-black-50 mt-2 fs-5">
-                        <span class="fa fa-map-marker me-1"/>
-                        <label for="detail_text" string="Detail Text" class="p-0"/>
+                    <div class="col-6">
+                        <div class="text-black-50 mt-2 fs-5">
+                            <span class="fa fa-map-marker me-1"/>
+                            <label for="qty_packaging_sap" string="Packaging Qty" class="p-0"/>
+                        </div>
+                        <field name="qty_packaging_sap" placeholder="Packaging Qty"/>
                     </div>
-                    <field name="detail_text" placeholder="Detail Text"/>
-                </div>
-                <div name="qty_packaging_sap" class="row" invisible="not production_only">
-                    <div class="text-black-50 mt-2 fs-5">
-                        <span class="fa fa-map-marker me-1"/>
-                        <label for="qty_packaging_sap" string="Packaging Qty" class="p-0"/>
-                    </div>
-                    <field name="qty_packaging_sap" placeholder="Packaging Qty"/>
                 </div>
             </xpath>
         </field>

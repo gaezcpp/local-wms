@@ -197,7 +197,6 @@ class InheritSaleOrderSAP(models.Model):
                     continue
                 product = product_model.search([('default_code', '=', product_code),('company_id', '=', company.id)], limit=1)
                 if not product:
-                    _logger.info(f"Product {product_code} SKIPPED")
                     continue
 
                 delivery_uom = row.get('DELIVERY_UOM')

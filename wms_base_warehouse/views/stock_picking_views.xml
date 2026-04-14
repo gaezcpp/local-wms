@@ -21,7 +21,7 @@
                                 <field name="picking_id" column_invisible="1"/>
                                 <field name="packaging_type_id" options="{'no_open': True, 'no_create': True}"/>
                                 <field name="move_type_sap"/>
-                                <field name="sloc_packaging"/>
+                                <!-- <field name="sloc_packaging"/> -->
                                 <field name="sloc_id"/>
                                 <field name="product_id" options="{'no_open': True, 'no_create': True}"/>
                                 <field name="qty_packaging_sap"/>
@@ -35,7 +35,6 @@
                                     <field name="picking_id" column_invisible="1"/>
                                     <field name="packaging_type_id" options="{'no_open': True, 'no_create': True}"/>
                                     <field name="move_type_sap"/>
-                                    <field name="sloc_packaging"/>
                                     <field name="sloc_id"/>
                                     <field name="product_id" options="{'no_open': True, 'no_create': True}"/>
                                     <field name="qty_packaging_sap"/>

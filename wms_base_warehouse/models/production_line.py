@@ -16,14 +16,6 @@ class ProductionLineCustom(models.Model):
     sap_sync = fields.Boolean(string="SAP Sync")
     company_id = fields.Many2one(comodel_name='res.company', string="Company", default=lambda self: self.env.company)
     
-    _sql_constraints = [
-        (
-            "code_uniq",
-            "unique (code)",
-            "code sudah digunakan",
-        )
-    ]
-    
     @api.model
     def cron_synchronize_sap_production_line(self):
         icp = self.env['ir.config_parameter'].sudo()

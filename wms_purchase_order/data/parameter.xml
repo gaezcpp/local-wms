@@ -1,0 +1,13 @@
+<?xml version="1.0" ?>
+<odoo>
+    <data noupdate="1">
+        <record id="query_po_sto_sap" model="ir.config_parameter">
+            <field name="key">query_po_sto_sap</field>
+            <field name="value">SELECT a.EBELN, a.BSART, b.PSTYP, b.MATNR, b.menge, b.meins, b.WERKS, a.RESWK FROM EKKO a JOIN EKPO b ON a.EBELN = b.EBELN where b.pstyp = '7'</field>
+        </record>
+        <record id="picking_type_po" model="ir.config_parameter">
+            <field name="key">picking_type_po</field>
+            <field name="value">111</field>
+        </record>
+    </data>
+</odoo>

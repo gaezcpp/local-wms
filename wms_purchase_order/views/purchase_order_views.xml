@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record model="ir.ui.view" id="inherit_purchase_order_form">
+        <field name="name">inherit.purchase.order.form</field>
+        <field name="model">purchase.order</field>
+        <field name="inherit_id" ref="purchase.purchase_order_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='partner_id']" position="before">
+                <field name="po_sto" force_save="1" readonly="1"/>
+                <field name="po_sto_type" force_save="1" readonly="1"/>
+            </xpath>
+            <xpath expr="//field[@name='date_order']" position="before">
+                <field name="sap_synchronize" force_save="1" readonly="1"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

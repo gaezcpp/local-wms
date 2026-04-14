@@ -13,7 +13,7 @@ class InheritBaseStockMoveLine(models.Model):
     
     # fields buat chriss
     sloc_name = fields.Char(related='location_dest_id.sloc_name', string="SLOC Name", store=True)
-    sloc_id = fields.Many2one(related='location_dest_id.sloc_id', string="SLOC", store=True)
+    sloc_id = fields.Many2one(comodel_name='storage.location', string="SLOC")
     destination_package_status = fields.Selection(related='result_package_id.state', store=True)
     production_shift_id = fields.Many2one(related='picking_id.production_shift_id', string="Shift", store=True)
     production_order_name = fields.Char(related='picking_id.production_order_name', string="Production Order", store=True)
@@ -35,7 +35,10 @@ class InheritBaseStockMoveLine(models.Model):
 
         date_str = self.expiration_date.strftime("%d%m%Y")
         po_number = self.move_id.picking_id.po_sap_id.po_number or ''
-        lot_name = f"{po_number}-{date_str}"
+        
+        lot_name = f"{date_str}"
+        if po_number:
+            lot_name = f"{po_number}-{date_str}"
 
         lot = self.env['stock.lot'].search([
             ('name', '=', lot_name),
@@ -72,16 +75,20 @@ class InheritBaseStockMoveLine(models.Model):
     
     def _is_prod_in(self, vals=None):
         picking = False
-        if vals and vals.get('picking_id'):
-            picking = self.env['stock.picking'].browse(vals['picking_id'])
-        elif self.picking_id:
-            picking = self.picking_id
-        elif self.move_id and self.move_id.picking_id:
-            picking = self.move_id.picking_id
-        return picking and picking.picking_type_id.sequence_code == 'PROD-IN'
+        prod_in_move_type = self.env['ir.config_parameter'].sudo().get_param('prod_in_move_type')
+        if not prod_in_move_type:
+            raise ValidationError("prod_in_move_type pada Operation Type belum disetting!")
+        else:
+            if vals and vals.get('picking_id'):
+                picking = self.env['stock.picking'].browse(vals['picking_id'])
+            elif self.picking_id:
+                picking = self.picking_id
+            elif self.move_id and self.move_id.picking_id:
+                picking = self.move_id.picking_id
+            return picking and picking.picking_type_id.move_type_sap == str(prod_in_move_type)
     
-    @api.onchange('production_line_id', 'first_count', 'last_count', 'detail_text')
-    def _onchange_prod_in_fields(self):
-        for rec in self:
-            if not rec._is_prod_in():
-                raise ValidationError("Production fields hanya boleh diedit pada Operation Type PROD-IN")
+    # @api.onchange('production_line_id', 'first_count', 'last_count', 'detail_text')
+    # def _onchange_prod_in_fields(self):
+    #     for rec in self:
+    #         if not rec._is_prod_in():
+    #             raise ValidationError("Production fields hanya boleh diedit pada Operation Type PROD-IN / Move Type (888)")

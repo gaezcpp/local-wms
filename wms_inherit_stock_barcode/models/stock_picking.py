@@ -59,8 +59,6 @@ class StockPicking(models.Model):
                     'packaging_desc': packaging.packaging_desc,
                     'packaging_type_id': packaging_type.id,
                     'company_id': picking.company_id.id,
-                    'sloc_packaging': packaging_type.default_location_src_id.sloc_name,
-                    'sloc_id': packaging_type.default_location_src_id.sloc_id.id,
                     'move_type_sap': packaging_type.move_type_sap,
                 })
 

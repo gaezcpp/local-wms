@@ -981,8 +981,8 @@ class TaggingRecord(models.Model):
                     <tr>
                         <td>{i}</td>
                         <td><a href="{open_url}">{escape(ot.name or '')}</a></td>
-                        <td>{escape(str(ot.start_date or ''))}</td>
                         <td>{escape(ot.system_name or '')}</td>
+                        <td>{escape(ot.sub_system_id.name or '')}</td>
                         <td>{escape(ot.status or '')}</td>
                         <td>{escape(ot.description or '')}</td>
                         <td>{escape(ot.problem_id.name or '')}</td>
@@ -1000,7 +1000,6 @@ class TaggingRecord(models.Model):
                         <tr>
                             <th>No</th>
                             <th>Name</th>
-                            <th>Start Date</th>
                             <th>System</th>
                             <th>Sub System</th>
                             <th>Status</th>

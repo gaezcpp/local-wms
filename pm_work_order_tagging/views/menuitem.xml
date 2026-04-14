@@ -16,7 +16,7 @@
     <menuitem
         id="tagging_type_notification_menu"
         name="Type Notification"
-        parent="tagging_system.menu_equipment_master_root"
+        parent="tagging_system.g_configuration_menu"
         action="pm_work_order_tagging.tagging_type_notification_action"
         sequence="70"
     />

@@ -13,7 +13,6 @@
                     <field name="detail_text"/>
                 </xpath>
                 <xpath expr="//field[@name='location_dest_id']" position="after">
-                    <field name="sloc_name" readonly="1"/>
                     <field name="sloc_id" options="{'no_open': True, 'no_create': True}" readonly="1"/>
                 </xpath>
             </field>

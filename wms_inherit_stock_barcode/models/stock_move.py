@@ -52,20 +52,17 @@ class InheritStockMove(models.Model):
             
     @api.depends('move_line_ids.qty_packaging_sap')
     def _compute_qty_packaging_sap(self):
-        print("_compute_qty_packaging_sap _compute_qty_packaging_sap")
         for move in self:
             move.qty_packaging_sap = sum(move.move_line_ids.mapped('qty_packaging_sap'))
             
     def create_packaging_line(self):
         _logger.info("create_packaging_line KEPANGGIL")
-        print("create_packaging_line")
         Packaging = self.env['product.packaging.sap']
         PickingPackaging = self.env['picking.packaging.line']
         pickings = self.mapped('picking_id').filtered(lambda p: p)
         for picking in pickings:
             moves = picking.move_ids
             if not moves:
-                print("create_packaging_line masuk sini 111111111111")
                 continue
 
             product_templates = moves.mapped('product_id.product_tmpl_id')
@@ -85,15 +82,12 @@ class InheritStockMove(models.Model):
             
             create_vals = []
             for move in moves:
-                print(f"create_packaging_line moveeeee {move}")
                 tmpl_id = move.product_id.product_tmpl_id.id
                 if tmpl_id in existing_products:
-                    print("create_packaging_line masuk sini 22222222")
                     continue
 
                 packaging = packaging_map.get(tmpl_id)
                 if not packaging:
-                    print("create_packaging_line masuk sini 333333333333")
                     continue
 
                 create_vals.append({
@@ -104,8 +98,8 @@ class InheritStockMove(models.Model):
                     'packaging_desc': packaging.packaging_desc,
                     'company_id': picking.company_id.id,
                     'packaging_type_id': packaging_type.id,
-                    'sloc_packaging': packaging_type.default_location_src_id.sloc_name,
-                    'sloc_id': packaging_type.default_location_src_id.sloc_id.id,
+                    # 'sloc_packaging': packaging_type.default_location_src_id.sloc_name,
+                    # 'sloc_id': packaging_type.default_location_src_id.sloc_id.id,
                     'move_type_sap': packaging_type.move_type_sap,
                 })
 
