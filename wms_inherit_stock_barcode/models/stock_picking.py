@@ -15,7 +15,7 @@ class StockPicking(models.Model):
     def action_open_sloc_packaging_wizard(self):
         self.ensure_one()
 
-        view = self.env.ref('wms_inherit_stock_barcode.view_sloc_barcode_form')
+        view = self.env.ref('wms_inherit_stock_barcode.view_sloc_packaging_wizard_form')
         return {
             'type': 'ir.actions.act_window',
             'name': 'Set SLOC Packaging',
@@ -100,8 +100,8 @@ class StockPicking(models.Model):
             missing = lines.filtered(lambda l: not l.sloc_id)
             if missing:
                 raise ValidationError(
-                    f"SLOC belum lengkap untuk picking {picking.name}.\n"
-                    f"Produk tanpa SLOC: {', '.join(missing.mapped('product_id.name'))}"
+                    f"SLOC belum lengkap untuk picking {picking.name}.\n\n"
+                    f"Masukkan SLOC Packaging pada : {', '.join(missing.mapped('packaging_desc'))}"
                 )
     
     def button_validate(self):

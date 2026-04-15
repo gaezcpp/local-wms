@@ -40,7 +40,11 @@
                             <span class="fa fa-map-marker me-1"/>
                             <label for="production_line_id" string="Production Line" class="p-0"/>
                         </div>
-                        <field name="production_line_id" string="Production Line Packaging" class="w-100" placeholder="Production Line" options="{'no_open': True, 'no_create': True}" required="production_only"/>
+                        <field name="production_line_id" string="Production Line Packaging" class="w-100" 
+                                placeholder="Production Line" 
+                                options="{'no_open': True, 'no_create': True}" 
+                                required="production_only"
+                                domain="[('company_id', '=', company_id)]"/>
                     </div>
                     <div class="col-6">
                         <div class="text-black-50 mt-2 fs-5">
