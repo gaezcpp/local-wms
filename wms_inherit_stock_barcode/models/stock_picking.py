@@ -43,6 +43,10 @@ class StockPicking(models.Model):
 
         packaging_map = {(p.product_id.id, p.company_id.id): p for p in packaging_data}
 
+        origins = self.mapped('origin')
+        origin_pickings = self.env['stock.picking'].sudo().search([('name', 'in', origins)])
+        origin_map = {p.name: p for p in origin_pickings}
+
         create_vals = []
 
         for picking in self:
@@ -52,10 +56,15 @@ class StockPicking(models.Model):
 
             existing_products = set(picking.product_packaging_ids.mapped('product_id').ids)
 
-            origin_picking = self.env['stock.picking'].sudo().search([
-                ('name', '=', picking.origin),
-                ('picking_type_id.production_only', '=', True)
-            ], limit=1)
+            origin_picking = origin_map.get(picking.origin)
+
+            sloc_map = {}
+            if origin_picking:
+                sloc_map = {
+                    line.product_id.id: line.sloc_id.id
+                    for line in origin_picking.product_packaging_ids
+                    if line.sloc_id
+                }
 
             packaging_type = (
                 origin_picking.picking_type_id.packaging_type_id
@@ -81,10 +90,10 @@ class StockPicking(models.Model):
                     'packaging_type_id': packaging_type.id,
                     'company_id': picking.company_id.id,
                     'move_type_sap': packaging_type.move_type_sap,
+                    'sloc_id': sloc_map.get(tmpl_id),
                 })
 
         return create_vals
-
 
     def _sync_packaging_lines(self):
         vals_list = self._prepare_packaging_lines_vals()

@@ -150,16 +150,22 @@ class InheritSaleOrderSAP(models.Model):
             if not partner_shipping:
                 continue
             
-            warehouse = location_model.search([('sloc_id.code', '=', stock_warehouse),('location_id.usage', '=', 'view')], limit=1)
-            if not warehouse:
-                continue
 
             company = company_model.search([
                 ('company_registry', '=', company_registry),
                 ('sync_wms', '=', True),
-                ('sync_pm', '=', False),
             ], limit=1)
             if not company:
+                _logger.info(f"CRON SALE ORDER Company {company_registry} SKIPPED")
+                continue
+            
+            warehouse = location_model.search([
+                ('sloc_id.code', '=', stock_warehouse),
+                ('location_id.usage', '=', 'view'),
+                ('company_id', '=', company.id),
+            ], limit=1)
+            if not warehouse:
+                _logger.info(f"CRON SALE ORDER Warehouse {stock_warehouse} SKIPPED")
                 continue
 
             order_date = False
@@ -379,7 +385,11 @@ class InheritSaleOrderSAP(models.Model):
             if not company:
                 continue
             
-            warehouse = location_model.search([('sloc_id.code', '=', stock_warehouse),('location_id.usage', '=', 'view')], limit=1)
+            warehouse = location_model.search([
+                ('sloc_id.code', '=', stock_warehouse),
+                ('location_id.usage', '=', 'view'),
+                ('company_id', '=', company.id)
+            ], limit=1)
             if not warehouse:
                 continue
             

@@ -11,7 +11,7 @@
                 </xpath>
                 <xpath expr="//field[@name='use_create_lots']" position="after">
                     <field name="production_shift_id" options="{'no_open': True, 'no_create': True}" readonly="state in ('done', 'cancel')"/>
-                    <field name="synchronize_sap" force_save="1" readonly="1"/>
+                    <field name="synchronize_sap" readonly="1"/>
                     <field name="production_only" invisible="1"/>
                 </xpath>
                 <xpath expr="//page[@name='extra']" position="before">
