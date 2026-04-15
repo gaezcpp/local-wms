@@ -25,6 +25,7 @@ Long description of module's purpose
         'data/parameter.xml',
         'data/sequence.xml',
         'security/ir.model.access.csv',
+        'wizards/sloc_barcode_views.xml',
         'views/product_template_views.xml',
         'views/stock_package_views.xml',
         'views/stock_picking_views.xml',
@@ -40,7 +41,10 @@ Long description of module's purpose
         "web.assets_backend": [
             "wms_inherit_stock_barcode/static/src/js/digipad_patch.js",
             "wms_inherit_stock_barcode/static/src/js/barcode_auto_fill.js",
+            "wms_inherit_stock_barcode/static/src/js/main_patch.js",
+            "wms_inherit_stock_barcode/static/src/js/sloc_packaging.js",
             'wms_inherit_stock_barcode/static/src/xml/stock_barcode_menu.xml',
+            'wms_inherit_stock_barcode/static/src/xml/sloc_packaging_views.xml',
         ],
     },
 
