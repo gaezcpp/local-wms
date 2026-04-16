@@ -1,4 +1,5 @@
 from odoo import models, fields, api
+from odoo.exceptions import ValidationError
 import logging
 _logger = logging.getLogger(__name__)
 
@@ -60,14 +61,21 @@ class InheritStockMove(models.Model):
         Packaging = self.env['product.packaging.sap']
         PickingPackaging = self.env['picking.packaging.line']
         pickings = self.mapped('picking_id').filtered(lambda p: p)
+        if not pickings:
+            return
 
         all_templates = self.mapped('product_id.product_tmpl_id')
+        companies = pickings.mapped('company_id')
 
         packaging_data = Packaging.search([
             ('product_id', 'in', all_templates.ids),
-            ('company_id', 'in', pickings.mapped('company_id').ids)
+            ('company_id', 'in', companies.ids)
         ])
-        packaging_map = {(p.product_id.id, p.company_id.id): p for p in packaging_data}
+
+        packaging_map = {
+            (p.product_id.id, p.company_id.id): p
+            for p in packaging_data
+        }
 
         for picking in pickings:
             moves = picking.move_ids.filtered(lambda m: m.product_id)
@@ -75,34 +83,21 @@ class InheritStockMove(models.Model):
                 continue
 
             existing_products = set(picking.product_packaging_ids.mapped('product_id').ids)
-            origin_lines_map = {}
+            origin_sloc_map = {}
 
-            for move in moves:
-                origin_move = move.origin_returned_move_id
-                if not origin_move:
-                    continue
-
-                origin_picking = origin_move.picking_id
-                if not origin_picking:
-                    continue
-
-                for line in origin_picking.product_packaging_ids:
-                    origin_lines_map[line.product_id.id] = line
-
-            origin_picking = False
-            if not origin_lines_map:
-                origin_picking = self.env['stock.picking'].sudo().search([
-                    ('name', '=', picking.origin),
-                    ('picking_type_id.production_only', '=', True)
-                ], limit=1, order='id desc')
-
-            packaging_type = (
-                origin_picking.picking_type_id.packaging_type_id
-                if origin_picking else picking.picking_type_id.packaging_type_id
+            origin_moves = moves.filtered(lambda m: m.origin_returned_move_id)
+            origin_pickings = origin_moves.mapped(
+                'origin_returned_move_id.picking_id'
             )
 
-            create_vals = []
+            if origin_pickings:
+                origin_lines = origin_pickings.mapped('product_packaging_ids')
+                origin_sloc_map = {
+                    line.product_id.id: line.sloc_id.id
+                    for line in origin_lines if line.sloc_id
+                }
 
+            create_vals = []
             for move in moves:
                 tmpl_id = move.product_id.product_tmpl_id.id
 
@@ -112,9 +107,8 @@ class InheritStockMove(models.Model):
                 packaging = packaging_map.get((tmpl_id, picking.company_id.id))
                 if not packaging:
                     continue
-
-                origin_line = origin_lines_map.get(tmpl_id)
-
+                
+                packaging_type = picking.picking_type_id.packaging_type_id
                 create_vals.append({
                     'picking_id': picking.id,
                     'product_id': tmpl_id,
@@ -122,26 +116,9 @@ class InheritStockMove(models.Model):
                     'packaging_code': packaging.packaging_code,
                     'packaging_desc': packaging.packaging_desc,
                     'company_id': picking.company_id.id,
-                    'packaging_type_id': (
-                        origin_line.packaging_type_id.id
-                        if origin_line and origin_line.packaging_type_id
-                        else (packaging_type.id if packaging_type else False)
-                    ),
-                    'move_type_sap': (
-                        origin_line.move_type_sap
-                        if origin_line and origin_line.move_type_sap
-                        else (packaging_type.move_type_sap if packaging_type else False)
-                    ),
-                    'sloc_id': (
-                        origin_line.sloc_id.id
-                        if origin_line and origin_line.sloc_id
-                        else False
-                    ),
-                    'sloc_packaging': (
-                        origin_line.sloc_id.name
-                        if origin_line and origin_line.sloc_id
-                        else False
-                    ),
+                    'packaging_type_id': packaging_type.id,
+                    'move_type_sap': packaging_type.move_type_sap,
+                    'sloc_id': origin_sloc_map.get(tmpl_id, False),
                 })
 
             if create_vals:

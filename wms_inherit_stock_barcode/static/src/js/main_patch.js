@@ -7,6 +7,7 @@ patch(MainComponent.prototype, {
 
     setup() {
         super.setup(...arguments);
+        console.log("INI MAIN PATCH");
 
         if (!this.env.model.isSlocFilled) {
             this.env.model.isSlocFilled = () => {

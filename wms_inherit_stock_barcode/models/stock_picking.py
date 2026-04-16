@@ -66,10 +66,7 @@ class StockPicking(models.Model):
                     if line.sloc_id
                 }
 
-            packaging_type = (
-                origin_picking.picking_type_id.packaging_type_id
-                if origin_picking else picking.picking_type_id.packaging_type_id
-            )
+            packaging_type = picking.picking_type_id.packaging_type_id
 
             for move in moves:
                 tmpl_id = move.product_id.product_tmpl_id.id
@@ -87,8 +84,8 @@ class StockPicking(models.Model):
                     'product_uom_desc': packaging.product_uom_desc,
                     'packaging_code': packaging.packaging_code,
                     'packaging_desc': packaging.packaging_desc,
-                    'packaging_type_id': packaging_type.id,
                     'company_id': picking.company_id.id,
+                    'packaging_type_id': packaging_type.id,
                     'move_type_sap': packaging_type.move_type_sap,
                     'sloc_id': sloc_map.get(tmpl_id),
                 })

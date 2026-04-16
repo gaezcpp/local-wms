@@ -6,9 +6,6 @@
             <field name="model">tagging.record</field>
             <field name="inherit_id" ref="tagging_system.view_tagging_record_form"/>
             <field name="arch" type="xml">
-                <xpath expr="//field[@name='status']" position="replace">
-                    <field name="status" widget="statusbar" statusbar_visible="open,validated,open_wo,waiting_sap"/>
-                </xpath>
                 <xpath expr="//button[@name='action_set_wo']" position="attributes">
                     <attribute name="invisible">1</attribute>
                 </xpath>

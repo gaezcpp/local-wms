@@ -10,3 +10,13 @@ class InheritBaseStockPicking(models.Model):
     product_packaging_ids = fields.One2many('picking.packaging.line', 'picking_id')
     synchronize_sap = fields.Boolean(string="Synchronize SAP", default=False, tracking=True)
     production_only = fields.Boolean(related='picking_type_id.production_only', store=True, readonly=True)
+    
+    def _create_backorder(self, backorder_moves=None):
+        backorders = super()._create_backorder(backorder_moves=backorder_moves)
+        backorders.write({'synchronize_sap': False})
+        return backorders
+    
+    def copy(self, default=None):
+        default = dict(default or {})
+        default['synchronize_sap'] = False
+        return super().copy(default)
