@@ -7,6 +7,7 @@
         <field name="arch" type="xml">
             <xpath expr="//field[@name='name']" position="before">
                 <field name="sap_synchronize" force_save="1" readonly="1"/>
+                <field name="sap_name" force_save="1" readonly="1"/>
             </xpath>
         </field>
     </record>

@@ -3,7 +3,7 @@
     <data noupdate="1">
         <record id="query_po_sto_sap" model="ir.config_parameter">
             <field name="key">query_po_sto_sap</field>
-            <field name="value">SELECT a.EBELN, a.BSART, b.PSTYP, b.MATNR, b.menge, b.meins, b.WERKS, a.RESWK FROM EKKO a JOIN EKPO b ON a.EBELN = b.EBELN where b.pstyp = '7'</field>
+            <field name="value">SELECT b.ebelp,c.arrdate,c.mblnr,c.ebeln,c.vbeln_vl,a.BSART,b.PSTYP,b.MATNR,b.menge,b.meins,b.WERKS,a.RESWK,marm.umrez,marm.umren FROM zmm_ts_sto c LEFT JOIN EKKO a ON a.EBELN = c.EBELN LEFT JOIN EKPO b ON a.EBELN = b.EBELN LEFT JOIN MARM marm ON marm.matnr = b.matnr AND marm.meinh = b.meins WHERE b.pstyp = '7' AND c.mblnr != ' ' AND c.vbeln_vl != ' ' AND TO_DATE(c.arrdate,'YYYYMMDD') BETWEEN CURRENT_DATE-30 AND CURRENT_DATE</field>
         </record>
         <record id="picking_type_po" model="ir.config_parameter">
             <field name="key">picking_type_po</field>

@@ -150,36 +150,42 @@ class InheritPurchaseOrder(models.Model):
             for row in rows:
                 matnr = row.get('MATNR')
                 qty = float(row.get('MENGE') or 0)
+                ebelp = (row.get('EBELP') or "").lstrip('0')
                 if matnr:
                     aggregated[matnr] += qty
 
-            existing_lines = {l.product_id.id: l for l in po.order_line}
+            # existing_lines = {l.product_id.id: l for l in po.order_line} # per product
+            existing_lines = {l.sap_sequence: l for l in po.order_line} # per sap_sequence
 
             for matnr, qty in aggregated.items():
                 product = products.get(matnr)
                 if not product:
                     continue
 
-                uom_name = rows[0].get('MEINS')
-                uom = uoms.get(uom_name)
-                if not uom:
-                    uom = product.uom_id
-                if not uom:
-                    uom = uom_kg
-                if not uom:
-                    continue
+                delivery_uom = row.get('MEINS')
+                uom_numerator = float(row.get('UMREZ'))
+                uom_denominator = float(row.get('UMREN'))
+                product_uom = product.uom_bag_id
+                if delivery_uom and delivery_uom.upper() != "KG":
+                    ratio = float(uom_numerator) / float(uom_denominator)
+                    ratio = int(ratio) if ratio.is_integer() else ratio
+                    uom_name = f"{delivery_uom} {ratio}"
+                    uom = uom_model.search([('name', '=', uom_name)], limit=1)
+                    if uom:
+                        product_uom = uom
 
                 vals_line = {
                     'order_id': po.id,
                     'product_id': product.id,
                     'name': product.name,
                     'product_qty': qty,
-                    'product_uom_id': uom.id,
+                    'product_uom_id': product_uom.id,
                     'price_unit': 0,
                     'date_planned': fields.Datetime.now(),
+                    'sap_sequence': ebelp,
                 }
 
-                line = existing_lines.get(product.id)
+                line = existing_lines.get(ebelp)
 
                 if line:
                     if self._needs_update(line, vals_line):

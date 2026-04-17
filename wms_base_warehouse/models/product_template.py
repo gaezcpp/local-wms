@@ -70,38 +70,24 @@ class InheritProductTemplate(models.Model):
             ('sync_wms', '=', True),
         ])
         company_map = {c.company_registry: c for c in companies}
-        company_ids = [c.id for c in companies]
 
         all_matnr = list({k.split("__")[0] for k in grouped.keys()})
-        existing_products = self.env['product.template'].sudo().search([
-            ('barcode', 'in', all_matnr),
-            '|',
-            ('company_id', '=', False),
-            ('company_id', 'in', company_ids),
-        ])
-        product_map = {}
-        for p in existing_products:
-            product_map[(p.barcode, p.company_id.id or 0)] = p
-        
+
         product_product = self.env['product.product'].sudo()
-        existing_barcode_map = {
+        existing_pp_map = {
             p.barcode: p
-            for p in product_product.search([
-                ('barcode', 'in', all_matnr)
-            ])
+            for p in product_product.search([('barcode', 'in', all_matnr)])
         }
 
         uom_model = self.env['uom.uom'].sudo()
         category_model = self.env['product.category'].sudo()
 
-        existing_uoms = uom_model.search([])
-        uom_name_map = {u.name: u for u in existing_uoms}
-
-        existing_categories = category_model.search([])
-        category_map = {c.name: c for c in existing_categories}
+        uom_name_map = {u.name: u for u in uom_model.search([])}
+        category_map = {c.name: c for c in category_model.search([])}
 
         create_products = []
         write_map = {}
+
         for key, records in grouped.items():
             expiration = 0
             matnr, werks = key.split("__")
@@ -121,7 +107,6 @@ class InheritProductTemplate(models.Model):
                 categ_name = data.get('MTBEZ') or categ_name
                 iprkz = (data.get('IPRKZ') or '').strip()
                 mhdhb = int(data.get('MHDHB') or 0)
-                print(f"XXXXXXXXX {product_name}\nDDDDDDDDDDDDDD{iprkz}=={mhdhb}")
 
                 if iprkz == '1':
                     exp_val = int(mhdhb * 7)
@@ -158,6 +143,7 @@ class InheritProductTemplate(models.Model):
                     'relative_factor': factor,
                     'relative_uom_id': uom_kg.id,
                     'sap_synchronize': True,
+                    'sap_name': meinh,
                 }
 
                 if not existing_uom:
@@ -168,7 +154,7 @@ class InheritProductTemplate(models.Model):
 
                 if meinh.upper() != 'KG' and existing_uom.id not in uom_ids:
                     uom_ids.append(existing_uom.id)
-                    
+
                 meinh_upper = (meinh or "").upper()
                 try:
                     if re.match(r'^B\d+$', meinh_upper):
@@ -201,14 +187,14 @@ class InheritProductTemplate(models.Model):
                 category_map[categ_name] = category
             else:
                 category.write(categ_vals)
-                
+
             lvorm = (records[0].get('LVORM') or '').strip()
+
             vals = {
                 'name': product_name,
                 'uom_id': uom_kg.id,
                 'categ_id': category.id,
                 'weight': weight,
-                'barcode': matnr,
                 'default_code': matnr,
                 'uom_bag_id': uom_bag_id,
                 'uom_ids': [(6, 0, uom_ids)],
@@ -226,34 +212,23 @@ class InheritProductTemplate(models.Model):
                 'tracking': 'lot',
                 'expiration_time': expiration,
                 'responsible_id': self.env.user.id,
-                'company_id': company.id,
                 'active': lvorm != 'X',
             }
 
-            existing_pp = existing_barcode_map.get(matnr)
-            if existing_pp:
-                existing_product = existing_pp.product_tmpl_id
-            else:
-                existing_product = (
-                    product_map.get((matnr, company.id)) or
-                    product_map.get((matnr, 0))
-                )
-            if not existing_product:
-                duplicate = self.env['product.product'].sudo().search([
-                    ('barcode', '=', matnr)
-                ], limit=1)
+            existing_pp = existing_pp_map.get(matnr)
 
-                if duplicate:
-                    write_map[duplicate.product_tmpl_id.id] = vals
-                else:
-                    create_products.append(vals)
+            if existing_pp:
+                write_map[existing_pp.product_tmpl_id.id] = vals
             else:
-                write_map[existing_product.id] = vals
+                create_vals = dict(vals)
+                create_vals['barcode'] = matnr
+                create_vals['company_id'] = company.id
+                create_products.append(create_vals)
 
         if create_products:
             created = self.sudo().create(create_products)
             for p in created:
-                product_map[(p.barcode, p.company_id.id)] = p
+                existing_pp_map[p.barcode] = p.product_variant_id
 
         for pid, vals in write_map.items():
             self.sudo().browse(pid).write(vals)

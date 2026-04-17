@@ -221,9 +221,11 @@ class InheritSaleOrderSAP(models.Model):
                         product_uom = uom
 
                 qty = float(row.get('DELIVERY_QTY') or 0)
+                posnr = (row.get('POSNR') or "").lstrip('0')
                 existing_line = sale_order_line_model.search([
                     ('order_id', '=', so.id),
-                    ('product_id', '=', product.id)
+                    # ('product_id', '=', product.id)
+                    ('sap_sequence', '=', posnr)
                 ], limit=1)
 
                 vals_line = {
@@ -231,6 +233,7 @@ class InheritSaleOrderSAP(models.Model):
                     'product_id': product.id,
                     'product_uom_qty': qty,
                     'product_uom_id': product_uom.id,
+                    'sap_sequence': posnr,
                 }
 
                 if existing_line:
@@ -446,12 +449,18 @@ class InheritSaleOrderSAP(models.Model):
                         product_uom = uom
                 
                 qty = float(row.get('LFIMG') or 0)
-                existing_line = so_line_model.search([('order_id', '=', so.id),('product_id', '=', product.id)], limit=1)
+                posnr = (row.get('POSNR') or "").lstrip('0')
+                existing_line = so_line_model.search([
+                    ('order_id', '=', so.id),
+                    # ('product_id', '=', product.id)
+                    ('sap_sequence', '=', posnr)
+                ], limit=1)
                 vals_line = {
                     'order_id': so.id,
                     'product_id': product.id,
                     'product_uom_qty': qty,
                     'product_uom_id': product_uom.id,
+                    'sap_sequence': posnr,
                 }
                 
                 if not existing_line:

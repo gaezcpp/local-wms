@@ -12,6 +12,9 @@
             <xpath expr="//field[@name='date_order']" position="before">
                 <field name="sap_synchronize" force_save="1" readonly="1"/>
             </xpath>
+            <xpath expr="//field[@name='technical_price_unit']" position="after">
+                <field name="sap_sequence" readonly="1"/>
+            </xpath>
         </field>
     </record>
 </odoo>

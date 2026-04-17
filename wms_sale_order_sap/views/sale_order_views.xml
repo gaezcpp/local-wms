@@ -29,6 +29,9 @@
                 <xpath expr="//field[@name='date_order']" position="after">
                     <field name="date_order_sap" force_save="1" readonly="1" string="SAP Order Date"/>
                 </xpath>
+                <xpath expr="//field[@name='payment_term_id']" position="after">
+                    <field name="so_sto" readonly="1"/>
+                </xpath>
                 <xpath expr="//field[@name='tag_ids']" position="after">
                     <field name="is_sap" force_save="1" readonly="1"/>
                     <field name="so_sap" force_save="1" readonly="1"/>
@@ -38,6 +41,9 @@
                     <div style="border: 1px solid #ccc; padding: 6px; margin-bottom: 12px; max-height: 180px; overflow-y: auto; background: #fafafa;">
                         <field name="nomor_polisi_desc"/>
                     </div>
+                </xpath>
+                <xpath expr="//field[@name='order_line']/list/field[@name='currency_id']" position="after">
+                    <field name="sap_sequence" readonly="1"/>
                 </xpath>
             </field>
         </record>
