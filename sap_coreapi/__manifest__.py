@@ -9,6 +9,7 @@
     'license': 'LGPL-3',
     "data": [
         'security/ir.model.access.csv',
+        'data/parameter.xml',
     ],
     "installable": True,
     "application": False,

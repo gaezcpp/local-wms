@@ -25,5 +25,13 @@
             <field name="interval_number">1</field>
             <field name="interval_type">days</field>
         </record>
+        <record id="ir_cron_synchronize_sap_flag_do_sap" model="ir.cron">
+            <field name="name">Cron Synchronize Flag DO SAP</field>
+            <field name="model_id" ref="model_sale_order"/>
+            <field name="state">code</field>
+            <field name="code">model.cron_synchronize_sap_flag_do_sap()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+        </record>
     </data>
 </odoo>

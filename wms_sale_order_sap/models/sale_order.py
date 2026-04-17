@@ -247,6 +247,8 @@ class InheritSaleOrderSAP(models.Model):
 
             _logger.info(f"SO {nomor_do} total line {len(rows)}")
             
+        self.cron_auto_done_sale_order_do()
+            
     @api.model
     def cron_update_nopol_sap_sale_order(self):
         icp = self.env['ir.config_parameter'].sudo()
@@ -471,3 +473,112 @@ class InheritSaleOrderSAP(models.Model):
                             'product_uom_qty': qty,
                             'product_uom_id': product_uom.id,
                         })
+                        
+    @api.model
+    def cron_auto_done_sale_order_do(self):
+        icp = self.env['ir.config_parameter'].sudo()
+        x_i_api_key = icp.get_param('x_i_api_key')
+        ip_sap_rfc = icp.get_param('ip_sap_rfc')
+        query_auto_done_sale_order_do = icp.get_param('query_auto_done_sale_order_do')
+        if not x_i_api_key:
+            raise ValidationError("x_i_api_key belum disetting!")
+        if not ip_sap_rfc:
+            raise ValidationError("ip_sap_rfc belum disetting!")
+        if not query_auto_done_sale_order_do:
+            raise ValidationError("query_auto_done_sale_order_do belum disetting!")
+
+        headers = {
+            "x-i-api-key": str(x_i_api_key),
+            "Content-Type": "application/json"
+        }
+        url = f"{ip_sap_rfc}/api/v1/zfm-query-data"
+        body = {
+            "I_QUERY": str(query_auto_done_sale_order_do),
+            "I_MOD": "CRON cron_auto_done_sale_order_do"
+        }
+
+        try:
+            response = requests.post(url=url, headers=headers, data=json.dumps(body))
+        except Exception as e:
+            raise ValidationError(str(e))
+
+        res = response.json()
+        if res.get('error'):
+            raise ValidationError(json.dumps(res.get('error')))
+        if not res.get('success'):
+            _logger.info("CRON cron_auto_done_sale_order_do NOT SUCCESS")
+            return True
+
+        data_list = res.get('data', [])
+        if not data_list:
+            return True
+        _logger.info(f"TOTAL DATA AUTO DONE SO DO {len(data_list)}")
+        
+        pick_delivery_model = self.env['stock.picking'].sudo()
+        for data in data_list:
+            mblnr = data.get('MBLNR')
+            if not mblnr:
+                continue
+            
+            nomor_do = data.get('LE_VBELN')
+            picking = pick_delivery_model.search([
+                ('sale_id.do_sap', '=', nomor_do),
+                ('picking_type_id.code', '=', 'outgoing')
+            ], limit=1)
+            if picking:
+                picking.button_validate()
+                
+    @api.model
+    def cron_synchronize_sap_flag_do_sap(self):
+        icp = self.env['ir.config_parameter'].sudo()
+        x_i_api_key = icp.get_param('x_i_api_key')
+        ip_sap_rfc = icp.get_param('ip_sap_rfc')
+        query_update_flag_do_sap = icp.get_param('query_update_flag_do_sap')
+        if not x_i_api_key:
+            raise ValidationError("x_i_api_key belum disetting!")
+        if not ip_sap_rfc:
+            raise ValidationError("ip_sap_rfc belum disetting!")
+        if not query_update_flag_do_sap:
+            raise ValidationError("query_update_flag_do_sap belum disetting!")
+
+        headers = {
+            "x-i-api-key": str(x_i_api_key),
+            "Content-Type": "application/json"
+        }
+
+        url = f"{ip_sap_rfc}/api/v1/zfm-query-data"
+
+        so_model = self.env['sale.order'].sudo()
+
+        vbeln_list = [
+            (so.do_sap or '').strip().replace("'", "''")
+            for so in so_model.search([('do_sap', '!=', False)])
+            if so.do_sap
+        ]
+
+        if not vbeln_list:
+            return True
+        
+        vbeln_str = ",".join(f"'{v}'" for v in set(vbeln_list))
+        query = query_update_flag_do_sap.format(vbeln=vbeln_str)
+        body = {
+            "I_QUERY": query,
+            "I_MOD": "CRON cron_synchronize_sap_flag_do_sap"
+        }
+
+        try:
+            response = requests.post(url=url, headers=headers, data=json.dumps(body), timeout=120)
+        except Exception as e:
+            raise ValidationError(str(e))
+
+        if response.status_code != 200:
+            raise ValidationError(f"{response.status_code} | {response.text}")
+
+        res = response.json()
+        if res.get('error'):
+            raise ValidationError(json.dumps(res.get('error')))
+        if not res.get('success'):
+            _logger.info("CRON cron_synchronize_sap_flag_do_sap NOT SUCCESS")
+            return True
+
+        _logger.info(f"FLAG DO SAP UPDATED: {len(vbeln_list)}")

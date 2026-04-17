@@ -15,6 +15,12 @@
             <xpath expr="//field[@name='technical_price_unit']" position="after">
                 <field name="sap_sequence" readonly="1"/>
             </xpath>
+            <xpath expr="//field[@name='fiscal_position_id']" position="after">
+                <label for="nomor_polisi_desc" string="Nomor Polisi" class="oe_grey"/>
+                <div style="border: 1px solid #ccc; padding: 6px; margin-bottom: 12px; max-height: 180px; overflow-y: auto; background: #fafafa;">
+                    <field name="nomor_polisi_desc"/>
+                </div>
+            </xpath>
         </field>
     </record>
 </odoo>
