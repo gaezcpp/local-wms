@@ -14,6 +14,9 @@
                     <field name="synchronize_sap" readonly="1"/>
                     <field name="production_only" invisible="1"/>
                 </xpath>
+                <xpath expr="//field[@name='move_ids']/list/field[@name='product_id']" position="before">
+                    <field name="sap_seq" readonly="1"/>
+                </xpath>
                 <xpath expr="//page[@name='extra']" position="before">
                     <page name="product_packaging_sap" string="Packaging Details" invisible="not production_only">
                         <field name="product_packaging_ids">

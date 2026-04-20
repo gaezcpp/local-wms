@@ -3,7 +3,7 @@
     <data noupdate="1">
         <record id="query_po_sto_sap" model="ir.config_parameter">
             <field name="key">query_po_sto_sap</field>
-            <field name="value">SELECT b.matnr, b.posnr,c.trucknr,c.arrdate,c.mblnr,c.ebeln,c.vbeln_vl,d.bsart, e.pstyp, b.lfimg, b.vrkme, marm.umrez,marm.umren,b.werks as pengirim,a.werks as penerima FROM zmm_ts_sto c LEFT JOIN likp a ON a.vbeln= c.vbeln_vl LEFT JOIN lips b ON c.vbeln_vl = b.vbeln LEFT JOIN MARM marm ON marm.matnr = b.matnr AND marm.meinh = b.vrkme left join ekko d on c.ebeln = d.ebeln left join ekpo e on d.ebeln = e.ebeln where e.pstyp = '7' and c.mblnr != ' ' AND TO_DATE(c.arrdate,'YYYYMMDD') BETWEEN CURRENT_DATE-30 AND CURRENT_DATE</field>
+            <field name="value">SELECT b.vgpos, b.matnr, b.posnr,c.trucknr,c.arrdate,c.mblnr,c.ebeln,c.vbeln_vl,d.bsart, e.pstyp, b.lfimg, b.vrkme, marm.umrez,marm.umren,b.werks as pengirim,a.werks as penerima FROM zmm_ts_sto c LEFT JOIN likp a ON a.vbeln= c.vbeln_vl LEFT JOIN lips b ON c.vbeln_vl = b.vbeln LEFT JOIN MARM marm ON marm.matnr = b.matnr AND marm.meinh = b.vrkme left join ekko d on c.ebeln = d.ebeln left join ekpo e on d.ebeln = e.ebeln where e.pstyp = '7' and c.mblnr != ' ' AND TO_DATE(c.arrdate,'YYYYMMDD') BETWEEN CURRENT_DATE-30 AND CURRENT_DATE</field>
         </record>
         <record id="picking_type_po" model="ir.config_parameter">
             <field name="key">picking_type_po</field>

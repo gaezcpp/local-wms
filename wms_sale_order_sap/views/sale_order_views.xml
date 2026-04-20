@@ -36,6 +36,7 @@
                     <field name="is_sap" force_save="1" readonly="1"/>
                     <field name="so_sap" force_save="1" readonly="1"/>
                     <field name="do_sap" force_save="1" readonly="1"/>
+                    <field name="po_sap" force_save="1" readonly="1"/>
                     <field name="sales_sap_name" force_save="1" readonly="1"/>
                     <label for="nomor_polisi_desc" string="Nomor Polisi" class="oe_grey"/>
                     <div style="border: 1px solid #ccc; padding: 6px; margin-bottom: 12px; max-height: 180px; overflow-y: auto; background: #fafafa;">
@@ -43,7 +44,8 @@
                     </div>
                 </xpath>
                 <xpath expr="//field[@name='order_line']/list/field[@name='currency_id']" position="after">
-                    <field name="sap_sequence" readonly="1"/>
+                    <field name="sap_sequence" readonly="1" optional="show"/>
+                    <field name="sap_po_sequence" readonly="1" optional="show"/>
                 </xpath>
             </field>
         </record>

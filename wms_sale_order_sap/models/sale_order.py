@@ -16,6 +16,7 @@ class InheritSaleOrderSAP(models.Model):
     is_sap = fields.Boolean(string="SAP", default=False, tracking=True)
     so_sap = fields.Char(string="SO SAP", tracking=True)
     do_sap = fields.Char(string="DO SAP", tracking=True)
+    po_sap = fields.Char(string="PO SAP", tracking=True)
     sales_sap_name = fields.Char(string="Sales Name", tracking=True)
     nomor_polisi_desc = fields.Text(string="Nomor Polisi", tracking=True)
     date_order_sap = fields.Date(string="Date Order", tracking=True)
@@ -381,6 +382,7 @@ class InheritSaleOrderSAP(models.Model):
             stock_warehouse = first.get('LGORT')
             partner = first.get('KUNNR') or first.get('SHIP_TO')
             sales_name = first.get('ERNAM')
+            po_sap = first.get('EBELN')
             
             partner = partner_model.search([('ref', '=', partner)], limit=1)
             if not partner:
@@ -420,6 +422,7 @@ class InheritSaleOrderSAP(models.Model):
                 'sales_sap_name': sales_name,
                 'nomor_polisi_desc': nomor_polisi_desc,
                 'company_id': company.id,
+                'po_sap': po_sap,
             }
             if not so:
                 so = so_model.create(vals)
@@ -452,10 +455,11 @@ class InheritSaleOrderSAP(models.Model):
                 
                 qty = float(row.get('LFIMG') or 0)
                 posnr = (row.get('POSNR') or "").lstrip('0')
+                po_seq = (row.get('VGPOS') or "").lstrip('0')
                 existing_line = so_line_model.search([
                     ('order_id', '=', so.id),
-                    # ('product_id', '=', product.id)
-                    ('sap_sequence', '=', posnr)
+                    ('product_id', '=', product.id),
+                    ('sap_sequence', '=', posnr),
                 ], limit=1)
                 vals_line = {
                     'order_id': so.id,
@@ -463,6 +467,7 @@ class InheritSaleOrderSAP(models.Model):
                     'product_uom_qty': qty,
                     'product_uom_id': product_uom.id,
                     'sap_sequence': posnr,
+                    'sap_po_sequence': po_seq,
                 }
                 
                 if not existing_line:
@@ -523,7 +528,8 @@ class InheritSaleOrderSAP(models.Model):
             nomor_do = data.get('LE_VBELN')
             picking = pick_delivery_model.search([
                 ('sale_id.do_sap', '=', nomor_do),
-                ('picking_type_id.code', '=', 'outgoing')
+                ('picking_type_id.code', '=', 'outgoing'),
+                ('state', '=', 'assigned'),
             ], limit=1)
             if picking:
                 picking.button_validate()

@@ -14,3 +14,4 @@ from . import stock_sap
 from . import product_packaging
 from . import picking_packaging_line
 from . import storage_location
+from . import stock_rule

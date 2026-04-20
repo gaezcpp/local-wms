@@ -16,7 +16,7 @@ class InheritBaseStockMoveLine(models.Model):
     sloc_id = fields.Many2one(comodel_name='storage.location', string="SLOC")
     destination_package_status = fields.Selection(related='result_package_id.state', store=True)
     production_shift_id = fields.Many2one(related='picking_id.production_shift_id', string="Shift", store=True)
-    production_order_name = fields.Char(related='picking_id.production_order_name', string="Production Order", store=True)
+    production_order_name = fields.Char(related='picking_id.production_order_name', string="Production Order Name", store=True)
     
     # ini dipake kalo odoo.sh salah
     def _skip_custom_logic(self):

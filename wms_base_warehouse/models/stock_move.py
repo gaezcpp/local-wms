@@ -4,6 +4,8 @@ from odoo import models, fields, api
 class StockMove(models.Model):
     _inherit = 'stock.move'
     
+    sap_seq = fields.Integer(string="Seq")
+    
     @api.model_create_multi
     def create(self, vals_list):
         moves = super().create(vals_list)
@@ -53,6 +55,19 @@ class StockMove(models.Model):
             })
 
         return vals
+    
+    # prepare stock.move
+    def _prepare_procurement_values(self):
+        values = super(StockMove, self)._prepare_procurement_values()
+        
+        if self.sap_seq:
+            values['sap_sequence'] = self.sap_seq
+        elif self.sale_line_id:
+            values['sap_sequence'] = self.sale_line_id.sap_sequence
+        elif self.purchase_line_id:
+            values['sap_sequence'] = self.purchase_line_id.sap_sequence
+            
+        return values
     
     def _prepare_move_line_vals(self, quantity=None, reserved_quant=None):
         res = super()._prepare_move_line_vals(quantity=quantity, reserved_quant=reserved_quant)

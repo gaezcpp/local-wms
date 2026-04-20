@@ -7,7 +7,7 @@
         </record>
         <record id="query_so_sto_sap" model="ir.config_parameter">
             <field name="key">query_so_sto_sap</field>
-            <field name="value">select c.posnr,a.vbeln_vl, a.arrdate, a.trucknr, a.werks, a.lgort, b.kunnr, c.matnr, c.lfimg, c.vrkme, d.umrez, d.umren, b.ernam from zmm_ts_sto a join likp b on a.vbeln_vl=b.vbeln join lips c on b.vbeln=c.vbeln left join marm d on c.matnr=d.matnr and c.vrkme=d.meinh where exists (select 1 from zmm_ts_arr_pool e where e.trucknr=a.trucknr and e.srctab='ZMM_TS_OSTO_NCPL')</field>
+            <field name="value">select c.vgpos, e.ebeln, c.posnr, a.vbeln_vl, a.arrdate, a.trucknr, a.werks, a.lgort, b.kunnr, c.matnr, c.lfimg, c.vrkme, d.umrez, d.umren, b.ernam from zmm_ts_sto a join likp b on a.vbeln_vl=b.vbeln join lips c on b.vbeln=c.vbeln left join marm d on c.matnr=d.matnr and c.vrkme=d.meinh left join ekko e on e.ebeln=a.ebeln where exists (select 1 from zmm_ts_arr_pool x where x.trucknr=a.trucknr and x.srctab='ZMM_TS_OSTO_NCPL') and exists (select 1 from ekpo f where f.ebeln=c.vgbel and f.pstyp='7')</field>
         </record>
         <record id="query_auto_done_sale_order_do" model="ir.config_parameter">
             <field name="key">query_auto_done_sale_order_do</field>

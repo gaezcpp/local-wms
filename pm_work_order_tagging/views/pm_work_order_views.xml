@@ -37,7 +37,7 @@
         <field name="arch" type="xml">
             <form string="Work Order" create="0" delete="0">
                 <header>
-                    <field name="state" widget="statusbar" statusbar_visible="draft,closed"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,waiting_sap,closed"/>
                 </header>
                 <sheet>
                     <label for="name" class="oe_edit_only"/>

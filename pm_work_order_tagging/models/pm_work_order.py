@@ -34,6 +34,7 @@ class PlanMaintenanceWorkOrder(models.Model):
     photo_attachment = fields.Binary(string="Photo", tracking=True)
     state = fields.Selection([
         ('draft', 'Draft'),
+        ('waiting_sap', 'Waiting SAP'),
         ('closed', 'Closed'),
         ('rejected', 'Rejected'),
     ], string="State", default='draft')

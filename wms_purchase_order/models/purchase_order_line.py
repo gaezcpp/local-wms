@@ -6,3 +6,14 @@ class PurchaseOrderLine(models.Model):
     _inherit = 'purchase.order.line'
     
     sap_sequence = fields.Integer(string="SAP Seq")
+    sap_po_sequence = fields.Integer(string="Order Seq")
+    
+    def _prepare_stock_moves(self, picking):
+        res = super(PurchaseOrderLine, self)._prepare_stock_moves(picking)
+        for vals in res:
+            po_line_id = vals.get('purchase_line_id')
+            if po_line_id:
+                po_line = self.browse(po_line_id)
+                vals['sap_seq'] = po_line.sap_sequence
+                
+        return res

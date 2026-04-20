@@ -91,16 +91,15 @@ class InheritPurchaseOrder(models.Model):
         product_model = self.env['product.product'].sudo()
         uom_model = self.env['uom.uom'].sudo()
         uom_kg = uom_model.search([('name', '=', 'kg')], limit=1)
-        picking_type = self.env['stock.picking.type'].sudo().search([('move_type_sap', '=', str(picking_type_po))],limit=1)
 
         product_codes = {r.get('MATNR').lstrip('0') for r in data_list if r.get('MATNR')}
-        uom_names = {r.get('VRKME') for r in data_list if r.get('VRKME')}
+        # uom_names = {r.get('VRKME') for r in data_list if r.get('VRKME')}
         partners_ref = {r.get('PENGIRIM') for r in data_list if r.get('PENGIRIM')}
         companies_reg = {r.get('PENERIMA') for r in data_list if r.get('PENERIMA')}
         po_numbers = {r.get('EBELN') for r in data_list if r.get('EBELN')}
 
         products = {p.default_code: p for p in product_model.search([('default_code', 'in', list(product_codes))])}
-        uoms = {u.name: u for u in uom_model.search([('name', 'in', list(uom_names))])}
+        # uoms = {u.name: u for u in uom_model.search([('name', 'in', list(uom_names))])}
         partners = {p.ref: p for p in partner_model.search([('ref', 'in', list(partners_ref))])}
         companies = {
             c.company_registry: c
@@ -135,12 +134,16 @@ class InheritPurchaseOrder(models.Model):
                 if r.get('TRUCKNR')
             })
             nomor_polisi_desc = "\n".join(nomor_polisi_list)
+            picking_type = self.env['stock.picking.type'].sudo().search([
+                ('move_type_sap', '=', str(picking_type_po)),
+                ('company_id', '=', company.id),
+            ],limit=1)
 
             vals_po = {
                 'po_sto': nomor_po,
                 'partner_id': partner.id,
                 'partner_ref': vbeln_vl,
-                'picking_type_id': picking_type.id,
+                'picking_type_id': picking_type.id if picking_type else False,
                 'company_id': company.id,
                 'po_sto_type': first.get('BSART'),
                 'sap_synchronize': True,
@@ -150,6 +153,7 @@ class InheritPurchaseOrder(models.Model):
 
             if not po:
                 po = po_model.create(vals_po)
+                po.button_confirm()
                 _logger.info(f"PO CREATED: {nomor_po}")
             else:
                 if self._needs_update(po, vals_po):
@@ -163,9 +167,7 @@ class InheritPurchaseOrder(models.Model):
                 ebelp = (row.get('POSNR') or "").lstrip('0')
                 if matnr:
                     aggregated[matnr] += qty
-
-            # existing_lines = {l.product_id.id: l for l in po.order_line} # per product
-            existing_lines = {l.sap_sequence: l for l in po.order_line}
+            
             for row in rows:
                 matnr = (row.get('MATNR') or '').lstrip('0')
                 if not matnr:
@@ -174,6 +176,7 @@ class InheritPurchaseOrder(models.Model):
                 if not product:
                     continue
                 ebelp = (row.get('POSNR') or "").lstrip('0')
+                po_seq = (row.get('VGPOS') or "").lstrip('0')
                 qty = float(row.get('LFIMG') or 0)
                 delivery_uom = (row.get('VRKME') or '').strip()
                 uom_numerator = float(row.get('UMREZ') or 1)
@@ -187,7 +190,13 @@ class InheritPurchaseOrder(models.Model):
                         uom = uom_model.search([('name', '=', uom_name)], limit=1)
                         if uom:
                             product_uom = uom
-
+                
+                existing_lines = po_line_model.search([
+                    ('order_id', '=', po.id),
+                    ('product_id', '=', product.id),
+                    ('sap_sequence', '=', ebelp),
+                ], limit=1)
+                
                 vals_line = {
                     'order_id': po.id,
                     'product_id': product.id,
@@ -197,12 +206,14 @@ class InheritPurchaseOrder(models.Model):
                     'price_unit': 0,
                     'date_planned': fields.Datetime.now(),
                     'sap_sequence': ebelp,
+                    'sap_po_sequence': po_seq,
                 }
-
-                line = existing_lines.get(ebelp)
-
-                if line:
-                    if self._needs_update(line, vals_line):
-                        line.write(vals_line)
-                else:
+                
+                if not existing_lines:
                     po_line_model.create(vals_line)
+                else:
+                    if self._needs_update(existing_lines, vals_line):
+                        existing_lines.write({
+                            'product_uom_qty': qty,
+                            'product_uom_id': product_uom.id,
+                        })
