@@ -16,6 +16,7 @@
                 </xpath>
                 <xpath expr="//field[@name='move_ids']/list/field[@name='product_id']" position="before">
                     <field name="sap_seq" readonly="1"/>
+                    <field name="order_seq" readonly="1"/>
                 </xpath>
                 <xpath expr="//page[@name='extra']" position="before">
                     <page name="product_packaging_sap" string="Packaging Details" invisible="not production_only">

@@ -45,7 +45,7 @@
                 </xpath>
                 <xpath expr="//field[@name='order_line']/list/field[@name='currency_id']" position="after">
                     <field name="sap_sequence" readonly="1" optional="show"/>
-                    <field name="sap_po_sequence" readonly="1" optional="show"/>
+                    <field name="order_seq" readonly="1" optional="show"/>
                 </xpath>
             </field>
         </record>

@@ -10,5 +10,7 @@ class StockRule(models.Model):
         
         if values.get('sap_sequence'):
             move_values['sap_seq'] = values.get('sap_sequence')
+        if values.get('order_seq'):
+            move_values['order_seq'] = values.get('order_seq')
             
         return move_values

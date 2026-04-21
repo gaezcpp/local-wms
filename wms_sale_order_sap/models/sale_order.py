@@ -26,24 +26,6 @@ class InheritSaleOrderSAP(models.Model):
         tz = pytz.timezone('Asia/Jakarta')
         now_jakarta = datetime.now(tz)
         return now_jakarta
-
-    # def _prepare_picking(self):
-    #     res = super()._prepare_picking()
-    #     _logger.info(f"PREPARE PICKING {res}")
-    #     jkt_now = self.now_jakarta()
-    #     now_hour = jkt_now.strftime("%H%M")
-    #     prod_shift = self.env['production.shift'].sudo().search([
-    #         ('date_start', '<=', now_hour),
-    #         ('date_end', '>=', now_hour),
-    #     ], limit=1)
-    #     _logger.info(f"PRODDDDDD {prod_shift} {now_hour}")
-    #     if prod_shift:
-    #         res['production_shift_id'] = prod_shift.id
-    #     if self.do_sap:
-    #         po_sap = self.env['production.order.sap'].sudo().search([('po_number', '=', self.do_sap)], limit=1)
-    #         if po_sap:
-    #             res['po_sap_id'] = po_sap.id
-    #     return res
     
     @api.depends('name', 'do_sap')
     def _compute_display_name(self):
@@ -225,7 +207,7 @@ class InheritSaleOrderSAP(models.Model):
                 posnr = (row.get('POSNR') or "").lstrip('0')
                 existing_line = sale_order_line_model.search([
                     ('order_id', '=', so.id),
-                    # ('product_id', '=', product.id)
+                    ('product_id', '=', product.id),
                     ('sap_sequence', '=', posnr)
                 ], limit=1)
 
@@ -235,6 +217,7 @@ class InheritSaleOrderSAP(models.Model):
                     'product_uom_qty': qty,
                     'product_uom_id': product_uom.id,
                     'sap_sequence': posnr,
+                    'order_seq': posnr,
                 }
 
                 if existing_line:
@@ -467,7 +450,7 @@ class InheritSaleOrderSAP(models.Model):
                     'product_uom_qty': qty,
                     'product_uom_id': product_uom.id,
                     'sap_sequence': posnr,
-                    'sap_po_sequence': po_seq,
+                    'order_seq': po_seq,
                 }
                 
                 if not existing_line:

@@ -5,6 +5,7 @@ class StockMove(models.Model):
     _inherit = 'stock.move'
     
     sap_seq = fields.Integer(string="Seq")
+    order_seq = fields.Integer(string="Order Seq")
     
     @api.model_create_multi
     def create(self, vals_list):
@@ -66,6 +67,13 @@ class StockMove(models.Model):
             values['sap_sequence'] = self.sale_line_id.sap_sequence
         elif self.purchase_line_id:
             values['sap_sequence'] = self.purchase_line_id.sap_sequence
+            
+        if self.order_seq:
+            values['order_seq'] = self.order_seq
+        elif self.sale_line_id:
+            values['order_seq'] = self.sale_line_id.order_seq
+        elif self.purchase_line_id:
+            values['order_seq'] = self.purchase_line_id.order_seq
             
         return values
     

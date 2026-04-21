@@ -206,7 +206,7 @@ class InheritPurchaseOrder(models.Model):
                     'price_unit': 0,
                     'date_planned': fields.Datetime.now(),
                     'sap_sequence': ebelp,
-                    'sap_po_sequence': po_seq,
+                    'order_seq': po_seq,
                 }
                 
                 if not existing_lines:
