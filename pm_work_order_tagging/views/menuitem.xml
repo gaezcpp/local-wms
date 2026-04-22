@@ -20,4 +20,19 @@
         action="pm_work_order_tagging.tagging_type_notification_action"
         sequence="70"
     />
+
+    <menuitem
+        id="pm_configuration_menu"
+        name="PM Configuration"
+        parent="maintenance.menu_maintenance_configuration"
+        sequence="100"
+    />
+
+    <menuitem
+        id="pm_analysis_menu"
+        name="PM Analysis"
+        parent="pm_work_order_tagging.pm_configuration_menu"
+        action="pm_work_order_tagging.pm_analysis_action"
+        sequence="10"
+    />
 </odoo>

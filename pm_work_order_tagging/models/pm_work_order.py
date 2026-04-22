@@ -39,6 +39,8 @@ class PlanMaintenanceWorkOrder(models.Model):
         ('rejected', 'Rejected'),
     ], string="State", default='draft')
     sap_synchronize = fields.Boolean(string="SAP Synchronize", default=False, tracking=True)
+    analysis_id = fields.Many2one(comodel_name='pm.analysis', string="Analysis", tracking=True)
+    need_desc = fields.Boolean(string="Need Desc?")
     
     @api.model_create_multi
     def create(self, vals_list):
@@ -160,19 +162,36 @@ class PlanMaintenanceWorkOrder(models.Model):
 
             if create_vals:
                 wo_material_line_model.create(create_vals)
+                
+    @api.onchange('analysis_id')
+    def _onchange_analysis_pm(self):
+        for rec in self:
+            if rec.analysis_id.need_desc:
+                rec.need_desc = True
+            else:
+                rec.need_desc = False
+    
+    def _validation_per_state(self):
+        for rec in self:
+            if rec.date_from:
+                raise ValidationError("Tidak bisa melakukan pengisian Date From jika status selain draft dan Type MO belum terisi!")
+            if rec.date_to:
+                raise ValidationError("Tidak bisa melakukan pengisian Date To jika status selain draft dan Type MO belum terisi!")
+            if rec.analysis:
+                raise ValidationError("Tidak bisa melakukan pengisian Analysis jika status selain draft dan Type MO belum terisi!")
+            if rec.problem_handling:
+                raise ValidationError("Tidak bisa melakukan pengisian Problem Handling jika status selain draft dan Type MO belum terisi!")
+            if rec.photo_attachment:
+                raise ValidationError("Tidak bisa melakukan pengisian Photo jika status selain draft dan Type MO belum terisi!")
+                
+    def action_waiting_sap(self):
+        for rec in self:
+            if rec.state == 'draft' and rec.sap_synchronize:
+                rec.state = 'waiting_sap'
+            else:
+                raise ValidationError(f"Status pada {rec.name} bukan Draft dan SAP Synchronize belum ceklis!")
     
     def action_close(self):
         for rec in self:
-            if rec.state == 'draft' and not rec.type_mo:
-                if rec.date_from:
-                    raise ValidationError("Tidak bisa melakukan pengisian Date From jika status selain draft dan Type MO belum terisi!")
-                if rec.date_to:
-                    raise ValidationError("Tidak bisa melakukan pengisian Date To jika status selain draft dan Type MO belum terisi!")
-                if rec.analysis:
-                    raise ValidationError("Tidak bisa melakukan pengisian Analysis jika status selain draft dan Type MO belum terisi!")
-                if rec.problem_handling:
-                    raise ValidationError("Tidak bisa melakukan pengisian Problem Handling jika status selain draft dan Type MO belum terisi!")
-                if rec.photo_attachment:
-                    raise ValidationError("Tidak bisa melakukan pengisian Photo jika status selain draft dan Type MO belum terisi!")
-                
+            if rec.state == 'waiting_sap':
                 rec.state = 'closed'

@@ -37,6 +37,8 @@
         <field name="arch" type="xml">
             <form string="Work Order" create="0" delete="0">
                 <header>
+                    <button name="action_waiting_sap" string="Submit" type="object" class="oe_highlight" invisible="state != 'draft'"/>
+                    <button name="action_close" string="Close" type="object" class="oe_highlight" invisible="state != 'waiting_sap'"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,waiting_sap,closed"/>
                 </header>
                 <sheet>
@@ -77,7 +79,8 @@
                             <group invisible="not sap_synchronize">
                                 <field name="date_from" readonly="state != 'draft' and not sap_synchronize"/>
                                 <field name="date_to" readonly="state != 'draft' and not sap_synchronize"/>
-                                <field name="analysis" readonly="state != 'draft' and not sap_synchronize"/>
+                                <field name="analysis_id" readonly="state != 'draft' and not sap_synchronize"/>
+                                <field name="analysis" readonly="state != 'draft' and not sap_synchronize" invisible="not need_desc" required="need_desc"/>
                                 <field name="problem_handling" readonly="state != 'draft' and not sap_synchronize"/>
                                 <field name="photo_attachment" readonly="state != 'draft' and not sap_synchronize"/>
                             </group>

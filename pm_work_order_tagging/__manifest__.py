@@ -29,6 +29,7 @@ Handover task dari Bayu (tagging dan maintenance)
         'views/pm_work_order_views.xml',
         'views/tagging_record_views.xml',
         'views/tagging_type_notification_views.xml',
+        'views/pm_analysis_views.xml',
         'views/menuitem.xml',
     ],
 }
