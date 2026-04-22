@@ -86,9 +86,3 @@ class InheritBaseStockMoveLine(models.Model):
             elif self.move_id and self.move_id.picking_id:
                 picking = self.move_id.picking_id
             return picking and picking.picking_type_id.move_type_sap == str(prod_in_move_type)
-    
-    # @api.onchange('production_line_id', 'first_count', 'last_count', 'detail_text')
-    # def _onchange_prod_in_fields(self):
-    #     for rec in self:
-    #         if not rec._is_prod_in():
-    #             raise ValidationError("Production fields hanya boleh diedit pada Operation Type PROD-IN / Move Type (888)")

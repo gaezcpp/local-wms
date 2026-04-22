@@ -571,3 +571,62 @@ class InheritSaleOrderSAP(models.Model):
             return True
 
         _logger.info(f"FLAG DO SAP UPDATED: {len(vbeln_list)}")
+        
+    
+    @api.model
+    def cron_auto_done_git(self):
+        icp = self.env['ir.config_parameter'].sudo()
+        x_i_api_key = icp.get_param('x_i_api_key')
+        ip_sap_rfc = icp.get_param('ip_sap_rfc')
+        query_auto_done_git = icp.get_param('query_auto_done_git')
+        picking_type_git = icp.get_param('picking_type_git')
+        if not x_i_api_key:
+            raise ValidationError("x_i_api_key belum disetting!")
+        if not ip_sap_rfc:
+            raise ValidationError("ip_sap_rfc belum disetting!")
+        if not query_auto_done_git:
+            raise ValidationError("query_auto_done_git belum disetting!")
+        if not picking_type_git:
+            raise ValidationError("picking_type_git belum disetting!")
+
+        headers = {
+            "x-i-api-key": str(x_i_api_key),
+            "Content-Type": "application/json"
+        }
+        url = f"{ip_sap_rfc}/api/v1/zfm-query-data"
+        body = {
+            "I_QUERY": str(query_auto_done_git),
+            "I_MOD": "CRON cron_auto_done_git"
+        }
+
+        try:
+            response = requests.post(url=url, headers=headers, data=json.dumps(body))
+        except Exception as e:
+            raise ValidationError(str(e))
+
+        res = response.json()
+        if res.get('error'):
+            raise ValidationError(json.dumps(res.get('error')))
+        if not res.get('success'):
+            _logger.info("CRON cron_auto_done_git NOT SUCCESS")
+            return True
+
+        data_list = res.get('data', [])
+        if not data_list:
+            return True
+        _logger.info(f"TOTAL DATA AUTO DONE GIT {len(data_list)}")
+        
+        pick_delivery_model = self.env['stock.picking'].sudo()
+        for data in data_list:
+            mblnr = data.get('MBLNR')
+            if not mblnr:
+                continue
+            
+            nomor_do = data.get('VBELN')
+            picking = pick_delivery_model.search([
+                ('sale_id.do_sap', '=', nomor_do),
+                ('picking_type_id.move_type_sap', '=', str(picking_type_git)),
+                ('state', '=', 'assigned'),
+            ], limit=1)
+            if picking:
+                picking.button_validate()

@@ -17,5 +17,13 @@
             <field name="key">query_update_flag_do_sap</field>
             <field name="value">UPDATE zmm_ts_arr_pool a SET w_odoo = 'X' WHERE EXISTS ( SELECT 1 FROM zmm_ts_sto b WHERE a.werks = b.werks AND a.seqnr = b.seqnr AND a.trucknr = b.trucknr AND a.arrdate = b.arrdate AND b.vbeln_vl IN ({vbeln}))</field>
         </record>
+        <record id="picking_type_git" model="ir.config_parameter">
+            <field name="key">picking_type_git</field>
+            <field name="value">311</field>
+        </record>
+        <record id="query_auto_done_git" model="ir.config_parameter">
+            <field name="key">query_auto_done_git</field>
+            <field name="value">select a.erdat, a.vbeln, a.mblnr, a.matnr, a.lfimg from ztp_git a where a.mblnr != ' ' and a.lgort_to = 'GIT' and a.lfimg != 0</field>
+        </record>
     </data>
 </odoo>

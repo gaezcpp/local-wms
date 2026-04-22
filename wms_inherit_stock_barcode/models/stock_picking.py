@@ -99,16 +99,17 @@ class StockPicking(models.Model):
     
     def _check_all_sloc_filled(self):
         for picking in self:
-            lines = picking.product_packaging_ids
-            if not lines:
-                continue
+            if picking.picking_packaging_type_id.production_only:
+                lines = picking.product_packaging_ids
+                if not lines:
+                    continue
 
-            missing = lines.filtered(lambda l: not l.sloc_id)
-            if missing:
-                raise ValidationError(
-                    f"SLOC belum lengkap untuk picking {picking.name}.\n\n"
-                    f"Masukkan SLOC Packaging pada : {', '.join(missing.mapped('packaging_desc'))}"
-                )
+                missing = lines.filtered(lambda l: not l.sloc_id)
+                if missing:
+                    raise ValidationError(
+                        f"SLOC belum lengkap untuk picking {picking.name}.\n\n"
+                        f"Masukkan SLOC Packaging pada : {', '.join(missing.mapped('packaging_desc'))}"
+                    )
     
     def button_validate(self):
         self._sync_packaging_lines()

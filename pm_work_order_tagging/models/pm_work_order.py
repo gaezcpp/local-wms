@@ -31,7 +31,7 @@ class PlanMaintenanceWorkOrder(models.Model):
     date_to = fields.Datetime(string="Date To", tracking=True)
     analysis = fields.Text(string="Analysis", tracking=True)
     problem_handling = fields.Text(string="Problem Handling", tracking=True)
-    photo_attachment = fields.Binary(string="Photo", tracking=True)
+    photo_attachment = fields.Binary(string="Photo")
     state = fields.Selection([
         ('draft', 'Draft'),
         ('waiting_sap', 'Waiting SAP'),
