@@ -8,7 +8,8 @@
       <search string="Search Tagging">
         <field name="name" />
         <field name="plant_code" />
-        <field name="pic_department_names" />
+        <!-- <field name="pic_department_names" /> -->
+        <field name="department_id" />
         <field name="category_problem_id" />
         <field name="status" />
         <separator />
@@ -67,7 +68,8 @@
             <group string="Tagging Info">
               <field name="tagger_name" readonly="1"/>
               <field name="barcode_id" readonly="1" options="{'no_open': True, 'no_create': True}" />
-              <field name="pic_department_names" readonly="1" />
+              <!-- <field name="pic_department_names" readonly="1" /> -->
+              <field name="department_id" readonly="1" options="{'no_open': True, 'no_create': True}"/>
               <field name="status" readonly="1" />
               <field name="maintenance_team_id" readonly="status not in ('validated','open_wo','closed')" invisible="1"/>
               <field name="start_date" readonly="1" />
@@ -103,7 +105,20 @@
               </list>
             </field>
           </group>
-          <notebook>
+          <group>
+              <group name="tag_desc" string="Description">
+                <field name="attachment_ids" widget="many2many_binary" options="{'no_create': False, 'no_open': True}" class="tagging_gallery" readonly="status != 'open'"/>
+                <field name="description" readonly="status != 'open'"/>
+              </group>
+              <group string="Close Evidence" invisible="status not in ('validated','open_wo','closed')">
+                <field name="close_start_date" string="Work Start Date" readonly="status == 'closed'"/>
+                <field name="close_end_date" string="Work End Date"/>
+                <field name="close_description" readonly="status == 'closed'"/>
+                <field name="close_photo" widget="image" filename="close_photo_filename" readonly="status == 'closed'"/>
+                <field name="close_photo_filename" invisible="1"/>
+              </group>
+          </group>
+          <!-- <notebook>
             <page string="Description" readonly="1">
               <field name="description" readonly="status != 'open'" />
             </page>
@@ -124,7 +139,7 @@
             <page string="Reject Reason" invisible="not reject_reason" readonly="1">
               <field name="reject_reason" readonly="1" nolabel="1" />
             </page>
-          </notebook>
+          </notebook> -->
         </sheet>
       </form>
     </field>

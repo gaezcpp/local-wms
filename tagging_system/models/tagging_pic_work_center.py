@@ -9,14 +9,10 @@ class TaggingDepartment(models.Model):
 
     name = fields.Char(required=True)
     active = fields.Boolean(default=True)
-
-    company_id = fields.Many2one(
-        "res.company",
-        string="Company",
-        required=True,
-        default=lambda self: self.env.company,
-        ondelete="restrict",
-    )
+    company_id = fields.Many2one("res.company", string="Company", required=True, default=lambda self: self.env.company, ondelete="restrict")
+    
+    # tambahan gaez
+    pic_ids = fields.One2many('tagging.pic', 'department_id')
 
 
 class TaggingBU(models.Model):
@@ -58,3 +54,6 @@ class TaggingPic(models.Model):
     )
 
     active = fields.Boolean(default=True)
+    
+    #tambahan gaez
+    department_id = fields.Many2one(comodel_name='tagging.department', string="Department")

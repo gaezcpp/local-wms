@@ -81,8 +81,6 @@ class TaggingRecord(models.Model):
     pic_name = fields.Char(string="PIC Email", related="pic_id.email", store=True, tracking=True)
     pic_department_names = fields.Char(
     string="PIC Department",
-    compute="_compute_pic_department_names",
-    store=True,
     )
     problem_category = fields.Char(string="Problem Category", related="category_problem_id.cat_masalah", store=True, tracking=True)
     problem_id = fields.Many2one(string="Problem", related="category_problem_id.problem_id", store=True, tracking=True)
@@ -258,6 +256,9 @@ class TaggingRecord(models.Model):
         string="Deskripsi Penutupan",
         tracking=True,
     )
+    
+    # tambahan gaez
+    department_id = fields.Many2one(comodel_name='tagging.department', string="Department")
 
     # =========================
     # HARD LOCK WHEN CLOSED
@@ -294,11 +295,11 @@ class TaggingRecord(models.Model):
 
 
     
-    @api.depends("pic_id", "pic_id.department_ids", "pic_id.department_ids.name")
-    def _compute_pic_department_names(self):
-        for rec in self:
-            depts = rec.pic_id.department_ids.mapped("name") if rec.pic_id else []
-            rec.pic_department_names = ", ".join(depts) if depts else ""
+    # @api.depends("pic_id", "pic_id.department_ids", "pic_id.department_ids.name")
+    # def _compute_pic_department_names(self):
+    #     for rec in self:
+    #         depts = rec.pic_id.department_ids.mapped("name") if rec.pic_id else []
+    #         rec.pic_department_names = ", ".join(depts) if depts else ""
             
     @api.onchange("equipment_id")
     def _onchange_equipment_id_reset_sparepart(self):
@@ -944,34 +945,30 @@ class TaggingRecord(models.Model):
     @api.model
     def cron_remind_open_tagging(self):
         Tagging = self.env['tagging.record'].sudo()
-        Dept = self.env['tagging.department'].sudo()
-        PIC = self.env['tagging.pic'].sudo()
-
         open_taggings = Tagging.search([('status', '!=', 'closed')])
-
         if not open_taggings:
             return True
 
-        dept_map = {d.name: d.id for d in Dept.search([])}
-
-        dept_pic_map = defaultdict(list)
-        for pic in PIC.search([]):
-            for dept in pic.department_ids:
-                if pic.email:
-                    dept_pic_map[dept.id].append(pic.email)
-
         tagging_by_dept = defaultdict(list)
         for ot in open_taggings:
-            dept_id = dept_map.get(ot.pic_department_names)
-            if dept_id:
-                tagging_by_dept[dept_id].append(ot)
+            if ot.department_id:
+                tagging_by_dept[ot.department_id].append(ot)
 
         base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url')
-
         mails = []
 
-        for dept_id, records in tagging_by_dept.items():
-            emails = list(set(dept_pic_map.get(dept_id, [])))
+        for dept, records in tagging_by_dept.items():
+            emails = []
+            ccs = []
+            for pic in dept.pic_ids:
+                if pic.email:
+                    emails.append(pic.email)
+                if pic.cc:
+                    ccs.append(pic.cc)
+
+            emails = list(set(emails))
+            ccs = list(set(ccs))
+
             if not emails:
                 continue
 
@@ -993,9 +990,7 @@ class TaggingRecord(models.Model):
             subject = f"[REMINDER] Open Tagging ({len(records)} items)"
             body_html = f"""
                 <p>Dear Team,</p>
-
                 <p>Berikut adalah daftar tagging yang masih belum selesai:</p>
-
                 <table border="1" cellspacing="0" cellpadding="5" style="border-collapse: collapse; font-size: 12px;">
                     <thead style="background-color:#f2f2f2;">
                         <tr>
@@ -1013,18 +1008,20 @@ class TaggingRecord(models.Model):
                         {rows}
                     </tbody>
                 </table>
-
                 <p>Mohon segera ditindaklanjuti.</p>
-
                 <p>Terima kasih.</p>
             """
-            mails.append({
+            mail_values = {
                 "subject": subject,
                 "body_html": body_html,
                 "email_to": ",".join(emails),
-                "email_from": "adminitc@cpp.co.id",
-                "reply_to": "adminitc@cpp.co.id",
-            })
+                "email_from": "admin.ict@cpp.co.id",
+                "reply_to": "admin.ict@cpp.co.id",
+            }
+            if ccs:
+                mail_values["email_cc"] = ",".join(ccs)
+                
+            mails.append(mail_values)
 
         if mails:
             self.env['mail.mail'].sudo().create(mails)
@@ -1036,51 +1033,31 @@ class TaggingRecord(models.Model):
         if not self:
             return False
 
-        # Ambil PIC dari record pertama (asumsi satu group PIC)
         first = self[0]
-
-        # =========================================================
-        # 1) Company code (pakai plant_name dari record pertama)
-        # =========================================================
-        company_code = False
-        plant_name = (first.plant_name or "").strip()
-        if plant_name:
-            company = self.env["res.company"].sudo().search([("name", "=ilike", plant_name)], limit=1)
-            company_code = (getattr(company, "company_code", False) or "").strip() if company else False
-
-        # =========================================================
-        # 2) Dept dari PIC -> filter company_code sama (kalau ada)
-        # =========================================================
-        depts = first.pic_id.department_ids if first.pic_id else self.env["tagging.department"]
-        if company_code:
-            depts = depts.filtered(lambda d: (d.company_id.company_code or "").strip() == company_code)
-
-        # =========================================================
-        # 3) Kumpulkan recipient emails -> fallback ke PIC
-        # =========================================================
         to_emails = []
-        for d in depts:
-            if getattr(d, "email", False):
-                to_emails.append(d.email.strip())
+        to_ccs = []
 
-        if not to_emails and first.pic_id and first.pic_id.email:
-            to_emails = [first.pic_id.email.strip()]
+        if first.department_id:
+            for pic in first.department_id.pic_ids:
+                if getattr(pic, "email", False):
+                    to_emails.append(pic.email.strip())
+                if getattr(pic, "cc", False):
+                    to_ccs.append(pic.cc.strip())
 
         to_emails = list(dict.fromkeys([e for e in to_emails if e]))
+        to_ccs = list(dict.fromkeys([c for c in to_ccs if c]))
+
         if not to_emails:
-            _logger.warning("No recipient email for reminder (PIC=%s plant=%s code=%s)",
-                            first.pic_id.display_name if first.pic_id else "-", plant_name, company_code)
+            _logger.info(
+                "No recipient email for reminder (Department=%s)",
+                first.department_id.display_name if first.department_id else "-"
+            )
             return False
 
-        # =========================================================
-        # 4) Konten email listing
-        # =========================================================
-        dept_names = depts.mapped("name")
-        dept_label = ", ".join(dept_names) if dept_names else (first.pic_id.display_name if first.pic_id else "PIC")
+        dept_label = first.department_id.name if first.department_id else "PIC"
 
         subject = f"Reminder Tagging Belum Closed [{first._format_dt_id(fields.Datetime.now())}]"
 
-        # build rows table
         rows_html = ""
         idx = 0
         for rec in self.sorted(key=lambda r: r.create_date or fields.Datetime.now()):
@@ -1151,72 +1128,41 @@ class TaggingRecord(models.Model):
             "subject": subject,
             "body_html": body_html,
             "email_to": ",".join(to_emails),
-            "email_from": "adminitc@cpp.co.id",
-            "reply_to": "adminitc@cpp.co.id",
+            "email_from": "admin.ict@cpp.co.id",
+            "reply_to": "admin.ict@cpp.co.id",
         }
 
-        # optional cc dari pic
-        if first.pic_id and getattr(first.pic_id, "cc", False):
-            mail_vals["email_cc"] = first.pic_id.cc
+        if to_ccs:
+            mail_vals["email_cc"] = ",".join(to_ccs)
 
-        mail = self.env["mail.mail"].sudo().create(mail_vals)
-        # mail.send(raise_exception=True)
+        self.env["mail.mail"].sudo().create(mail_vals)
         return True
 
     def _send_email_to_department(self):
         self.ensure_one()
-
-        # =========================================================
-        # 1) Ambil company_code dari TAGGING berdasarkan plant_name
-        #    (plant_name = nama company)
-        # =========================================================
-        company_code = False
-        plant_name = (getattr(self, "plant_name", False) or "").strip()
-
-        if plant_name:
-            company = self.env["res.company"].sudo().search(
-                    [("name", "=ilike", plant_name)],
-                    limit=1
-                )
-            company_code = (getattr(company, "company_code", False) or "").strip() if company else False
-
-        # =========================================================
-        # 2) Ambil dept dari PIC -> filter company_code yang sama
-        # =========================================================
-        depts = self.pic_id.department_ids if self.pic_id else self.env["tagging.department"]
-
-        if company_code:
-            depts = depts.filtered(lambda d: (d.company_id.company_code or "").strip() == company_code)
-
-        # =========================================================
-        # 3) Kumpulkan email dept -> fallback ke PIC
-        # =========================================================
         to_emails = []
-        for d in depts:
-            if getattr(d, "email", False):
-                to_emails.append(d.email.strip())
+        to_ccs = []
 
-        # fallback ke PIC
-        if not to_emails and self.pic_id and self.pic_id.email:
-            to_emails = [self.pic_id.email.strip()]
+        if self.department_id:
+            for pic in self.department_id.pic_ids:
+                if getattr(pic, "email", False):
+                    to_emails.append(pic.email.strip())
+                if getattr(pic, "cc", False):
+                    to_ccs.append(pic.cc.strip())
 
         to_emails = list(dict.fromkeys([e for e in to_emails if e]))
+        to_ccs = list(dict.fromkeys([c for c in to_ccs if c]))
         if not to_emails:
-            _logger.warning(
-                "No recipient email for %s (plant_name=%s, company_code=%s)",
-                self.name, plant_name, company_code
+            _logger.info(
+                "No recipient email for %s (Department=%s)",
+                self.name, 
+                self.department_id.display_name if self.department_id else "-"
             )
             return False
 
-        # =========================================================
-        # 4) Konten email (tetap seperti punyamu)
-        # =========================================================
         subject = f"Laporan abnormal [{self._format_dt_id(self.create_date)}]"
 
-        # label dept (yang SUDAH terfilter)
-        dept_names = depts.mapped("name")
-        dept_label = ", ".join(dept_names) if dept_names else (self.pic_id.display_name if self.pic_id else "PIC")
-
+        dept_label = self.department_id.name if self.department_id else "PIC"
         tagger_name = self.tagger_name or (self.user_id.name or "")
         tagger_email = self.user_id.login or ""
         tanggal_str = self._format_dt_id(self.create_date)
@@ -1260,15 +1206,14 @@ class TaggingRecord(models.Model):
             "subject": subject,
             "body_html": body_html,
             "email_to": ",".join(to_emails),
-            "email_from": "adminitc@cpp.co.id",
-            "reply_to": tagger_email or "adminitc@cpp.co.id",
+            "email_from": "admin.ict@cpp.co.id",
+            "reply_to": tagger_email or "admin.ict@cpp.co.id",
         }
 
-        if self.pic_id and getattr(self.pic_id, "cc", False):
-            mail_vals["email_cc"] = self.pic_id.cc
+        if to_ccs:
+            mail_vals["email_cc"] = ",".join(to_ccs)
 
-        mail = self.env["mail.mail"].sudo().create(mail_vals)
-        # mail.send(raise_exception=True)
+        self.env["mail.mail"].sudo().create(mail_vals)
         return True
     
     def _send_email_close_to_tagger(self):

@@ -49,6 +49,7 @@
             parent="tagging_system.g_configuration_menu"
             action="tagging_system.action_tagging_pic"
             sequence="2"
+            groups="base.group_no_one"
         />
         <menuitem
             id="g_system_tagging_menu"

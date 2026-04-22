@@ -48,13 +48,15 @@ class TaggingController(http.Controller):
         # ==========================================================
         # OPSI A: Dropdown Department unik (diambil dari PIC aktif)
         # ==========================================================
-        pics_all = request.env["tagging.pic"].sudo().search(
-            [("active", "=", True)],
-            order="email asc"
-        )
+        # pics_all = request.env["tagging.pic"].sudo().search(
+        #     [("active", "=", True)],
+        #     order="email asc"
+        # )
 
-        departments = pics_all.mapped("department_ids")
-        departments = departments.sorted(key=lambda d: (d.name or "").lower())
+        # departments = pics_all.mapped("department_ids")
+        # departments = departments.sorted(key=lambda d: (d.name or "").lower())
+        
+        departments = request.env['tagging.department'].sudo().search([('active', '=', True)])
 
         category_problems = request.env["category.problem"].sudo().search([
             ("active", "=", True),
@@ -156,17 +158,23 @@ class TaggingController(http.Controller):
             )
 
         # cari PIC yang punya department ini
-        pic = request.env["tagging.pic"].sudo().search([
-            ("active", "=", True),
-            ("department_ids", "in", dept.id)
-        ], limit=1)
+        # pic = request.env["tagging.pic"].sudo().search([
+        #     ("active", "=", True),
+        #     ("department_ids", "in", dept.id)
+        # ], limit=1)
 
-        if not pic:
+        # if not pic:
+        #     return request.redirect(
+        #         f"/tagging?error={quote('PIC untuk department ini belum diset.')}&barcode_code={quote(barcode_code)}"
+        #     )
+
+        # pic_id_int = pic.id
+        
+        department = request.env['tagging.department'].sudo().search([('active', '=', True)], limit=1)
+        if not department:
             return request.redirect(
-                f"/tagging?error={quote('PIC untuk department ini belum diset.')}&barcode_code={quote(barcode_code)}"
+                f"/tagging?error={quote('Department ini belum diset.')}&barcode_code={quote(barcode_code)}"
             )
-
-        pic_id_int = pic.id
 
 
         try:
@@ -176,11 +184,11 @@ class TaggingController(http.Controller):
                 f"/tagging?error={quote('Kategori masalah tidak valid.')}&barcode_code={quote(barcode_code)}"
             )
 
-        pic = request.env["tagging.pic"].sudo().browse(pic_id_int)
-        if not pic.exists() or not pic.active:
-            return request.redirect(
-                f"/tagging?error={quote('PIC tidak valid.')}&barcode_code={quote(barcode_code)}"
-            )
+        # pic = request.env["tagging.pic"].sudo().browse(pic_id_int)
+        # if not pic.exists() or not pic.active:
+        #     return request.redirect(
+        #         f"/tagging?error={quote('PIC tidak valid.')}&barcode_code={quote(barcode_code)}"
+        #     )
 
         cp = request.env["category.problem"].sudo().browse(cp_id_int)
         if not cp.exists() or not cp.active:
@@ -204,7 +212,9 @@ class TaggingController(http.Controller):
             "tagger_email": tagger_email,
 
             "barcode_id": barcode.id,
-            "pic_id": pic.id,
+            # "pic_id": pic.id,
+            #tambahan gaez
+            "department_id": department.id or False,
             "category_problem_id": cp.id,
 
             "plant_code": barcode.plant_code or "",
