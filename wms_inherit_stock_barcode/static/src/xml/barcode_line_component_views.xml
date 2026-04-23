@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-inherit="stock_barcode.LineQuantity" t-inherit-mode="extension">
+        <xpath expr="//div[@name='quantity']" position="inside">
+            <t t-if="line.uom_bag_id">
+                <span class="text-muted mx-2 fs-3 align-baseline">|</span>
+                <span class="o_barcode_scanner_qty font-monospace fs-1">
+                    <span class="qty-done text-dark" t-esc="line.bag_qty ? Math.round(line.bag_qty * 100) / 100 : 0"/>
+                </span>
+                <!-- <small class="o_line_uom text-muted ms-1 fs-6" t-esc="line.uom_bag_id.display_name || line.uom_bag_id.name || line.uom_bag_id[1]"/> -->
+                <small class="text-muted ms-1 fs-6" t-esc="line.uom_bag_id.display_name || line.uom_bag_id.name || line.uom_bag_id[1]"/>
+            </t>
+            <t t-if="line.uom_pallet_id">
+                <span class="text-muted mx-2 fs-3 align-baseline">|</span>
+                <span class="o_barcode_scanner_qty font-monospace fs-1">
+                    <span class="qty-done text-dark" t-esc="line.pallet_qty ? Math.round(line.pallet_qty * 100) / 100 : 0"/>
+                </span>
+                <!-- <small class="o_line_uom text-muted ms-1 fs-6" t-esc="line.uom_pallet_id.display_name || line.uom_pallet_id.name || line.uom_pallet_id[1]"/> -->
+                <small class="text-muted ms-1 fs-6" t-esc="line.uom_pallet_id.display_name || line.uom_pallet_id.name || line.uom_pallet_id[1]"/>
+            </t>
+        </xpath>
+    </t>
+</templates>

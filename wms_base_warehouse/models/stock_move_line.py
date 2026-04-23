@@ -28,27 +28,73 @@ class InheritBaseStockMoveLine(models.Model):
             ctx.get('test_enable')
         )
     
+    # def _get_or_create_lot(self):
+    #     self.ensure_one()
+    #     if not self.expiration_date or not self.move_id.product_id:
+    #         return False
+
+    #     date_str = self.expiration_date.strftime("%d%m%Y")
+    #     po_number = self.move_id.picking_id.po_sap_id.po_number or ''
+        
+    #     lot_name = f"{date_str}"
+    #     if po_number:
+    #         lot_name = f"{po_number}-{date_str}"
+
+    #     lot = self.env['stock.lot'].search([
+    #         ('name', '=', lot_name),
+    #         ('product_id', '=', self.move_id.product_id.id)
+    #     ], limit=1)
+
+    #     if not lot:
+    #         lot = self.env['stock.lot'].create({
+    #             'name': lot_name,
+    #             'product_id': self.move_id.product_id.id,
+    #         })
+
+    #     return lot
+    
     def _get_or_create_lot(self):
         self.ensure_one()
-        if not self.expiration_date or not self.move_id.product_id:
+        if not self.move_id.product_id:
             return False
 
-        date_str = self.expiration_date.strftime("%d%m%Y")
-        po_number = self.move_id.picking_id.po_sap_id.po_number or ''
+        prod_code_rec = self.env['production.code'].search([('company_id', '=', self.company_id.id)], limit=1)
+        if not prod_code_rec or not prod_code_rec.code:
+            raise ValidationError("Konfigurasi Production Code (Format Lot) belum diatur untuk company ini!")
+
+        prod_group = self.env['production.group'].sudo().search([
+            # ('user_id', '=', self.picking_id.user_id.id),
+            ('user_id', '=', self.env.user.id),
+            ('company_id', '=', self.company_id.id)
+        ], limit=1)
         
-        lot_name = f"{date_str}"
-        if po_number:
-            lot_name = f"{po_number}-{date_str}"
+        group_code = prod_group.code if prod_group else ''
+        localdict = {
+            'self': self,
+            'picking': self.picking_id,
+            'moveline': self,
+            'fields': fields,
+            'str': str,
+            'int': int,
+            'group_code': group_code,
+        }
+
+        try:
+            lot_name = eval(f'f"""{prod_code_rec.code}"""', localdict)
+        except Exception as e:
+            raise ValidationError(f"Terjadi kesalahan saat memproses format Production Code: {e}")
 
         lot = self.env['stock.lot'].search([
             ('name', '=', lot_name),
-            ('product_id', '=', self.move_id.product_id.id)
+            ('product_id', '=', self.move_id.product_id.id),
+            ('company_id', '=', self.company_id.id)
         ], limit=1)
 
         if not lot:
             lot = self.env['stock.lot'].create({
                 'name': lot_name,
                 'product_id': self.move_id.product_id.id,
+                'company_id': self.company_id.id,
             })
 
         return lot
@@ -57,7 +103,7 @@ class InheritBaseStockMoveLine(models.Model):
     def create(self, vals_list):
         records = super().create(vals_list)
         for rec in records:
-            if rec._is_prod_in():
+            if rec._is_gr_prod():
                 lot = rec._get_or_create_lot()
                 if lot:
                     rec.lot_id = lot.id
@@ -67,13 +113,13 @@ class InheritBaseStockMoveLine(models.Model):
     def write(self, vals):
         res = super().write(vals)
         for rec in self:
-            if 'expiration_date' in vals and rec._is_prod_in():
+            if 'expiration_date' in vals and rec._is_gr_prod():
                 lot = rec._get_or_create_lot()
                 if lot:
                     rec.lot_id = lot.id
         return res
     
-    def _is_prod_in(self, vals=None):
+    def _is_gr_prod(self, vals=None):
         picking = False
         prod_in_move_type = self.env['ir.config_parameter'].sudo().get_param('prod_in_move_type')
         if not prod_in_move_type:

@@ -1,0 +1,49 @@
+<?xml version='1.0' encoding='utf-8'?>
+<odoo>
+    <!-- Search View -->
+    <record model="ir.ui.view" id="production_code_search">
+        <field name="name">production.code.search</field>
+        <field name="model">production.code</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="company_id"/>
+                <field name="code"/>
+                <group>
+                    <filter name="gr_comp" string="Company" context="{'group_by':'company_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="production_code_view_list" model="ir.ui.view">
+        <field name="name">production.code.view.list</field>
+        <field name="model">production.code</field>
+        <field name="arch" type="xml">
+            <list string="Production Code">
+                <field name="company_id"/>
+                <field name="code"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="production_code_view_form" model="ir.ui.view">
+        <field name="name">production.code.view.form</field>
+        <field name="model">production.code</field>
+        <field name="arch" type="xml">
+            <form string="Production Code">
+                <sheet>
+                    <group>
+                        <field name="company_id"/>
+                        <field name="code"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="production_code_action" model="ir.actions.act_window">
+        <field name="name">Production Code</field>
+        <field name="res_model">production.code</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>

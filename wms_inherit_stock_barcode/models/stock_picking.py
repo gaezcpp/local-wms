@@ -99,7 +99,7 @@ class StockPicking(models.Model):
     
     def _check_all_sloc_filled(self):
         for picking in self:
-            if picking.picking_packaging_type_id.production_only:
+            if picking.picking_type_id.production_only:
                 lines = picking.product_packaging_ids
                 if not lines:
                     continue

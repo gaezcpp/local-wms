@@ -24,6 +24,22 @@
     />
 
     <menuitem
+        id="production_group_menu"
+        name="Production Group"
+        parent="wms_base_warehouse.production_master_data_menu_root"
+        action="wms_base_warehouse.production_group_action"
+        sequence="30"
+    />
+
+    <menuitem
+        id="production_code_menu"
+        name="Production Code"
+        parent="wms_base_warehouse.production_master_data_menu_root"
+        action="wms_base_warehouse.production_code_action"
+        sequence="100"
+    />
+
+    <menuitem
         id="stock_move_line_gr_menu"
         name="Moves GR"
         parent="stock.menu_warehouse_report"
@@ -50,8 +66,8 @@
     <menuitem
         id="storage_location_menu"
         name="Storage Location (SLOC)"
-        parent="wms_base_warehouse.production_master_data_menu_root"
+        parent="stock.menu_warehouse_config"
         action="wms_base_warehouse.storage_location_action"
-        sequence="30"
+        sequence="50"
     />
 </odoo>

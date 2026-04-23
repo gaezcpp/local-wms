@@ -54,6 +54,7 @@
                             <field name="priority" force_save="1" readonly="1"/>
                             <field name="tagging_id" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1"/>
                             <field name="sap_synchronize" force_save="1" readonly="1"/>
+                            <field name="confirm_number" force_save="1" readonly="1"/>
                         </group>
                         <group name="pm_right">
                             <field name="system_id" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1"/>

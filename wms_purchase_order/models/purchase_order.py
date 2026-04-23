@@ -93,7 +93,7 @@ class InheritPurchaseOrder(models.Model):
         uom_kg = uom_model.search([('name', '=', 'kg')], limit=1)
 
         product_codes = {r.get('MATNR').lstrip('0') for r in data_list if r.get('MATNR')}
-        # uom_names = {r.get('VRKME') for r in data_list if r.get('VRKME')}
+        # uom_names = {r.get('LDTYPE') for r in data_list if r.get('LDTYPE')}
         partners_ref = {r.get('PENGIRIM') for r in data_list if r.get('PENGIRIM')}
         companies_reg = {r.get('PENERIMA') for r in data_list if r.get('PENERIMA')}
         po_numbers = {r.get('EBELN') for r in data_list if r.get('EBELN')}
@@ -122,7 +122,7 @@ class InheritPurchaseOrder(models.Model):
 
             company = companies.get(first.get('PENERIMA'))
             partner = partners.get(first.get('PENGIRIM'))
-            vbeln_vl = (first.get('VBELN_VL') or '').strip()
+            donr = (first.get('DONR') or '').strip()
 
             if not company or not partner:
                 continue
@@ -142,7 +142,7 @@ class InheritPurchaseOrder(models.Model):
             vals_po = {
                 'po_sto': nomor_po,
                 'partner_id': partner.id,
-                'partner_ref': vbeln_vl,
+                'partner_ref': donr,
                 'picking_type_id': picking_type.id if picking_type else False,
                 'company_id': company.id,
                 'po_sto_type': first.get('BSART'),
@@ -163,7 +163,7 @@ class InheritPurchaseOrder(models.Model):
 
             for row in rows:
                 matnr = row.get('MATNR')
-                qty = float(row.get('LFIMG') or 0)
+                qty = float(row.get('DOQTY') or 0)
                 ebelp = (row.get('POSNR') or "").lstrip('0')
                 if matnr:
                     aggregated[matnr] += qty
@@ -177,8 +177,8 @@ class InheritPurchaseOrder(models.Model):
                     continue
                 ebelp = (row.get('POSNR') or "").lstrip('0')
                 po_seq = (row.get('VGPOS') or "").lstrip('0')
-                qty = float(row.get('LFIMG') or 0)
-                delivery_uom = (row.get('VRKME') or '').strip()
+                qty = float(row.get('DOQTY') or 0)
+                delivery_uom = (row.get('LDTYPE') or '').strip()
                 uom_numerator = float(row.get('UMREZ') or 1)
                 uom_denominator = float(row.get('UMREN') or 1)
                 product_uom = product.uom_bag_id or uom_kg

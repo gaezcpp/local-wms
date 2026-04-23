@@ -37,10 +37,12 @@ class PlanMaintenanceWorkOrder(models.Model):
         ('waiting_sap', 'Waiting SAP'),
         ('closed', 'Closed'),
         ('rejected', 'Rejected'),
+        ('canceled', 'Canceled'),
     ], string="State", default='draft')
     sap_synchronize = fields.Boolean(string="SAP Synchronize", default=False, tracking=True)
     analysis_id = fields.Many2one(comodel_name='pm.analysis', string="Analysis", tracking=True)
     need_desc = fields.Boolean(string="Need Desc?")
+    confirm_number = fields.Char(string="No. Konfirmasi", tracking=True)
     
     @api.model_create_multi
     def create(self, vals_list):
@@ -59,10 +61,8 @@ class PlanMaintenanceWorkOrder(models.Model):
 
         if not x_i_api_key:
             x_i_api_key = icp.get_param('x_i_api_key_tagging')
-            # raise ValidationError("x_i_api_key belum disetting!")
         if not ip_sap_rfc:
             ip_sap_rfc = icp.get_param('ip_sap_rfc_tagging')
-            # raise ValidationError("ip_sap_rfc belum disetting!")
         if not query_work_order_material_sap:
             raise ValidationError("query_work_order_material_sap belum disetting!")
 
@@ -123,14 +123,28 @@ class PlanMaintenanceWorkOrder(models.Model):
                 'sap_synchronize': True,
             })
 
-            unique_materials = {}
+            materials_to_add = {}
+            materials_to_delete = []
             for rec in records:
                 sku = rec.get('MATNR')
                 qty = float(rec.get('BDMNG') or 0.0)
+                bwart = rec.get('BWART')
+
                 if not sku:
                     continue
-                unique_materials[sku] = qty
+                
+                if bwart == 'Z62':
+                    materials_to_delete.append(sku)
+                elif bwart == 'Z61':
+                    materials_to_add[sku] = qty
 
+            if materials_to_delete:
+                lines_to_unlink = work_order.pm_wo_material_line_ids.filtered(
+                    lambda l: l.product_sparepart_id.sku in materials_to_delete
+                )
+                if lines_to_unlink:
+                    lines_to_unlink.unlink()
+                    
             existing_lines = {
                 line.product_sparepart_id.sku: line
                 for line in work_order.pm_wo_material_line_ids
@@ -138,9 +152,9 @@ class PlanMaintenanceWorkOrder(models.Model):
             }
 
             sequence = len(work_order.pm_wo_material_line_ids)
-
             create_vals = []
-            for sku, qty in unique_materials.items():
+
+            for sku, qty in materials_to_add.items():
                 product = spare_part_model.search([('sku', '=', sku)], limit=1)
                 if not product:
                     continue
@@ -195,3 +209,7 @@ class PlanMaintenanceWorkOrder(models.Model):
         for rec in self:
             if rec.state == 'waiting_sap':
                 rec.state = 'closed'
+                
+    def action_cancel(self):
+        for rec in self:
+            rec.state = 'canceled'

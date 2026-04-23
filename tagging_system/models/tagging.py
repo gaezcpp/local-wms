@@ -944,7 +944,8 @@ class TaggingRecord(models.Model):
 
     @api.model
     def cron_remind_open_tagging(self):
-        Tagging = self.env['tagging.record'].sudo()
+        self = self.sudo()
+        Tagging = self.env['tagging.record']
         open_taggings = Tagging.search([('status', '!=', 'closed')])
         if not open_taggings:
             return True
@@ -1011,12 +1012,14 @@ class TaggingRecord(models.Model):
                 <p>Mohon segera ditindaklanjuti.</p>
                 <p>Terima kasih.</p>
             """
+            
             mail_values = {
                 "subject": subject,
                 "body_html": body_html,
                 "email_to": ",".join(emails),
                 "email_from": "admin.ict@cpp.co.id",
                 "reply_to": "admin.ict@cpp.co.id",
+                "message_type": "email", 
             }
             if ccs:
                 mail_values["email_cc"] = ",".join(ccs)
@@ -1024,9 +1027,7 @@ class TaggingRecord(models.Model):
             mails.append(mail_values)
 
         if mails:
-            self.env['mail.mail'].sudo().create(mails)
-
-        return True
+            self.env['mail.mail'].create(mails)
 
     def _send_reminder_listing_to_department(self):
         """Kirim email reminder listing untuk recordset self (multi)."""
