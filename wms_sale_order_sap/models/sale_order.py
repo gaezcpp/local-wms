@@ -383,8 +383,6 @@ class InheritSaleOrderSAP(models.Model):
             if not warehouse:
                 continue
             
-            print(f"XXXXXXXXXXXXXXXXXXX {warehouse}")
-            
             date_order = False
             if date_order_sap and len(date_order_sap) == 8:
                 date_order = datetime.strptime(date_order_sap, "%Y%m%d")

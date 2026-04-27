@@ -3,7 +3,7 @@
     <data noupdate="1">
         <record id="query_po_sto_sap" model="ir.config_parameter">
             <field name="key">query_po_sto_sap</field>
-            <field name="value">SELECT c.vgpos, c.posnr, a.seqnr, a.trucknr, a.arrdate, a.donr, e.ebeln, a.matnr, a.doqty, a.ldtype, d.umrez, d.umren, a.lgort, a.werks AS penerima, a.lifnr AS pengirim FROM zmm_ts_in_po a LEFT JOIN zmm_ts_arr_pool b ON a.werks = b.werks AND a.seqnr = b.seqnr AND a.trucknr = b.trucknr AND a.arrdate = b.arrdate LEFT JOIN lips c ON a.donr = c.vbeln AND a.matnr = c.matnr LEFT JOIN marm d ON d.matnr = a.matnr AND d.meinh = a.ldtype left join zmm_ts_sto e on a.donr = e.vbeln_vl WHERE b.srctab = 'ZMM_TS_ISTO_NCPL' AND TO_DATE(c.arrdate,'YYYYMMDD') BETWEEN CURRENT_DATE-30 AND CURRENT_DATE</field>
+            <field name="value">SELECT c.vgpos, c.posnr, a.seqnr, a.trucknr, a.arrdate, a.donr, e.ebeln, a.matnr, a.doqty, a.ldtype, d.umrez, d.umren, a.lgort, a.werks AS penerima, a.lifnr AS pengirim FROM zmm_ts_in_po a LEFT JOIN zmm_ts_arr_pool b ON a.werks = b.werks AND a.seqnr = b.seqnr AND a.trucknr = b.trucknr AND a.arrdate = b.arrdate LEFT JOIN lips c ON a.donr = c.vbeln AND a.matnr = c.matnr LEFT JOIN marm d ON d.matnr = a.matnr AND d.meinh = a.ldtype left join zmm_ts_sto e on a.donr = e.vbeln_vl WHERE b.srctab = 'ZMM_TS_ISTO_NCPL' AND TO_DATE(a.arrdate,'YYYYMMDD') BETWEEN CURRENT_DATE-30 AND CURRENT_DATE</field>
         </record>
         <record id="picking_type_po" model="ir.config_parameter">
             <field name="key">picking_type_po</field>
