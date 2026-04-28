@@ -223,11 +223,11 @@ class MaintenanceEquipment(models.Model):
         return {(k or "").lower(): v for k, v in (row or {}).items()}
 
     # ---------- Normalizers ----------
-    def _norm_equnr(self, v):
-        v = str(v or "").strip()
-        if v.isdigit():
-            return v.zfill(18)
-        return v
+    # def _norm_equnr(self, v):
+    #     v = str(v or "").strip().lstrip('0')
+    #     if v.isdigit():
+    #         return v.zfill(18)
+    #     return v
 
     def _normalize_tplnr(self, tplnr: str) -> str:
         tplnr = str(tplnr or "").strip()
@@ -292,7 +292,8 @@ class MaintenanceEquipment(models.Model):
     # UPSERT EQUIPMENT (SAP → ODOO)
     # ==========================================================
     def _upsert_equipment_from_row(self, row, cache):
-        equnr = self._norm_equnr(row.get("code"))
+        # equnr = self._norm_equnr(row.get("code"))
+        equnr = row.get("code").lstrip('0')
         if not equnr:
             return
 
@@ -310,7 +311,7 @@ class MaintenanceEquipment(models.Model):
         tplnr = self._normalize_tplnr(row.get("functional_location") or "")
 
         vals = {
-            "equipment_no": equnr,
+            "equipment_no": equnr.lstrip('0'),
             "sap_equnr": equnr,
             "sap_tplnr": tplnr or False,
             "abc_indc": str(row.get("abc_indc") or "").strip() or False,
@@ -404,7 +405,8 @@ class MaintenanceEquipment(models.Model):
 
         cache[cache_key] = rec
         self._upsert_equipment_spare_part_line(rec, row, company)
-        parent_equnr = self._norm_equnr(row.get("parent"))
+        # parent_equnr = self._norm_equnr(row.get("parent"))
+        parent_equnr = row.get("parent").lstrip('0')
         if parent_equnr and parent_equnr != equnr:
             cache.setdefault("_parent_map", {})[(company.id, equnr)] = parent_equnr
             
@@ -562,8 +564,10 @@ class MaintenanceEquipment(models.Model):
 
         for (company_id, child_equnr), parent_equnr in parent_map.items():
             try:
-                child_equnr = self._norm_equnr(child_equnr)
-                parent_equnr = self._norm_equnr(parent_equnr)
+                # child_equnr = self._norm_equnr(child_equnr)
+                child_equnr = child_equnr.lstrip('0')
+                # parent_equnr = self._norm_equnr(parent_equnr)
+                parent_equnr = parent_equnr.lstrip('0')
 
                 if not child_equnr or not parent_equnr:
                     _logger.warning(

@@ -7,7 +7,7 @@
         <field name="arch" type="xml">
             <search>
                 <field name="name"/>
-                <field name="contact_id"/>
+                <field name="customer_id"/>
                 <field name="state"/>
             </search>
         </field>
@@ -19,7 +19,7 @@
         <field name="arch" type="xml">
             <list string="Debt Management">
                 <field name="name"/>
-                <field name="contact_id"/>
+                <field name="customer_id"/>
                 <field name="state"/>
                 <field name="total_amount" sum="Total"/>
             </list>
@@ -35,6 +35,7 @@
                     <button name="action_in_progress" string="Set In Progress" type="object" class="oe_highlight" invisible="state != 'draft'"/>
                     <button name="action_draft" string="Set Draft" type="object" class="oe_highlight" invisible="state != 'in_progress'"/>
                     <button name="action_paid" string="Set Paid" type="object" class="oe_highlight" invisible="state != 'in_progress'"/>
+                    <button name="action_print_pdf" string="Print" type="object" class="oe_highlight" invisible="state == 'draft'"/>
                     <field name="state" widget="statusbar"/>
                 </header>
                 <sheet>
@@ -49,7 +50,7 @@
                     </h1>
                     <group>
                         <group>
-                            <field name="contact_id" required="1" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" domain="[('has_debt', '=', True)]"/>
+                            <field name="customer_id" required="1" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}"/>
                             <label for="amount" invisible="state != 'in_progress'"/>
                             <div class="o_row" invisible="state != 'in_progress'">
                                 <field name="amount" readonly="state != 'in_progress'"/>

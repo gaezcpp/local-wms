@@ -15,6 +15,7 @@ Long description of module's purpose
     # for the full list
     'category': 'Uncategorized',
     'version': '0.1',
+    'license' : 'LGPL-3',
 
     # any module necessary for this one to work correctly
     'depends': ['base', 'mail'],
@@ -23,10 +24,11 @@ Long description of module's purpose
     'data': [
         'security/ir.model.access.csv',
         'data/sequence.xml',
-        'views/res_partner_views.xml',
+        'reports/debt_management_report_views.xml',
         'views/debt_management_views.xml',
         'views/debt_management_line_views.xml',
         'views/debt_type_views.xml',
+        'views/debt_customer_views.xml',
         'views/menuitem.xml',
     ],
     "icon": "/wms_production_order_sap/static/description/icon.png",

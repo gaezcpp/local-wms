@@ -1,0 +1,43 @@
+<?xml version='1.0' encoding='utf-8'?>
+<odoo>
+    <!-- Search View -->
+    <record model="ir.ui.view" id="debt_customer_search">
+        <field name="name">debt.customer.search</field>
+        <field name="model">debt.customer</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="debt_customer_view_list" model="ir.ui.view">
+        <field name="name">debt.customer.view.list</field>
+        <field name="model">debt.customer</field>
+        <field name="arch" type="xml">
+            <list string="Debt Customer">
+                <field name="name"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="debt_customer_view_form" model="ir.ui.view">
+        <field name="name">debt.customer.view.form</field>
+        <field name="model">debt.customer</field>
+        <field name="arch" type="xml">
+            <form string="Debt Customer">
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="debt_customer_action" model="ir.actions.act_window">
+        <field name="name">Debt Customer</field>
+        <field name="res_model">debt.customer</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>

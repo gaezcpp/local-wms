@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="report_debt_management_template">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="doc">
+                <t t-call="web.external_layout">
+                    <div class="page" style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                        <style>
+                            .report-title { color: #1F4E78; font-weight: bold; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px; }
+                            .summary-card { background-color: #f8fafc; border-radius: 8px; padding: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px; }
+                            .border-left-primary { border-left: 4px solid #3b82f6; }
+                            .border-left-success { border-left: 4px solid #10b981; }
+                            .border-left-danger { border-left: 4px solid #ef4444; }
+                            .text-label { font-size: 0.85rem; color: #64748b; text-transform: uppercase; font-weight: bold; }
+                            .text-value { font-size: 1.25rem; font-weight: bold; color: #0f172a; margin-top: 5px; }
+                            .table-custom th { background-color: #f1f5f9 !important; color: #475569 !important; text-transform: uppercase; font-size: 0.85rem; border-top: none; }
+                            .badge { padding: 5px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; }
+                            .badge-draft { background-color: #f1f5f9; color: #475569; }
+                            .badge-progress { background-color: #dbeafe; color: #1e40af; }
+                            .badge-paid { background-color: #d1fae5; color: #065f46; }
+                        </style>
+                        <h3 class="report-title">
+                            Laporan Manajemen Piutang: <span t-field="doc.name"/>
+                        </h3>
+                        <div class="row mb-3">
+                            <div class="col-6">
+                                <strong>Debitur:</strong> <span t-field="doc.customer_id.name" style="font-size: 1.05rem;"/><br/>
+                                <strong>Status Dokumen:</strong> 
+                                <span t-if="doc.state == 'draft'" class="badge badge-draft">Draft</span>
+                                <span t-if="doc.state == 'in_progress'" class="badge badge-progress">In Progress</span>
+                                <span t-if="doc.state == 'paid'" class="badge badge-paid">Paid</span>
+                            </div>
+                            <div class="col-6 text-end">
+                                <strong>Tanggal Cetak:</strong><br/>
+                                <span t-esc="context_timestamp(datetime.datetime.now()).strftime('%d %B %Y')"/>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="summary-card border-left-success">
+                                    <div class="text-label">Total Dibayar</div>
+                                    <div class="text-value text-success">
+                                        Rp <span t-esc="'{:,.0f}'.format(doc.paid_amount).replace(',', '.')"/>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="summary-card border-left-danger">
+                                    <div class="text-label">Sisa Hutang</div>
+                                    <div class="text-value text-danger">
+                                        Rp <span t-esc="'{:,.0f}'.format(doc.total_amount).replace(',', '.')"/>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <h5 class="mt-3 mb-2" style="color: #1F4E78;">Rincian Tagihan</h5>
+                        <table class="table table-sm table-custom table-borderless table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Tipe Piutang</th>
+                                    <th>Jatuh Tempo</th>
+                                    <th class="text-end">Jumlah</th>
+                                    <th class="text-end">Sisa Bayar</th>
+                                    <th class="text-center">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="doc.debt_line_ids" t-as="line">
+                                    <td><span t-field="line.debt_type_id.name"/></td>
+                                    <td>
+                                        <span t-field="line.end_date" t-options="{'widget': 'date', 'format': 'dd MMMM yyyy'}"/>
+                                    </td>
+                                    <td class="text-end font-weight-bold">
+                                        <span t-esc="'{:,.0f}'.format(line.amount_total).replace(',', '.')"/>
+                                    </td>
+                                    <td class="text-center">
+                                        <span t-if="line.state == 'in_progress'" class="badge badge-progress">In Progress</span>
+                                        <span t-if="line.state == 'partially_paid'" class="badge badge-progress">Partial</span>
+                                        <span t-if="line.state == 'paid'" class="badge badge-paid">Paid</span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <div t-if="doc.notes" class="mb-4">
+                            <strong>Catatan Tambahan:</strong>
+                            <p class="text-muted" t-field="doc.notes"/>
+                        </div>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+
+    <record id="action_report_debt_management_pdf" model="ir.actions.report">
+        <field name="name">Laporan Debt Management</field>
+        <field name="model">debt.management</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">debt_management.report_debt_management_template</field>
+        <field name="report_file">debt_management.report_debt_management_template</field>
+        <field name="print_report_name">'Debt Report - [%s] - %s' % (object.name, object.customer_id.name)</field>
+        <field name="binding_model_id" ref="model_debt_management"/>
+        <field name="binding_type">report</field>
+    </record>
+</odoo>

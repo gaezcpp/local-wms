@@ -9,7 +9,7 @@ class DebtManagement(models.Model):
     _rec_name = 'name'
     
     name = fields.Char(string="Name", default="New", tracking=True)
-    contact_id = fields.Many2one(comodel_name='res.partner', string="Debtor", tracking=True)
+    customer_id = fields.Many2one(comodel_name='debt.customer', string="Debtor", tracking=True)
     state = fields.Selection([
         ('draft', 'Draft'),
         ('in_progress', 'In Progress'),
@@ -22,6 +22,10 @@ class DebtManagement(models.Model):
     debt_line_ids = fields.One2many('debt.management.line', 'debt_management_id', ondelete='cascade')
     debt_line_count = fields.Integer(string="Debt Line Count", compute='_compute_debt_line_count')
     notes = fields.Text(string="Notes", tracking=True)
+    active = fields.Boolean(string="Active", default=True)
+    
+    def action_print_pdf(self):
+        return self.env.ref('debt_management.action_report_debt_management_pdf').report_action(self)
     
     @api.model_create_multi
     def create(self, vals_list):

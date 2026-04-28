@@ -22,9 +22,18 @@
     />
 
     <menuitem
+        id="debt_customer_menu"
+        name="Debt Customer"
+        parent="debt_management.configuration_debt_management_menu"
+        action="debt_management.debt_customer_action"
+        sequence="0"
+    />
+
+    <menuitem
         id="debt_type_menu"
         name="Debt Type"
         parent="debt_management.configuration_debt_management_menu"
         action="debt_management.debt_type_action"
+        sequence="10"
     />
 </odoo>

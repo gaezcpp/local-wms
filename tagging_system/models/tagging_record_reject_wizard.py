@@ -18,6 +18,6 @@ class TaggingRecordRejectWizard(models.TransientModel):
 
         rec.sudo().write({
             "reject_reason": self.reason,
-            "status": "closed",
+            "status": "rejected",
         })
         return {"type": "ir.actions.act_window_close"}

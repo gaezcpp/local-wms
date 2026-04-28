@@ -1,5 +1,6 @@
 from odoo import models, fields, api, _
 from odoo.exceptions import ValidationError
+from collections import defaultdict
 import requests
 import json
 import logging
@@ -50,6 +51,23 @@ class PlanMaintenanceWorkOrder(models.Model):
             if vals.get('name', _('New')) == _('New'):
                 vals['name'] = self.env['ir.sequence'].next_by_code('pm.work.order') or _('New')
         return super().create(vals_list)
+    
+    def _needs_update(self, model, vals):
+        for field, new_val in vals.items():
+            if field not in model._fields:
+                continue
+
+            field_def = model._fields[field]
+            old_val = model[field]
+
+            if field_def.type == 'many2one':
+                old_id = old_val.id if old_val else False
+                if old_id != new_val:
+                    return True
+            else:
+                if (old_val or False) != (new_val or False):
+                    return True
+        return False
     
     @api.model
     def cron_synchronize_sap_work_order_material(self):
@@ -213,3 +231,102 @@ class PlanMaintenanceWorkOrder(models.Model):
     def action_cancel(self):
         for rec in self:
             rec.state = 'canceled'
+            
+    @api.model
+    def cron_synchronize_sap_preventif_work_order(self):
+        icp = self.env['ir.config_parameter'].sudo()
+        x_i_api_key = icp.get_param('x_i_api_key')
+        ip_sap_rfc = icp.get_param('ip_sap_rfc')
+        query_preventif_work_order_material_sap = icp.get_param('query_preventif_work_order_material_sap')
+
+        if not x_i_api_key:
+            x_i_api_key = icp.get_param('x_i_api_key_tagging')
+        if not ip_sap_rfc:
+            ip_sap_rfc = icp.get_param('ip_sap_rfc_tagging')
+        if not query_preventif_work_order_material_sap:
+            raise ValidationError("query_preventif_work_order_material_sap belum disetting!")
+
+        headers = {
+            "x-i-api-key": str(x_i_api_key),
+            "Content-Type": "application/json"
+        }
+
+        url = f"{str(ip_sap_rfc)}/api/v1/zfm-query-data"
+        body = {
+            "I_QUERY": str(query_preventif_work_order_material_sap),
+            "I_MOD": "CRON cron_synchronize_sap_preventif_work_order"
+        }
+
+        try:
+            response = requests.post(url=url, headers=headers, data=json.dumps(body))
+            response.raise_for_status()
+        except Exception as e:
+            raise ValidationError(str(e))
+
+        res = response.json()
+        if res.get('error'):
+            raise ValidationError(json.dumps(res.get('error')))
+        if not res.get('success'):
+            _logger.info(f"cron_synchronize_sap_preventif_work_order Not Success {res}")
+            return True
+        
+        data_list = res.get('data', [])
+        if not data_list:
+            return True
+        
+        _logger.info(f"TOTAL DATA PREVENTIF {len(data_list)}")
+        
+        pm_wo_model = self.env['pm.work.order'].sudo()
+        pm_wo_line_model = self.env['pm.work.order.material.line'].sudo()
+        equip_model = self.env['maintenance.equipment'].sudo()
+        company_model = self.env['res.company'].sudo()
+        grouped_data = defaultdict(list)
+        
+        for row in data_list:
+            nomor_wo = row.get('AUFNR')
+            if nomor_wo:
+                grouped_data[nomor_wo].append(row)
+        
+        for nomor_wo, rows in grouped_data.items():
+            first = rows[0]
+            type_mo = first.get('AUART')
+            priority = first.get('PRIOKX')
+            sub_system = first.get('TPLNR')
+            sub_equip = (first.get('EQUNR') or "").lstrip('0')
+            company_registry = first.get('WERKS')
+            
+            company = company_model.search([('company_registry', '=', company_registry),('sync_pm', '=', True)], limit=1)
+            if not company:
+                _logger.info(f"Company Plant {company_registry} cron_synchronize_sap_preventif_work_order skipped")
+                continue
+            
+            equipment = equip_model.search([('equipment_no', '=', sub_equip),('company_id', '=', company.id)], limit=1)
+            if not equipment:
+                _logger.info(f"Sub Equipment {sub_equip} cron_synchronize_sap_preventif_work_order skipped")
+                continue
+            
+            wo_preventif = pm_wo_model.search([
+                ('wo_sap', '=', nomor_wo),
+                ('company_id', '=', company.id),
+            ], limit=1)
+            
+            vals = {
+                'wo_sap': nomor_wo,
+                'type_mo': type_mo,
+                'maintenance_type': 'PREVENTIF',
+                'priority': priority,
+                'sap_synchronize': True,
+                'system_id': equipment.system_id.id,
+                'sub_system_id': equipment.sub_system_id.id,
+                'equipment_id': equipment.parent_equipment_id.id,
+                'sub_equipment_id': equipment.id,
+                'company_id': company.id,
+            }
+            
+            if not wo_preventif:
+                wo_preventif = pm_wo_model.create(vals)
+                wo_preventif.message_post(body=f"PREVENTIF WORK ORDER {nomor_wo} Created from Cron")
+                _logger.info(f"PREVENTIF WORK ORDER Created {nomor_wo}")
+            else:
+                if self._needs_update(wo_preventif, vals):
+                    wo_preventif.write(vals)

@@ -5,5 +5,9 @@
             <field name="key">query_work_order_material_sap</field>
             <field name="value">select distinct a.aufnr,a.auart,d.matnr,pt.priokx,qm.qmtxt,d.bdmng,f.bwart from aufk a left join afih b on a.mandt=b.mandt and a.aufnr=b.aufnr left join resb d on a.mandt=d.mandt and a.aufnr=d.aufnr left join makt e on d.mandt=e.mandt and e.matnr=d.matnr inner join mseg f on a.mandt=f.mandt and a.aufnr=f.aufnr and f.matnr=d.matnr left join qmel qm on a.mandt=qm.mandt and a.aufnr=qm.aufnr join t356_t pt on pt.mandt=b.mandt and pt.priok=b.priok and pt.spras='E' and pt.artpr='PM' where f.bwart in ('Z61','Z62') and (f.bwart='Z62' or (f.bwart='Z61' and not exists (select 1 from mseg x where x.mandt=f.mandt and x.aufnr=f.aufnr and x.matnr=f.matnr and x.bwart='Z62')))</field>
         </record>
+        <record id="query_preventif_work_order_material_sap" model="ir.config_parameter">
+            <field name="key">query_preventif_work_order_material_sap</field>
+            <field name="value">select a.aufnr,a.auart,b.equnr,il.tplnr, d.matnr, pt.priokx, qm.qmtxt,d.bdmng, afk.gstrp, a.werks from aufk a left join afih b on a.mandt = b.mandt and a.aufnr = b.aufnr left join resb d on a.mandt = d.mandt and a.aufnr = d.aufnr left join makt e on d.mandt = e.mandt and e.matnr = d.matnr left join mseg f on a.mandt = f.mandt and a.aufnr = f.aufnr left join qmel qm on a.mandt = qm.mandt and a.aufnr = qm.aufnr join t356_t pt on pt.mandt = b.mandt and pt.priok = b.priok and pt.spras = 'E' and pt.artpr = 'PM' left join iloa il on il.iloan = b.iloan left join afko afk on afk.aufnr = a.aufnr where a.auart = 'ZM04'</field>
+        </record>
     </data>
 </odoo>

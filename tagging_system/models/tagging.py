@@ -234,6 +234,8 @@ class TaggingRecord(models.Model):
             ("validated", "Validated"),
             ("open_wo", "Open - WO"),
             ("closed", "Closed"),
+            ("rejected", "Rejected"),
+            ("cancelled", "Cancelled"),
         ],
         default="open",
         tracking=True,
@@ -431,8 +433,13 @@ class TaggingRecord(models.Model):
                 if rec.status == "closed":
                     raise UserError(_("Closed record cannot be reopened."))
             self.write({"status": "open"})
-
-   
+    
+    def action_cancelled(self):
+       for rec in self:
+            if rec.status == 'open_wo':
+                rec.status = 'cancelled'
+            else:
+                raise UserError("Can only cancel in Open WO Status")
 
     def action_validate(self):
         now = fields.Datetime.now()
@@ -685,7 +692,8 @@ class TaggingRecord(models.Model):
         # -------------------------
         # KPI
         # -------------------------
-        open_count = Model.search_count(domain + [("status", "=", "open")])
+        # open_count = Model.search_count(domain + [("status", "=", "open")])
+        open_count = Model.search_count(domain + [("status", "=", "rejected")])
         closed_count = Model.search_count(domain + [("status", "=", "closed")])
         total_count = Model.search_count(domain)
 
