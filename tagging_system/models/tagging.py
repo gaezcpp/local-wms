@@ -261,6 +261,7 @@ class TaggingRecord(models.Model):
     
     # tambahan gaez
     department_id = fields.Many2one(comodel_name='tagging.department', string="Department")
+    is_locked = fields.Boolean(string="Is Locked", default=False)
 
     # =========================
     # HARD LOCK WHEN CLOSED
@@ -458,9 +459,21 @@ class TaggingRecord(models.Model):
         if self.status != "validated":
             raise UserError(_("Set Work Order hanya bisa setelah Validated."))
 
-        # set start_date otomatis saat masuk proses WO, kalau belum ada
         if not self.start_date:
             self.write({"start_date": fields.Datetime.now()})
+
+        ctx = {
+            "default_record_id": self.id,
+            "default_equipment_id": self.equipment_id.id if self.equipment_id else False, 
+        }
+
+        if self.wo_sparepart_ids:
+            ctx["default_line_ids"] = [(0, 0, {
+                "spare_part_id": line.spare_part_id.id,
+                "sku": line.spare_part_id.sku or '',
+                "qty": line.qty or 1.0,
+                "remarks": line.remarks or "",
+            }) for line in self.wo_sparepart_ids]
 
         return {
             "type": "ir.actions.act_window",
@@ -468,10 +481,7 @@ class TaggingRecord(models.Model):
             "res_model": "tagging.wo.sparepart.wizard",
             "view_mode": "form",
             "target": "new",
-            "context": {
-                "default_record_id": self.id,
-                "default_line_ids": [(0, 0, {"qty": 1})],
-            },
+            "context": ctx,
         }
 
     
@@ -1279,3 +1289,11 @@ class TaggingRecord(models.Model):
         mail = self.env["mail.mail"].sudo().create(mail_vals)
         # mail.send(raise_exception=True)
         return True
+    
+    def action_locked_spare_part(self):
+        for rec in self:
+            if rec.status == 'validated':
+                rec.is_locked = True
+                rec.status = 'open_wo'
+            else:
+                raise UserError("Hanya bisa melakukan Locked pada status Validated saja!")

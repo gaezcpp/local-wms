@@ -195,7 +195,7 @@ class BarcodeTagging(models.Model):
 
         return {
             "type": "ir.actions.client",
-            "tag": "display_notification",
+            "tag": "reload",
             "params": {
                 "title": _("Success"),
                 "message": _("QR berhasil dibuat."),

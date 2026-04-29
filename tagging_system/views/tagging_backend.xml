@@ -53,10 +53,11 @@
       <form string="Tagging">
         <header>
           <field name="status" widget="statusbar" />
-          <button name="action_validate" type="object" string="Validate" class="btn-primary" invisible="status != 'open'" />
+          <button name="action_validate" type="object" string="Validate" class="btn-primary" invisible="status != 'open'" confirm="Are you sure that everything is already correct?"/>
           <button name="action_open_reject_wizard" type="object" string="Reject" class="btn-secondary" invisible="status != 'open'" />
-          <button name="action_set_wo" type="object" string="Set Work Order" class="btn-secondary" invisible="status != 'validated'" />
-          <button name="action_set_closed" type="object" string="Set Closed" class="btn-primary" invisible="status not in ('validated','open_wo')" />
+          <button name="action_set_wo" type="object" string="Set Spare Part" class="btn-success" invisible="is_locked or status != 'validated'" />
+          <button name="action_locked_spare_part" type="object" string="Lock" class="btn-info" invisible="is_locked" />
+          <button name="action_set_closed" type="object" string="Set Closed" class="btn-primary" invisible="not is_locked and status != 'open_wo'" confirm="Are you sure that everything is already correct?"/>
         </header>
         <sheet readonly="status == 'closed'">
           <div class="oe_title">
@@ -94,12 +95,12 @@
             <field name="parent_equipment_id" options="{'no_create': True, 'no_create_edit': True}" />
             <field name="equipment_id" options="{'no_create': True, 'no_create_edit': True}" readonly="not parent_equipment_id" />
           </group>
-          <group name="wo_spareparts" string="WO Spareparts" invisible="status not in ('open_wo','closed')">
-            <field name="wo_sparepart_ids" readonly="status == 'closed'">
-              <list editable="bottom">
+          <group name="wo_spareparts" string="WO Spareparts" invisible="status == 'open'">
+            <field name="is_locked" readonly="1"/>
+            <field name="wo_sparepart_ids" readonly="1" style="pointer-events:none;">
+              <list>
                 <field name="spare_part_id" context="{'display_name_only': 1}" options="{'no_create': True, 'no_create_edit': True}" />
                 <field name="sku" readonly="1" />
-                <field name="specification" readonly="1" />
                 <field name="qty" string="Jumlah" />
                 <field name="remarks" readonly="1" />
               </list>
@@ -112,7 +113,7 @@
               </group>
               <group string="Close Evidence" invisible="status not in ('validated','open_wo','closed')">
                 <field name="close_start_date" string="Work Start Date" readonly="status == 'closed'"/>
-                <field name="close_end_date" string="Work End Date"/>
+                <field name="close_end_date" string="Work End Date" readonly="status == 'closed'"/>
                 <field name="close_description" readonly="status == 'closed'"/>
                 <field name="close_photo" widget="image" filename="close_photo_filename" readonly="status == 'closed'"/>
                 <field name="close_photo_filename" invisible="1"/>
@@ -141,6 +142,7 @@
             </page>
           </notebook> -->
         </sheet>
+      <chatter/>
       </form>
     </field>
   </record>

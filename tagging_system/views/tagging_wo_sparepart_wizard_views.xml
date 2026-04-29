@@ -8,16 +8,16 @@
         <sheet>
           <group>
             <field name="record_id" readonly="1" />
-            <field name="equipment_id" readonly="1" />
+            <field name="equipment_id" readonly="1" options="{'no_open': True, 'no_create': True}"/>
             <field name="allowed_spare_part_ids" invisible="1" />
-            <field name="remarks" placeholder="Isi catatan sebelum confirm..." required="1" />
+            <!-- <field name="remarks" placeholder="Isi catatan sebelum confirm..." required="1" /> -->
           </group>
           <field name="line_ids">
             <list editable="bottom">
-              <field name="spare_part_id" context="{'display_name_only': 1}" options="{'no_create_edit': True}" domain="[('id','in', parent.allowed_spare_part_ids)]" />
-              <field name="qty" string="Jumlah" />
+              <field name="spare_part_id" context="{'display_name_only': 1}" options="{'no_create_edit': True}"  domain="[('id','in', parent.allowed_spare_part_ids)]"/> <!--domain="[('id','in', parent.allowed_spare_part_ids)]"-->
+              <field name="qty"  />
               <field name="sku" readonly="1" />
-              <field name="specification" readonly="1" />
+              <field name="remarks" />
             </list>
           </field>
           <footer>
