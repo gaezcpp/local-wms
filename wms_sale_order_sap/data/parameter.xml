@@ -21,9 +21,13 @@
             <field name="key">picking_type_git</field>
             <field name="value">311</field>
         </record>
-        <record id="query_auto_done_git" model="ir.config_parameter">
-            <field name="key">query_auto_done_git</field>
+        <record id="query_auto_done_git_sap" model="ir.config_parameter">
+            <field name="key">query_auto_done_git_sap</field>
             <field name="value">select a.erdat, a.vbeln, a.mblnr, a.matnr, a.lfimg from ztp_git a where a.mblnr != ' ' and a.lgort_to = 'GIT' and a.lfimg != 0</field>
+        </record>
+        <record id="query_so_sloc_to_sloc_sap" model="ir.config_parameter">
+            <field name="key">query_so_sloc_to_sloc_sap</field>
+            <field name="value">SELECT a.werks,  a.seqnr, a.trucknr, a.arrdate, a.ebeln, a.ebelp, a.matnr, a.qtypo, a.uoe, a.erfmg, a.meins, d.umren, d.umrez,c.slocto as kesloc,c.slocfrom as darisloc FROM ZMM_TS_STO_NCD a JOIN zmm_ts_arr_pool b ON a.werks = b.werks AND a.seqnr = b.seqnr AND a.trucknr = b.trucknr AND a.arrdate = b.arrdate JOIN ZMM_TS_STO_NCH c ON a.werks = c.werks AND a.seqnr = c.seqnr AND a.trucknr = c.trucknr AND a.arrdate = c.arrdate JOIN MARM d ON a.matnr = d.matnr AND a.uoe = d.meinh WHERE b.srctab = 'ZMM_TS_OSTO_NCSL' and b.w_odoo = ' '</field>
         </record>
     </data>
 </odoo>

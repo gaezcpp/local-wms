@@ -8,3 +8,4 @@ class InheritStockPickingType(models.Model):
     production_only = fields.Boolean(string="Production Only", default=False)
     move_type_sap = fields.Char(string="Move Type SAP")
     packaging_type_id = fields.Many2one(comodel_name='stock.picking.type', string="Packaging Type")
+    checker_only = fields.Boolean(string="Checker Only", default=False)

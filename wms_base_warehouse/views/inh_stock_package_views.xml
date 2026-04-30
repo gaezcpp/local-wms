@@ -9,7 +9,7 @@
                 <xpath expr="//button[@name='unpack']" position="attributes">
                     <attribute name="invisible">1</attribute>
                 </xpath>
-                <xpath expr="//button[@name='unpack']" position="after">
+                <!-- <xpath expr="//button[@name='unpack']" position="after">
                     <button name="action_unpack_wizard" type="object" string="Unpack" class="oe_highlight"/>
                     <button name="action_qi" string="Set QI" type="object" class="btn-warning" invisible="state == 'QI'"/>
                     <button name="action_blocked" string="Set Blocked" type="object" class="btn-danger" invisible="state == 'Blocked'"/>
@@ -18,7 +18,7 @@
                 </xpath>
                 <xpath expr="//field[@name='pack_date']" position="after">
                     <field name="pallet_status" force_save="1" readonly="1"/>
-                </xpath>
+                </xpath> -->
                 <xpath expr="//field[@name='contained_quant_ids']/list/field[@name='product_uom_id']" position="after">
                     <field name="exp_group"/>
                     <field name="inbound_date"/>
@@ -26,7 +26,7 @@
             </field>
         </record>
 
-        <record model="ir.ui.view" id="inherit_stock_package_list_views">
+        <!-- <record model="ir.ui.view" id="inherit_stock_package_list_views">
             <field name="name">inherit.stock.package.list</field>
             <field name="model">stock.package</field>
             <field name="inherit_id" ref="stock.stock_package_view_list"/>
@@ -42,6 +42,6 @@
                     <field name="state"/>
                 </xpath>
             </field>
-        </record>
+        </record> -->
     </data>
 </odoo>

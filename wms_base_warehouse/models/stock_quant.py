@@ -1,4 +1,5 @@
 from odoo import models, fields, api
+from odoo.exceptions import ValidationError
 import logging
 _logger =  logging.getLogger(__name__)
 class StockQuant(models.Model):
@@ -6,6 +7,7 @@ class StockQuant(models.Model):
     
     exp_group = fields.Datetime(string="Exp Group")
     inbound_date = fields.Datetime(string="Inbound Date")
+    stock_type = fields.Selection(related='lot_id.stock_type', string="Stock Type", store=True)
     
     @api.model
     def _gather(self, product_id, location_id, lot_id=None, package_id=None, owner_id=None, strict=False, qty=None):
@@ -21,6 +23,6 @@ class StockQuant(models.Model):
         )
 
         if self.env.context.get('uu_only'):
-            quants = quants.filtered(lambda q: q.package_id and q.package_id.state == 'UU')
+            quants = quants.filtered(lambda q: q.lot_id and q.lot_id.stock_type == 'UU')
 
         return quants

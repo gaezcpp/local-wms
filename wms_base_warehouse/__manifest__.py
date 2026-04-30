@@ -41,6 +41,7 @@ Long description of module's purpose
         'views/stock_sap_views.xml',
         'views/product_packaging_views.xml',
         'views/storage_location_views.xml',
+        'views/stock_lot_views.xml',
         'views/menuitem.xml',
     ],
 }

@@ -28,7 +28,6 @@ class InheritStockLocation(models.Model):
         products = self.env.context.get('products', self.env['product.product'])
         products |= product
         _logger.info("_get_putaway_strategy PUTAWAY STRATEGY KEPANGGIL")
-        print("_get_putaway_strategy PUTAWAY STRATEGY KEPANGGIL")
 
         package_type = self.env['stock.package.type']
         if package:

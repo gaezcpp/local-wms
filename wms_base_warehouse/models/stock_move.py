@@ -54,6 +54,10 @@ class StockMove(models.Model):
                 'po_sap_id': picking.po_sap_id.id,
                 'production_shift_id': picking.production_shift_id.id,
             })
+            
+        # kayaknya ga bener, jadinya pake related sloc_to
+        if self.sale_line_id and self.sale_line_id.order_id:
+            vals['sloc_to'] = self.sale_line_id.order_id.sloc_to
 
         return vals
     
@@ -122,6 +126,7 @@ class StockMove(models.Model):
                 'last_count': matched_line.last_count,
                 'detail_text': matched_line.detail_text,
                 'qty_packaging_sap': matched_line.qty_packaging_sap,
+                'stock_type': matched_line.stock_type,
             })
 
         return res

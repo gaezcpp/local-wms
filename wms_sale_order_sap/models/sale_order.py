@@ -21,6 +21,8 @@ class InheritSaleOrderSAP(models.Model):
     nomor_polisi_desc = fields.Text(string="Nomor Polisi", tracking=True)
     date_order_sap = fields.Date(string="Date Order", tracking=True)
     so_sto = fields.Boolean(string="STO", default=False)
+    sloc_to_sloc = fields.Boolean(string="Sloc to Sloc", default=False)
+    sloc_to = fields.Char(string="SLOC To", readonly=True)
 
     def now_jakarta(self):
         tz = pytz.timezone('Asia/Jakarta')
@@ -459,6 +461,8 @@ class InheritSaleOrderSAP(models.Model):
                             'product_uom_qty': qty,
                             'product_uom_id': product_uom.id,
                         })
+        # sekalian jalanin sloc to sloc
+        self.cron_synhronize_so_sloc_to_sloc()
                         
     @api.model
     def cron_auto_done_sale_order_do(self):
@@ -570,20 +574,19 @@ class InheritSaleOrderSAP(models.Model):
 
         _logger.info(f"FLAG DO SAP UPDATED: {len(vbeln_list)}")
         
-    
     @api.model
     def cron_auto_done_git(self):
         icp = self.env['ir.config_parameter'].sudo()
         x_i_api_key = icp.get_param('x_i_api_key')
         ip_sap_rfc = icp.get_param('ip_sap_rfc')
-        query_auto_done_git = icp.get_param('query_auto_done_git')
+        query_auto_done_git_sap = icp.get_param('query_auto_done_git_sap')
         picking_type_git = icp.get_param('picking_type_git')
         if not x_i_api_key:
             raise ValidationError("x_i_api_key belum disetting!")
         if not ip_sap_rfc:
             raise ValidationError("ip_sap_rfc belum disetting!")
-        if not query_auto_done_git:
-            raise ValidationError("query_auto_done_git belum disetting!")
+        if not query_auto_done_git_sap:
+            raise ValidationError("query_auto_done_git_sap belum disetting!")
         if not picking_type_git:
             raise ValidationError("picking_type_git belum disetting!")
 
@@ -593,7 +596,7 @@ class InheritSaleOrderSAP(models.Model):
         }
         url = f"{ip_sap_rfc}/api/v1/zfm-query-data"
         body = {
-            "I_QUERY": str(query_auto_done_git),
+            "I_QUERY": str(query_auto_done_git_sap),
             "I_MOD": "CRON cron_auto_done_git"
         }
 
@@ -628,3 +631,195 @@ class InheritSaleOrderSAP(models.Model):
             ], limit=1)
             if picking:
                 picking.button_validate()
+                
+                
+    @api.model
+    def cron_synhronize_so_sloc_to_sloc(self):
+        icp = self.env['ir.config_parameter'].sudo()
+        x_i_api_key = icp.get_param('x_i_api_key')
+        ip_sap_rfc = icp.get_param('ip_sap_rfc')
+        query_so_sloc_to_sloc_sap = icp.get_param('query_so_sloc_to_sloc_sap')
+
+        if not x_i_api_key:
+            raise ValidationError("x_i_api_key belum disetting!")
+        if not ip_sap_rfc:
+            raise ValidationError("ip_sap_rfc belum disetting!")
+        if not query_so_sloc_to_sloc_sap:
+            raise ValidationError("query_so_sloc_to_sloc_sap belum disetting!")
+
+        headers = {
+            "x-i-api-key": str(x_i_api_key),
+            "Content-Type": "application/json"
+        }
+        url = f"{ip_sap_rfc}/api/v1/zfm-query-data"
+        body = {
+            "I_QUERY": str(query_so_sloc_to_sloc_sap),
+            "I_MOD": "CRON cron_synhronize_so_sloc_to_sloc"
+        }
+
+        try:
+            response = requests.post(url=url, headers=headers, data=json.dumps(body))
+        except Exception as e:
+            raise ValidationError(str(e))
+
+        res = response.json()
+
+        if res.get('error'):
+            raise ValidationError(json.dumps(res.get('error')))
+
+        if not res.get('success'):
+            _logger.info("CRON cron_synchronize_sap_sale_order NOT SUCCESS")
+            return True
+
+        data_list = res.get('data', [])
+        _logger.info(f"TOTAL DATA SAP {len(data_list)}")
+
+        if not data_list:
+            return True
+        
+        so_model = self.env['sale.order'].sudo()
+        so_line_model = self.env['sale.order.line'].sudo()
+        partner_model = self.env['res.partner'].sudo()
+        company_model = self.env['res.company'].sudo()
+        product_model = self.env['product.product'].sudo()
+        uom_model = self.env['uom.uom'].sudo()
+        location_model = self.env['stock.location'].sudo()
+        delivery_carrier_model = self.env['delivery.carrier'].sudo()
+        
+        grouped_data = defaultdict(list)
+        
+        for row in data_list:
+            po_sap = row.get('EBELN')
+            if po_sap:
+                grouped_data[po_sap].append(row)
+        
+        for po_sap, rows in grouped_data.items():
+            first = rows[0]
+            date_order_sap = first.get('ARRDATE')
+            nomor_polisi_desc = first.get('TRUCKNR')
+            company_registry = first.get('WERKS')
+            stock_warehouse = first.get('SLOC')
+            partner = first.get('KUNNR') or first.get('SHIP_TO')
+            sales_name = first.get('ERNAM')
+            ke_sloc = first.get('KESLOC')
+            nomor_do = first.get('VBELN_VL')
+            
+            partner = partner_model.search([('ref', '=', company_registry)], limit=1)
+            if not partner:
+                _logger.info(f"SLOC to SLOC Partner {partner} skipped")
+                continue
+            
+            company = company_model.search([('company_registry', '=', company_registry),('sync_wms', '=', True)], limit=1)
+            if not company:
+                _logger.info(f"SLOC to SLOC Company {company_registry} skipped")
+                continue
+            
+            warehouse = location_model.search([
+                ('sloc_id.code', '=', stock_warehouse),
+                ('location_id.usage', '=', 'view'),
+                ('company_id', '=', company.id)
+            ], limit=1)
+            if not warehouse:
+                _logger.info(f"SLOC to SLOC Warehouse Sloc Code {stock_warehouse} skipped")
+                continue
+            
+            date_order = False
+            if date_order_sap and len(date_order_sap) == 8:
+                date_order = datetime.strptime(date_order_sap, "%Y%m%d")
+                
+            deliv_carrier = delivery_carrier_model.search([('name', 'ilike', "sloc to sloc"),('company_id', '=', company.id)], limit=1)
+            
+            so = so_model.search([
+                ('po_sap', '=', po_sap),
+                ('company_id', '=', company.id),
+                ('sloc_to_sloc', '=', True)
+            ], limit=1)
+            vals = {
+                'is_sap': True,
+                'so_sto': True,
+                'sloc_to_sloc': True,
+                'po_sap': po_sap,
+                'do_sap': nomor_do,
+                'sloc_to': ke_sloc,
+                'partner_id': partner.id,
+                'warehouse_id': warehouse.warehouse_id.id,
+                'date_order': date_order,
+                'date_order_sap': date_order,
+                'sales_sap_name': sales_name,
+                'nomor_polisi_desc': nomor_polisi_desc,
+                'carrier_id': deliv_carrier.id if deliv_carrier else False,
+                'company_id': company.id,
+            }
+            if not so:
+                so = so_model.create(vals)
+                so.message_post(body=f"SO SAP {po_sap} Created from Cron")
+                _logger.info(f"SO Created {po_sap}")
+                so.action_confirm()
+            else:
+                if self._needs_update(so, vals):
+                    so.write(vals)
+            
+            for row in rows:
+                product_code = (row.get('MATNR') or "").lstrip('0')
+                if not product_code:
+                    _logger.info("SLOC to SLOC Product skipped: Empty MATNR")
+                    continue
+                    
+                product = product_model.search([
+                    ('default_code', '=', product_code),
+                    ('company_id', '=', company.id)
+                ], limit=1)
+                
+                if not product:
+                    _logger.info(f"SLOC to SLOC Product {product_code} skipped: Not found in master data")
+                    continue
+                
+                delivery_uom = row.get('UOE') or ""
+                product_uom = product.uom_bag_id
+                if delivery_uom:
+                    if delivery_uom[-1].isdigit():
+                        uom_name = delivery_uom
+                        uom = uom_model.search([('name', '=', uom_name)], limit=1)
+                        if uom:
+                            product_uom = uom
+                    else:
+                        uom_numerator = float(row.get('UMREZ') or 0)
+                        uom_denominator = float(row.get('UMREN') or 1)
+                        if delivery_uom.upper() != "KG" and uom_denominator != 0:
+                            ratio = float(uom_numerator) / float(uom_denominator)
+                            ratio = int(ratio) if ratio.is_integer() else ratio
+                            uom_name = f"{delivery_uom} {ratio}"
+                            
+                            uom = uom_model.search([('name', '=', uom_name)], limit=1)
+                            if uom:
+                                product_uom = uom
+                
+                qty = float(row.get('QTYPO') or 0.0)
+                posnr = (row.get('POSNR') or "").lstrip('0')
+                po_seq = (row.get('EBELP') or "").lstrip('0')
+                
+                existing_line = so_line_model.search([
+                    ('order_id', '=', so.id),
+                    ('product_id', '=', product.id),
+                    ('sap_sequence', '=', posnr),
+                ], limit=1)
+                
+                product_uom_id = product_uom.id if product_uom else False
+                
+                vals_line = {
+                    'order_id': so.id,
+                    'product_id': product.id,
+                    'product_uom_qty': qty,
+                    'product_uom_id': product_uom_id, 
+                    'sap_sequence': posnr,
+                    'order_seq': po_seq,
+                }
+                
+                if not existing_line:
+                    so_line_model.create(vals_line)
+                else:
+                    if hasattr(self, '_needs_update') and self._needs_update(existing_line, vals_line):
+                        existing_line.write({
+                            'product_uom_qty': qty,
+                            'product_uom_id': product_uom_id,
+                        })

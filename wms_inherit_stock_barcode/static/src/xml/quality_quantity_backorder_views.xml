@@ -1,0 +1,16 @@
+<templates xml:space="preserve">
+    <t t-inherit="stock_barcode.MainComponent" t-inherit-mode="extension">
+        <xpath expr="//footer" position="inside">
+            <button t-if="env.model.isCheckerOnly()"
+                    t-on-click="env.model.openQualityBackorder"
+                    class="btn btn-secondary">
+                Quality Backorder
+            </button>
+            <button t-if="env.model.isCheckerOnly()"
+                    t-on-click="env.model.openQuantityBackorder"
+                    class="btn btn-secondary">
+                Quantity Backorder
+            </button>
+        </xpath>
+    </t>
+</templates>

@@ -1,0 +1,36 @@
+<?xml version='1.0' encoding='utf-8'?>
+<odoo>
+    <record id="view_quality_quantity_backorder_wizard_form" model="ir.ui.view">
+        <field name="name">quality.quantity.backorder.form.wizard</field>
+        <field name="model">quality.quantity.backorder</field>
+        <field name="arch" type="xml">
+            <form string="QQ">
+                <group>
+                    <field name="picking_type_id" options="{'no_open': True, 'no_create': True}"/>
+                </group>
+                <separator string="Lines"/>
+                <field name="line_ids">
+                    <list editable="bottom" create="0" delete="0">
+                        <field name="backorder_wizard_id" options="{'no_open': True, 'no_create': True}" column_invisible="1" readonly="1"/>
+                        <field name="product_id" options="{'no_open': True, 'no_create': True}"/>
+                        <field name="qty"/>
+                        <field name="product_uom_id" options="{'no_open': True, 'no_create': True}" widget="many2one_uom"/>
+                        <field name="result_package_id" options="{'no_open': True, 'no_create': True}"/>
+                    </list>
+                    <form create="0" edit="0" delete="0">
+                        <group>
+                            <field name="backorder_wizard_id" options="{'no_open': True, 'no_create': True}" invisible="1" readonly="1"/>
+                            <field name="product_id" options="{'no_open': True, 'no_create': True}" readonly="1"/>
+                            <field name="qty" readonly="1"/>
+                            <field name="product_uom_id" options="{'no_open': True, 'no_create': True}" readonly="1"/>
+                        </group>
+                    </form>
+                </field>
+                <footer>
+                    <button name="action_create_backorder_from_qq" type="object" string="Apply" class="btn-outline-info" confirm="Yakin semua data sudah sesuai?"/>
+                    <button string="Cancel" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

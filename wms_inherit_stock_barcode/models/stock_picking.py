@@ -5,6 +5,16 @@ class StockPicking(models.Model):
     _inherit = 'stock.picking'
     
     sloc_filled = fields.Boolean(string="SLOC Filled", compute='_compute_sloc_filled', store=True)
+    checker_only = fields.Boolean(related='picking_type_id.checker_only', readonly=True)
+    production_only = fields.Boolean(related='picking_type_id.production_only', readonly=True)
+
+    def _get_fields_stock_barcode(self):
+        res = super()._get_fields_stock_barcode()
+        if 'checker_only' not in res:
+            res.append('checker_only')
+        if 'production_only' not in res:
+            res.append('production_only')
+        return res
     
     @api.depends('product_packaging_ids.sloc_id')
     def _compute_sloc_filled(self):
@@ -24,6 +34,51 @@ class StockPicking(models.Model):
             'target': 'new',
             'context': {
                 'default_picking_id': self.id,
+            }
+        }
+        
+    def action_open_quality_backorder(self):
+        self.ensure_one()
+
+        view = self.env.ref('wms_inherit_stock_barcode.view_quality_quantity_backorder_wizard_form')
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'Set QQ Backorder',
+            'res_model': 'quality.quantity.backorder',
+            'views': [(view.id, 'form')],
+            'target': 'new',
+            'context': {
+                'default_picking_id': self.id,
+                'default_picking_type_id': self.picking_type_id.id,
+                'default_line_ids': [(0, 0, {
+                    'backorder_wizard_id': 0,
+                    'product_id': line.product_id.id,
+                    'qty': line.bag_qty,
+                    'product_uom_id': line.uom_bag_id.id,
+                }) for line in self.move_ids ],
+                'default_is_quality': True,
+            }
+        }
+    
+    def action_open_quantity_backorder(self):
+        self.ensure_one()
+
+        view = self.env.ref('wms_inherit_stock_barcode.view_quality_quantity_backorder_wizard_form')
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'Set QQ Backorder',
+            'res_model': 'quality.quantity.backorder',
+            'views': [(view.id, 'form')],
+            'target': 'new',
+            'context': {
+                'default_picking_id': self.id,
+                'default_picking_type_id': self.picking_type_id.id,
+                'default_line_ids': [(0, 0, {
+                    'backorder_wizard_id': 0,
+                    'product_id': line.product_id.id,
+                    'qty': line.bag_qty,
+                    'product_uom_id': line.uom_bag_id.id,
+                }) for line in self.move_ids ],
             }
         }
         

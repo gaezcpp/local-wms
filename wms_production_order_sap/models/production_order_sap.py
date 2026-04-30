@@ -86,7 +86,6 @@ class ProductionOrderSAP(models.Model):
                 company_id = companies.search([
                     ('company_registry', '=', company_registry),
                     ('sync_wms', '=', True),
-                    ('sync_pm', '=', False),
                 ], limit=1)
                 if not company_id:
                     continue
@@ -97,7 +96,7 @@ class ProductionOrderSAP(models.Model):
                 if not product_id:
                     continue
                 
-            unit = data.get('MEINS') or ''
+            unit = data.get('GMEIN') or ''
             if unit:
                 if unit.upper() == 'KG':
                     unit = 'kg'

@@ -18,6 +18,9 @@
                     <field name="sap_seq" readonly="1"/>
                     <field name="order_seq" readonly="1"/>
                 </xpath>
+                <xpath expr="//field[@name='move_type']" position="before">
+                    <field name="sloc_to" readonly="1"/>
+                </xpath>
                 <xpath expr="//page[@name='extra']" position="before">
                     <page name="product_packaging_sap" string="Packaging Details" invisible="not production_only">
                         <field name="product_packaging_ids">

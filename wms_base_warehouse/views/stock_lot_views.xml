@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <record model="ir.ui.view" id="base_warehouse_stock_lot_form">
+            <field name="name">base.warehouse.stock.lot.form</field>
+            <field name="model">stock.lot</field>
+            <field name="inherit_id" ref="stock.view_production_lot_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='partner_ids']" position="after">
+                    <field name="stock_type" readonly="1"/>
+                </xpath>
+            </field>
+        </record>
+    </data>
+</odoo>

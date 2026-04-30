@@ -14,9 +14,13 @@ class InheritBaseStockMoveLine(models.Model):
     # fields buat chriss
     sloc_name = fields.Char(related='location_dest_id.sloc_name', string="SLOC Name", store=True)
     sloc_id = fields.Many2one(comodel_name='storage.location', string="SLOC")
-    destination_package_status = fields.Selection(related='result_package_id.state', store=True)
     production_shift_id = fields.Many2one(related='picking_id.production_shift_id', string="Shift", store=True)
     production_order_name = fields.Char(related='picking_id.production_order_name', string="Production Order Name", store=True)
+    stock_type = fields.Selection([
+        ('QI', 'QI'),
+        ('BLOCKED', 'BLOCKED'),
+        ('UU', 'UU'),
+    ], string="Stock Type")
     
     # ini dipake kalo odoo.sh salah
     def _skip_custom_logic(self):
@@ -107,6 +111,7 @@ class InheritBaseStockMoveLine(models.Model):
                 lot = rec._get_or_create_lot()
                 if lot:
                     rec.lot_id = lot.id
+                    rec.stock_type = lot.stock_type
         return records
 
 
@@ -132,3 +137,11 @@ class InheritBaseStockMoveLine(models.Model):
             elif self.move_id and self.move_id.picking_id:
                 picking = self.move_id.picking_id
             return picking and picking.picking_type_id.move_type_sap == str(prod_in_move_type)
+        
+    @api.onchange('lot_id')
+    def _onchange_lot_id_stock_type(self):
+        for rec in self:
+            if rec.lot_id and rec.lot_id.stock_type:
+                rec.stock_type = rec.lot_id.stock_type
+            else:
+                rec.stock_type = 'QI'

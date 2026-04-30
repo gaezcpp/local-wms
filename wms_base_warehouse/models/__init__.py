@@ -17,3 +17,4 @@ from . import product_packaging
 from . import picking_packaging_line
 from . import storage_location
 from . import stock_rule
+from . import stock_lot

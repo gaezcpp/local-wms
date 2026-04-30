@@ -17,10 +17,30 @@ patch(MainComponent.prototype, {
             };
         }
 
+        if (!this.env.model.isProductionOnly) {
+            this.env.model.isProductionOnly = () => {
+                // Gunakan opsional chaining (?) untuk menghindari error jika record sedang kosong
+                return Boolean(this.env.model.record?.production_only);
+            };
+        }
+
+        if (!this.env.model.isCheckerOnly) {
+            this.env.model.isCheckerOnly = () => {
+                // Gunakan opsional chaining (?) untuk menghindari error jika record sedang kosong
+                return Boolean(this.env.model.record?.checker_only);
+            };
+        }
+
         // existing
-        if (!this.env.model.openSlocPackaging) {
-            this.env.model.openSlocPackaging = () => {
-                return this.env.model._openSlocPackaging();
+        if (!this.env.model.openQualityBackorder) {
+            this.env.model.openQualityBackorder = () => {
+                return this.env.model._openQualityBackorder();
+            };
+        }
+
+        if (!this.env.model.openQuantityBackorder) {
+            this.env.model.openQuantityBackorder = () => {
+                return this.env.model._openQuantityBackorder();
             };
         }
     },
