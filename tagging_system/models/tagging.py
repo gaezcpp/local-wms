@@ -126,7 +126,7 @@ class TaggingRecord(models.Model):
     # =========================
     # DATE TRACKING
     # =========================
-    start_date = fields.Datetime(string="Start Date", tracking=True)
+    start_date = fields.Datetime(string="Start Date", tracking=True, default=fields.Datetime.now())
     end_date = fields.Datetime(string="End Date", tracking=True)
 
     # =========================
@@ -449,8 +449,8 @@ class TaggingRecord(models.Model):
                 continue
             vals = {"status": "validated"}
             # start_date mulai dihitung saat validated (kalau belum ada)
-            if not rec.start_date:
-                vals["start_date"] = now
+            # if not rec.start_date:
+            #     vals["start_date"] = now
             rec.write(vals)
         return True
 
@@ -459,8 +459,8 @@ class TaggingRecord(models.Model):
         if self.status != "validated":
             raise UserError(_("Set Work Order hanya bisa setelah Validated."))
 
-        if not self.start_date:
-            self.write({"start_date": fields.Datetime.now()})
+        # if not self.start_date:
+        #     self.write({"start_date": fields.Datetime.now()})
 
         ctx = {
             "default_record_id": self.id,
@@ -535,8 +535,8 @@ class TaggingRecord(models.Model):
                 # kalau mau: ganti teks error jadi lebih akurat
                 raise UserError(_("Equipment wajib dipilih sebelum Close."))
 
-            if not rec.start_date:
-                vals["start_date"] = rec.end_date
+            # if not rec.start_date:
+            #     vals["start_date"] = rec.end_date
 
             super(TaggingRecord, rec).write(vals)
 
