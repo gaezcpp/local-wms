@@ -32,31 +32,6 @@ class InheritBaseStockMoveLine(models.Model):
             ctx.get('test_enable')
         )
     
-    # def _get_or_create_lot(self):
-    #     self.ensure_one()
-    #     if not self.expiration_date or not self.move_id.product_id:
-    #         return False
-
-    #     date_str = self.expiration_date.strftime("%d%m%Y")
-    #     po_number = self.move_id.picking_id.po_sap_id.po_number or ''
-        
-    #     lot_name = f"{date_str}"
-    #     if po_number:
-    #         lot_name = f"{po_number}-{date_str}"
-
-    #     lot = self.env['stock.lot'].search([
-    #         ('name', '=', lot_name),
-    #         ('product_id', '=', self.move_id.product_id.id)
-    #     ], limit=1)
-
-    #     if not lot:
-    #         lot = self.env['stock.lot'].create({
-    #             'name': lot_name,
-    #             'product_id': self.move_id.product_id.id,
-    #         })
-
-    #     return lot
-    
     def _get_or_create_lot(self):
         self.ensure_one()
         if not self.move_id.product_id:
@@ -67,7 +42,6 @@ class InheritBaseStockMoveLine(models.Model):
             raise ValidationError("Konfigurasi Production Code (Format Lot) belum diatur untuk company ini!")
 
         prod_group = self.env['production.group'].sudo().search([
-            # ('user_id', '=', self.picking_id.user_id.id),
             ('user_id', '=', self.env.user.id),
             ('company_id', '=', self.company_id.id)
         ], limit=1)
@@ -102,6 +76,56 @@ class InheritBaseStockMoveLine(models.Model):
             })
 
         return lot
+    
+    def _create_update_lot_aft(self):
+        self.ensure_one()
+        if not self.move_id.product_id:
+            return False
+
+        lot = self._get_or_create_lot()
+        if not lot:
+            return False
+
+        existing_aft = lot.lot_aft_ids.filtered(lambda l: l.stock_type == (self.stock_type or 'QI'))
+        
+        bag = self.bag_qty
+        if bag <= 0:
+            bag = ((self.quantity * self.product_uom_id.factor) / 1000) / (self.uom_bag_id.factor / 1000)
+
+        if existing_aft:
+            aft = existing_aft[0]
+            old_qty = aft.quantity
+            old_bag = aft.bag_qty
+            new_qty = old_qty + self.quantity
+            new_bag = old_bag + bag
+
+            aft.write({
+                'quantity': new_qty,
+                'bag_qty': new_bag,
+            })
+
+            lot.message_post(body=(
+                f"Stock Type : {self.stock_type or 'QI'} "
+                f"Quantity   : {old_qty} → {new_qty} {self.product_uom_id.name} "
+                f"Bag Qty    : {old_bag} → {new_bag} {self.uom_bag_id.name} "
+            ))
+        else:
+            self.env['stock.lot.aft'].create({
+                'lot_id': lot.id,
+                'quantity': self.quantity,
+                'uom_id': self.product_uom_id.id,
+                'bag_qty': bag,
+                'uom_bag_id': self.uom_bag_id.id,
+                'stock_type': self.stock_type or 'QI',
+            })
+
+            lot.message_post(body=(
+                f"Stock Type : {self.stock_type or 'QI'} "
+                f"Quantity   : {self.quantity} {self.product_uom_id.name} "
+                f"Bag Qty    : {bag} {self.uom_bag_id.name} "
+            ))
+
+        return True
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -112,6 +136,7 @@ class InheritBaseStockMoveLine(models.Model):
                 if lot:
                     rec.lot_id = lot.id
                     rec.stock_type = lot.stock_type
+                    rec._create_update_lot_aft()
         return records
 
 
@@ -122,6 +147,7 @@ class InheritBaseStockMoveLine(models.Model):
                 lot = rec._get_or_create_lot()
                 if lot:
                     rec.lot_id = lot.id
+                    rec._create_update_lot_aft()
         return res
     
     def _is_gr_prod(self, vals=None):

@@ -16,15 +16,12 @@ class QualityQuantityBackorder(models.TransientModel):
     
     def action_create_backorder_from_qq(self):
         self.ensure_one()
-        
-        # 1. Validasi Pengecekan Input
         if not self.picking_type_id:
             raise UserError(_("Operation Type wajib diisi untuk membuat proses picking baru!"))
             
         if not self.line_ids:
             raise UserError(_("Anda harus menambahkan setidaknya satu produk untuk diproses!"))
             
-        # 2. Persiapan data untuk stock.picking baru
         loc_src = self.picking_type_id.default_location_src_id.id or (self.picking_id.location_id.id if self.picking_id else False)
         loc_dest = self.picking_type_id.default_location_dest_id.id or (self.picking_id.location_dest_id.id if self.picking_id else False)
         
@@ -37,39 +34,42 @@ class QualityQuantityBackorder(models.TransientModel):
             'backorder_id': self.picking_id.id if self.picking_id else False,
         }
         
-        # 3. Membuat record stock.picking
         new_picking = self.env['stock.picking'].create(new_picking_vals)
         
-        # 4. Membuat baris produk (stock.move) berdasarkan inputan di wizard
         move_vals_list = []
         for line in self.line_ids:
             if line.qty <= 0:
                 raise UserError(_(f"Kuantitas untuk produk {line.product_id.display_name} harus lebih besar dari 0!"))
                 
             uom_bag = line.product_uom_id
-            product_uom = line.product_id.uom_id # Target UOM (misal: Kg)
-            
-            # --- KONVERSI NATIVE ODOO (BEST PRACTICE) ---
-            # Mengubah input Bag (misal 5) menjadi Kg (misal 40) secara presisi
-            base_qty = uom_bag._compute_quantity(line.qty, product_uom)
+            product_uom = line.product_id.uom_id
+            base_qty = line.qty * (uom_bag.factor / 1000)
             
             if self.picking_id:
+                # 1. Filter move asli yang produknya sama
                 original_moves = self.picking_id.move_ids.filtered(lambda m: m.product_id == line.product_id)
                 original_demand = sum(original_moves.mapped('product_uom_qty'))
                 
                 if round(base_qty, 4) > round(original_demand, 4):
-                    max_bag = product_uom._compute_quantity(original_demand, uom_bag)
+                    max_bag = original_demand / (uom_bag.factor / 1000) if uom_bag.factor else 0.0
                     raise UserError(_(
                         f"Produk {line.product_id.display_name} melebihi Demand awal!\n"
                         f"Input Anda: {line.qty} {uom_bag.name}\n"
-                        f"Maksimal Demand: {max_bag} {uom_bag.name}"
+                        f"Maksimal Demand: {round(max_bag, 2)} {uom_bag.name}"
                     ))
+                
+                # 2. PROSES PENGURANGAN QUANTITY YANG BENAR
+                for orig_move in original_moves:
+                    # Kurangi dengan base_qty, bukan line.qty
+                    new_qty = orig_move.quantity - base_qty
+                    # Cegah nilai menjadi negatif jika terjadi kesalahan data
+                    orig_move.quantity = new_qty if new_qty > 0 else 0
                 
             move_vals_list.append({
                 'description_picking': line.product_id.display_name,
                 'product_id': line.product_id.id,
-                'product_uom_qty': base_qty,        # Menggunakan base qty (misal 40 Kg)
-                'product_uom': product_uom.id,      # Menggunakan UOM standar (Kg)
+                'product_uom_qty': base_qty,
+                'product_uom': product_uom.id,
                 'location_id': new_picking.location_id.id,
                 'location_dest_id': new_picking.location_dest_id.id,
                 'picking_id': new_picking.id,
@@ -78,21 +78,21 @@ class QualityQuantityBackorder(models.TransientModel):
             
         if move_vals_list:
             self.env['stock.move'].create(move_vals_list)
-            
-        # 5. Mengonfirmasi picking baru (generate stock.move.line)
+        
+        new_picking.action_assign()
         new_picking.action_confirm()
         
-        # 6. Assign Destination Package dan Auto-fill qty_done dari Line
         for move in new_picking.move_ids:
-            # Cari baris (line) di wizard yang sesuai
             wizard_line = self.line_ids.filtered(lambda l: l.product_id == move.product_id)[:1]
             
             if wizard_line:
+                uom_bag = wizard_line.product_uom_id
+                converted_qty = wizard_line.qty * (uom_bag.factor / 1000)
+                
                 for move_line in move.move_line_ids:
-                    move_line.quantity = move_line.quantity_product_uom or move.product_uom_qty
+                    move_line.quantity = converted_qty
                     move_line.result_package_id = wizard_line.result_package_id.id
 
-        # 7. Mengarahkan antarmuka (UI) ke form stock.picking yang baru saja dibuat
         return {
             'name': 'New Quality/Quantity Backorder',
             'view_mode': 'form',

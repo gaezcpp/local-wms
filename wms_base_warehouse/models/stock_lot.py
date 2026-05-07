@@ -10,3 +10,4 @@ class StockLot(models.Model):
         ('BLOCKED', 'BLOCKED'),
         ('UU', 'UU'),
     ], string="Stock Type", default='QI', tracking=True)
+    lot_aft_ids = fields.One2many('stock.lot.aft', 'lot_id', string="Line Aft")

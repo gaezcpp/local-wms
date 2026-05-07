@@ -1,11 +1,12 @@
 from odoo import models, fields, api
+from odoo.exceptions import ValidationError
 import logging
 _logger = logging.getLogger(__name__)
 
 class InheritStockMove(models.Model):
     _inherit = 'stock.move'
 
-    uom_bag_id = fields.Many2one('uom.uom', related='product_id.uom_bag_id', store=True)
+    uom_bag_id = fields.Many2one('uom.uom',  related='product_id.uom_bag_id', store=True)
     uom_pallet_id = fields.Many2one('uom.uom', related='product_id.uom_pallet_id', store=True)
     bag_qty = fields.Float(string="Bag Qty", compute="_compute_bag_qty", store=True)
     pallet_qty = fields.Float(string="Pallet Qty", compute="_compute_pallet_qty", store=True)
@@ -18,6 +19,10 @@ class InheritStockMove(models.Model):
         moves.create_packaging_line()
         return moves
 
+    def write(self, vals):
+        res = super().write(vals)
+        return res
+
     def _get_fields_stock_barcode(self):
         res = super()._get_fields_stock_barcode()
         return res + [
@@ -28,19 +33,19 @@ class InheritStockMove(models.Model):
             'qty_packaging_sap',
         ]
         
-    @api.depends('quantity', 'product_uom', 'uom_bag_id')
+    @api.depends('quantity', 'uom_bag_id', 'uom_pallet_id')
     def _compute_bag_qty(self):
         for line in self:
-            if not line.uom_bag_id or not line.uom_bag_id.factor or not line.quantity or not line.product_uom:
+            if not line.uom_bag_id or not line.quantity:
                 line.bag_qty = 0.0
                 continue
 
             line.bag_qty = ((line.quantity * line.product_uom.factor) / 1000) / (line.uom_bag_id.factor / 1000)
 
-    @api.depends('quantity', 'product_uom', 'uom_pallet_id')
+    @api.depends('quantity', 'uom_pallet_id')
     def _compute_pallet_qty(self):
         for line in self:
-            if not line.uom_pallet_id or not line.uom_pallet_id.factor or not line.quantity or not line.product_uom:
+            if not line.quantity or not line.uom_pallet_id:
                 line.pallet_qty = 0.0
                 continue
 
@@ -81,7 +86,9 @@ class InheritStockMove(models.Model):
             origin_sloc_map = {}
 
             origin_moves = moves.filtered(lambda m: m.origin_returned_move_id)
-            origin_pickings = origin_moves.mapped('origin_returned_move_id.picking_id')
+            origin_pickings = origin_moves.mapped(
+                'origin_returned_move_id.picking_id'
+            )
 
             if origin_pickings:
                 origin_lines = origin_pickings.mapped('product_packaging_ids')

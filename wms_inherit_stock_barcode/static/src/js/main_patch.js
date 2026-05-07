@@ -9,6 +9,12 @@ patch(MainComponent.prototype, {
         super.setup(...arguments);
         console.log("INI MAIN PATCH");
 
+        if (!this.env.model.openSlocPackaging) {
+            this.env.model.openSlocPackaging = () => {
+                return this.env.model._openSlocPackaging();
+            };
+        }
+
         if (!this.env.model.isSlocFilled) {
             this.env.model.isSlocFilled = () => {
                 return Boolean(

@@ -86,6 +86,7 @@ class ProductionOrderSAP(models.Model):
                 company_id = companies.search([
                     ('company_registry', '=', company_registry),
                     ('sync_wms', '=', True),
+                    ('sync_pm', '=', False),
                 ], limit=1)
                 if not company_id:
                     continue

@@ -1,11 +1,9 @@
 <templates xml:space="preserve">
     <t t-inherit="stock_barcode.MainComponent" t-inherit-mode="extension">
         <xpath expr="//footer" position="inside">
-            <!-- <button t-if="env.model.isProductionOnly() and !env.model.isSlocFilled()" -->
-            <button t-if="env.model.isProductionOnly() or !env.model.isSlocFilled()"
+            <button t-if="env.model.isProductionOnly() and !env.model.isSlocFilled()"
                     t-on-click="env.model.openSlocPackaging"
-                    class="btn btn-secondary"
-                    t-att-disabled="!env.model.canBeValidate">
+                    class="btn btn-secondary">
                 Set SLOC Packaging
             </button>
         </xpath>

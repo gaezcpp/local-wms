@@ -690,7 +690,7 @@ class MaintenanceEquipment(models.Model):
                 try:
                     _logger.warning(
                         "UPSERT EQUNR=%s EQUIPMENT_NAME=%s COMPANY_ID=%s PARENT=%s FL=%s",
-                        row.get("code"),
+                        row.get("code").lstrip('0'),
                         row.get("equipment_name"),
                         row.get("company_id"),
                         row.get("parent"),
@@ -699,7 +699,7 @@ class MaintenanceEquipment(models.Model):
                     self._upsert_equipment_from_row(row, cache)
                 except Exception:
                     ok = False
-                    _logger.exception("UPSERT FAILED EQUNR=%s ROW=%s", row.get("code"), row)
+                    _logger.exception("UPSERT FAILED EQUNR=%s ROW=%s", row.get("code").lstrip('0'), row)
 
             self._apply_parent_links(cache)
 
@@ -709,6 +709,236 @@ class MaintenanceEquipment(models.Model):
         except Exception:
             _logger.exception("SAP Equipment sync failed")
             return False
+    
+    # GAEZ BENERIN cron_sync_equipment
+    # @api.model
+    # def cron_sync_equipment(self):
+    #     query = self.env['ir.config_parameter'].sudo().get_param('query_equipment_sku_sap')
+        
+    #     # ── Fetch dari SAP ─────────────────────────────────────────────────────
+    #     icp = self.env['ir.config_parameter'].sudo()
+    #     ip_sap_rfc = icp.get_param('ip_sap_rfc') or icp.get_param('ip_sap_rfc_tagging')
+    #     x_i_api_key = icp.get_param('x_i_api_key') or icp.get_param('x_i_api_key_tagging')
+
+    #     try:
+    #         resp = requests.post(
+    #             url=f"{ip_sap_rfc}/api/v1/zfm-query-data",
+    #             headers={"Content-Type": "application/json", "x-i-api-key": x_i_api_key},
+    #             json={"I_QUERY": query, "I_MOD": ""},
+    #             timeout=60,
+    #         )
+    #         sap = resp.json()
+    #     except Exception as e:
+    #         _logger.exception("SAP Equipment sync failed")
+    #         return False
+
+    #     # Ekstrak rows, support berbagai key
+    #     rows = next(
+    #         (sap[k] for k in ("data", "T_DATA", "results", "rows") if isinstance(sap.get(k), list)),
+    #         sap if isinstance(sap, list) else []
+    #     )
+    #     if not rows:
+    #         _logger.warning("SAP Equipment sync: no rows returned.")
+    #         return True
+
+    #     # Normalize key jadi lowercase
+    #     rows = [{(k or "").lower(): v for k, v in r.items()} for r in rows]
+
+    #     # ── Cache & model shortcuts ────────────────────────────────────────────
+    #     Company    = self.env["res.company"].sudo()
+    #     Equipment  = self.env["maintenance.equipment"].sudo()
+    #     System     = self.env["tagging.system"].sudo()
+    #     SubSystem  = self.env["tagging.subsystem"].sudo()
+    #     SparePart  = self.env["tagging.spare_part"].sudo()
+    #     Product    = self.env["product.product"].sudo()
+    #     ProdLine   = self.env["maintenance.equipment.product.line"].sudo()
+
+    #     company_cache = {}   # werks → res.company
+    #     equip_cache   = {}   # (company_id, equnr) → maintenance.equipment
+    #     parent_map    = {}   # (company_id, equnr) → parent_equnr
+
+    #     ok = True
+
+    #     for row in rows:
+    #         try:
+    #             equnr = str(row.get("code") or "").lstrip("0")
+    #             if not equnr:
+    #                 continue
+
+    #             # ── Company ───────────────────────────────────────────────────
+    #             werks = str(row.get("company_id") or "").strip()
+    #             if werks not in company_cache:
+    #                 comp = Company.search([("company_registry", "=", werks)], limit=1)
+    #                 company_cache[werks] = comp or self.env.company
+    #             company = company_cache[werks]
+
+    #             # ── Normalize tplnr ───────────────────────────────────────────
+    #             tplnr = str(row.get("functional_location") or "").strip()
+    #             tplnr = tplnr.replace(" - ", "-").replace(" -", "-").replace("- ", "-")
+    #             tplnr = tplnr.replace(" / ", "/").replace(" /", "/").replace("/ ", "/")
+    #             while "--" in tplnr:
+    #                 tplnr = tplnr.replace("--", "-")
+
+    #             # ── System & Subsystem dari tplnr ─────────────────────────────
+    #             # Format: CPB-LPG-01-02-001 → system=CPB-LPG-01-02, sub=CPB-LPG-01-02-001
+    #             system_id = sub_system_id = False
+    #             sep = "-" if "-" in tplnr else "/" if "/" in tplnr else None
+    #             if sep:
+    #                 parts = [p.strip() for p in tplnr.split(sep) if p.strip()]
+    #                 if len(parts) >= 5:
+    #                     system_code    = sep.join(parts[:4])
+    #                     subsystem_code = sep.join(parts[:5])
+
+    #                     sys_rec = System.with_context(allowed_company_ids=[company.id]).with_company(company).search(
+    #                         [("company_id", "=", company.id), ("code", "=ilike", system_code)], limit=1
+    #                     )
+    #                     if not sys_rec:
+    #                         sys_rec = System.with_context(allowed_company_ids=[company.id]).with_company(company).search(
+    #                             [("company_id", "=", company.id), ("code", "=like", system_code + "%")], limit=1
+    #                         )
+
+    #                     if sys_rec:
+    #                         system_id = sys_rec.id
+    #                         sub_rec = SubSystem.with_context(allowed_company_ids=[company.id]).with_company(company).search(
+    #                             [("system_id", "=", sys_rec.id), ("code", "=ilike", subsystem_code)], limit=1
+    #                         )
+    #                         sub_system_id = sub_rec.id if sub_rec else False
+    #                         if not sub_rec:
+    #                             _logger.warning("SUBSYSTEM NOT FOUND sub=%s sys=%s tplnr=%s company=%s",
+    #                                             subsystem_code, sys_rec.code, tplnr, company.display_name)
+    #                     else:
+    #                         _logger.warning("SYSTEM NOT FOUND sys=%s tplnr=%s company=%s",
+    #                                         system_code, tplnr, company.display_name)
+    #                 else:
+    #                     _logger.warning("SYSTEM CODE EMPTY tplnr=%s", tplnr)
+
+    #             # ── Upsert Equipment ──────────────────────────────────────────
+    #             equipment_name = str(row.get("equipment_name") or "").strip()
+    #             vals = {
+    #                 "equipment_no":  equnr,
+    #                 "sap_equnr":     equnr,
+    #                 "sap_tplnr":     tplnr or False,
+    #                 "abc_indc":      str(row.get("abc_indc") or "").strip() or False,
+    #                 "name":          equipment_name or equnr,
+    #                 "company_id":    company.id,
+    #                 "system_id":     system_id,
+    #                 "sub_system_id": sub_system_id,
+    #                 "last_sync_at":  fields.Datetime.now(),
+    #                 "sync_status":   "success",
+    #                 "sync_message":  False,
+    #             }
+
+    #             cache_key = (company.id, equnr)
+    #             rec = equip_cache.get(cache_key) or Equipment.with_context(
+    #                 allowed_company_ids=[company.id], skip_fl_complete=True
+    #             ).with_company(company).search(
+    #                 [("company_id", "=", company.id), "|",
+    #                 ("sap_equnr", "=", equnr), ("equipment_no", "=", equnr)],
+    #                 limit=1,
+    #             )
+
+    #             if rec:
+    #                 rec.write(vals)
+    #             else:
+    #                 rec = Equipment.with_context(
+    #                     allowed_company_ids=[company.id], skip_fl_complete=True
+    #                 ).with_company(company).create(vals)
+
+    #             equip_cache[cache_key] = rec
+
+    #             # ── Spare Part & Product Line ─────────────────────────────────
+    #             sku        = str(row.get("sku") or "").strip()
+    #             spare_name = str(row.get("name") or "").strip()
+
+    #             if sku or spare_name:
+    #                 # Cari spare part existing
+    #                 spare = False
+    #                 for domain in filter(None, [
+    #                     sku        and [("company_id", "=", company.id), ("sku", "=ilike", sku)],
+    #                     spare_name and [("company_id", "=", company.id), ("name", "=ilike", spare_name)],
+    #                 ]):
+    #                     spare = SparePart.with_context(allowed_company_ids=[company.id]).with_company(company).search(domain, limit=1)
+    #                     if spare:
+    #                         break
+
+    #                 if not spare:
+    #                     # Cari / create product.product
+    #                     product = (
+    #                         Product.search([("default_code", "=ilike", sku)], limit=1) if sku else False
+    #                     ) or (
+    #                         Product.search([("name", "=ilike", spare_name)], limit=1) if spare_name else False
+    #                     ) or Product.create({
+    #                         "name":         spare_name or sku,
+    #                         "default_code": sku or False,
+    #                         "sale_ok":      True,
+    #                         "purchase_ok":  True,
+    #                         "type":         "consu",
+    #                         "company_id":   company.id,
+    #                     })
+
+    #                     spare = SparePart.with_context(allowed_company_ids=[company.id]).with_company(company).create({
+    #                         "name":       spare_name or product.display_name or sku,
+    #                         "sku":        sku or product.default_code or False,
+    #                         "product_id": product.id,
+    #                         "company_id": company.id,
+    #                     })
+
+    #                 # Upsert product line
+    #                 line = ProdLine.with_context(allowed_company_ids=[company.id]).with_company(company).search(
+    #                     [("equipment_id", "=", rec.id), ("spare_part_id", "=", spare.id)], limit=1
+    #                 )
+    #                 line_vals = {"equipment_id": rec.id, "spare_part_id": spare.id, "qty": 1.0}
+    #                 if spare_name and spare.product_id and spare_name != spare.product_id.display_name:
+    #                     line_vals["note"] = spare_name
+
+    #                 if line:
+    #                     line.write(line_vals)
+    #                 else:
+    #                     ProdLine.with_context(allowed_company_ids=[company.id]).with_company(company).create(line_vals)
+
+    #             # ── Catat parent untuk di-link setelah semua row selesai ──────
+    #             parent_equnr = str(row.get("parent") or "").lstrip("0")
+    #             if parent_equnr and parent_equnr != equnr:
+    #                 parent_map[(company.id, equnr)] = parent_equnr
+
+    #             _logger.warning("UPSERT OK equnr=%s name=%s company=%s", equnr, equipment_name, company.display_name)
+
+    #         except Exception:
+    #             ok = False
+    #             _logger.exception("UPSERT FAILED equnr=%s row=%s", row.get("code"), row)
+
+    #     # ── Apply Parent Links ────────────────────────────────────────────────
+    #     EquipBase = self.env["maintenance.equipment"].sudo().with_context(active_test=False)
+    #     for (company_id, child_equnr), parent_equnr in parent_map.items():
+    #         try:
+    #             company = Company.browse(company_id)
+    #             Eq = EquipBase.with_context(allowed_company_ids=[company_id], active_test=False).with_company(company)
+
+    #             child  = Eq.search([("company_id", "=", company_id), "|", ("sap_equnr", "=", child_equnr),  ("equipment_no", "=", child_equnr)],  limit=1)
+    #             parent = Eq.search([("company_id", "=", company_id), "|", ("sap_equnr", "=", parent_equnr), ("equipment_no", "=", parent_equnr)], limit=1)
+
+    #             if not child or not parent:
+    #                 _logger.warning("PARENT SKIP not found child=%s parent=%s", child_equnr, parent_equnr)
+    #                 continue
+    #             if child.id == parent.id:
+    #                 continue
+    #             if parent.parent_equipment_id.id == child.id:
+    #                 _logger.warning("PARENT SKIP circular child=%s parent=%s", child_equnr, parent_equnr)
+    #                 continue
+    #             if child.parent_equipment_id.id == parent.id:
+    #                 continue  # sudah benar, skip write
+
+    #             child.sudo().with_company(company).with_context(
+    #                 allowed_company_ids=[company_id], active_test=False
+    #             ).write({"parent_equipment_id": parent.id})
+
+    #             _logger.warning("PARENT LINKED child=%s -> parent=%s company=%s", child_equnr, parent_equnr, company.display_name)
+
+    #         except Exception:
+    #             _logger.exception("PARENT LINK FAILED child=%s parent=%s", child_equnr, parent_equnr)
+
+    #     _logger.info("SAP Equipment Sync done. rows=%s ok=%s", len(rows), ok)
+    #     return ok
 
     # ==========================================================
     # OPTIONAL: Manual test button (popup notif)
