@@ -310,70 +310,107 @@ class TaggingSapSyncService(models.AbstractModel):
         system_model = self.env['tagging.system'].sudo()
         subsystem_model = self.env['tagging.subsystem'].sudo()
         company_model = self.env['res.company'].sudo()
+        company_cache = {}
+
+        def get_company(company_registry):
+            if company_registry not in company_cache:
+                company = company_model.search([
+                    ('company_registry', '=', company_registry),
+                    ('sync_pm', '=', True)
+                ], limit=1)
+                company_cache[company_registry] = company or False
+            return company_cache[company_registry]
+
+        system_data_list = []
+        subsystem_data_list = []
 
         for data in data_list:
-            tplnr = data.get('TPLNR') or ''
-            pltxu = data.get('PLTXU') or ''
-            tplma = data.get('TPLMA') or ''
             eqfnr = (data.get('EQFNR') or '').upper()
-            abckz = data.get('ABCKZ') or ''
-            company_registry = data.get('SWERK') or ''
-            
+            company_registry = data.get('WERKS') or ''
+
             if not company_registry:
                 continue
-            company_id = company_model.search([
-                ('company_registry', '=', company_registry),
-                ('sync_pm', '=', True)
-            ], limit=1)
-            if not company_id:
+            if not get_company(company_registry):
                 continue
-            
-            if eqfnr != 'SUB':
-                existing_system = system_model.search([
-                    ('code', '=', tplnr),
-                    ('company_id', '=', company_id.id)
-                ], limit=1)
-                vals = {
-                    'company_id': company_id.id,
-                    'name': pltxu,
-                    'code': tplnr,
-                    'active': True,
-                    'sap_synchronize': True,
-                    'last_sync_at': fields.Datetime.now(),
-                }
-                if existing_system:
-                    existing_system.write(vals)
-                else:
-                    system_model.create(vals)
-            else:
-                system_id = system_model.search([
-                    ('code', '=', tplma),
-                    ('company_id', '=', company_id.id)
-                ], limit=1)
-                if not system_id:
-                    continue
 
-                existing_subsystem = subsystem_model.search([
-                    ('code', '=', tplnr),
-                    ('system_id', '=', system_id.id),
-                    ('company_id', '=', company_id.id)
-                ], limit=1)
-                vals = {
-                    'name': pltxu,
-                    'system_id': system_id.id,
-                    'sap_tplnr': tplnr,
-                    'last_sync_at': fields.Datetime.now(),
-                    'sap_synchronize': True,
-                    'code': tplnr,
-                    'active': True,
-                    'sap_werks': company_id.company_registry,
-                    'abc_indicator': abckz,
-                    'company_id': company_id.id,
-                }
-                if existing_subsystem:
-                    existing_subsystem.write(vals)
-                else:
-                    subsystem_model.create(vals)
+            if eqfnr != 'SUB':
+                system_data_list.append(data)
+            else:
+                subsystem_data_list.append(data)
+
+        system_cache = {}
+
+        for data in system_data_list:
+            tplnr = data.get('TPLNR') or ''
+            pltxt = data.get('PLTXT') or ''
+            company_registry = data.get('WERKS') or ''
+            company_id = get_company(company_registry)
+
+            existing_system = system_model.search([
+                ('code', '=', tplnr),
+                ('company_id', '=', company_id.id)
+            ], limit=1)
+
+            vals = {
+                'company_id': company_id.id,
+                'name': pltxt,
+                'code': tplnr,
+                'active': True,
+                'sap_synchronize': True,
+                'last_sync_at': fields.Datetime.now(),
+            }
+
+            if existing_system:
+                existing_system.write(vals)
+                system_cache[(tplnr, company_id.id)] = existing_system
+            else:
+                new_system = system_model.create(vals)
+                system_cache[(tplnr, company_id.id)] = new_system
+
+        skipped = []
+        for data in subsystem_data_list:
+            tplnr = data.get('TPLNR') or ''
+            pltxt = data.get('PLTXT') or ''
+            tplma = data.get('TPLMA') or ''
+            abckz = data.get('ABCKZ') or ''
+            company_registry = data.get('WERKS') or ''
+            company_id = get_company(company_registry)
+
+            system_id = system_cache.get((tplma, company_id.id)) or system_model.search([
+                ('code', '=', tplma),
+                ('company_id', '=', company_id.id)
+            ], limit=1)
+
+            if not system_id:
+                skipped.append(f"SYSTEM {tplma} not found for SUBSYSTEM {tplnr}")
+                continue
+
+            existing_subsystem = subsystem_model.search([
+                ('code', '=', tplnr),
+                ('system_id', '=', system_id.id),
+                ('company_id', '=', company_id.id)
+            ], limit=1)
+
+            vals = {
+                'name': pltxt,
+                'system_id': system_id.id,
+                'sap_tplnr': tplnr,
+                'last_sync_at': fields.Datetime.now(),
+                'sap_synchronize': True,
+                'code': tplnr,
+                'active': True,
+                'sap_werks': company_id.company_registry,
+                'abc_indicator': abckz,
+                'company_id': company_id.id,
+            }
+
+            if existing_subsystem:
+                existing_subsystem.write(vals)
+            else:
+                subsystem_model.create(vals)
+
+        if skipped:
+            print(f"SKIPPED {len(skipped)} subsystems:\n" + "\n".join(skipped))
 
     #### FIXING, TUNNING & CLEANSING CODE ####
 
