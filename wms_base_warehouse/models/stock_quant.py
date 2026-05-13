@@ -8,6 +8,11 @@ class StockQuant(models.Model):
     exp_group = fields.Datetime(string="Exp Group")
     inbound_date = fields.Datetime(string="Inbound Date")
     stock_type = fields.Selection(related='lot_id.stock_type', string="Stock Type", store=True)
+    stock_type = fields.Selection([
+        ('QI', 'QI'),
+        ('BLOCKED', 'BLOCKED'),
+        ('UU', 'UU'),
+    ], string="Stock Type")
     
     @api.model
     def _gather(self, product_id, location_id, lot_id=None, package_id=None, owner_id=None, strict=False, qty=None):

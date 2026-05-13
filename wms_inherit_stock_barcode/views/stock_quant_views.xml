@@ -8,7 +8,7 @@
             <field name="arch" type="xml">
                 <xpath expr="//field[@name='product_uom_id']" position="after">
                     <field name="bag_qty" string="Bag" force_save="1" readonly="1"/>
-                    <field name="uom_bag_id" string="" force_save="1" readonly="1" options="{'no_open': True, 'no_create': True}"/>
+                    <field name="uom_bag_id" string="Unit" force_save="1" readonly="1" options="{'no_open': True, 'no_create': True}"/>
                 </xpath>
             </field>
         </record>

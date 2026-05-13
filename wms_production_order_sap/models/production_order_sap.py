@@ -98,12 +98,16 @@ class ProductionOrderSAP(models.Model):
                     continue
                 
             unit = data.get('GMEIN') or ''
-            if unit:
-                if unit.upper() == 'KG':
-                    unit = 'kg'
-                uom_id = unit_of_measure.search([('name', '=', unit)], limit=1)
-                if not uom_id:
-                    continue
+            product_uom = False
+            if unit.upper() != "KG":
+                uom_numerator = float(data.get('UMREZ'))
+                uom_denominator = float(data.get('UMREN'))
+                ratio = float(uom_numerator) / float(uom_denominator)
+                ratio = int(ratio) if ratio.is_integer() else ratio
+                uom_name = f"{unit} {ratio}"
+                product_uom = unit_of_measure.search([('name', '=', uom_name)], limit=1)
+            else:
+                product_uom = unit_of_measure.search([('name', '=', 'kg')], limit=1)
             
             raw_start = data.get('GSTRP')
             if raw_start and len(raw_start) == 8:
@@ -123,7 +127,7 @@ class ProductionOrderSAP(models.Model):
                 'start_date': start_date,
                 'finish_date': finish_date,
                 'product_id': product_id.id if product_id else False,
-                'uom_id': uom_id.id if uom_id else False,
+                'uom_id': product_uom.id if product_uom else False,
                 'order_qty': order_qty,
                 'company_id': company_id.id if company_id else False,
                 'company_registry': company_id.company_registry if company_id else False,

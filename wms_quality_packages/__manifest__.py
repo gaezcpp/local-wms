@@ -26,6 +26,7 @@ Long description of module's purpose
         'data/sequence.xml',
         'wizards/package_wizards_views.xml',
         'views/quality_packages_views.xml',
+        'views/sap_aft_views.xml',
         'views/menuitem.xml',
     ],
 }

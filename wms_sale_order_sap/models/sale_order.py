@@ -160,7 +160,7 @@ class InheritSaleOrderSAP(models.Model):
             deliv_method = "Loco"
             if delivery_method == "FRC":
                 deliv_method = "Franco"
-            deliv_carrier = delivery_carrier_model.search([('name', '=', deliv_method),('company_id', '=', company.id)], limit=1)
+            deliv_carrier = delivery_carrier_model.search([('name', 'ilike', deliv_method),('company_id', '=', company.id)], limit=1)
 
             so = sale_order_model.search([('do_sap', '=', nomor_do),('company_id', '=', company.id)], limit=1)
             vals = {
@@ -668,7 +668,7 @@ class InheritSaleOrderSAP(models.Model):
             raise ValidationError(json.dumps(res.get('error')))
 
         if not res.get('success'):
-            _logger.info("CRON cron_synchronize_sap_sale_order NOT SUCCESS")
+            _logger.info("CRON cron_synhronize_so_sloc_to_sloc NOT SUCCESS")
             return True
 
         data_list = res.get('data', [])

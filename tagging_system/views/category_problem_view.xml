@@ -26,7 +26,7 @@
                 <sheet>
                     <group>
                         <group string="Classification">
-                            <field name="system_id" options="{'no_open': True, 'no_create': True}"/>
+                            <field name="system_id" options="{'no_open': True, 'no_create': True}" domain="[('company_id', '=', allowed_company_ids[0])]"/>
                             <field name="subsystem_id" domain="[('system_id', '=', system_id)]" options="{'no_open': True, 'no_create': True}"/>
                         </group>
                         <group string="Details">

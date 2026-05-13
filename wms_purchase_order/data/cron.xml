@@ -9,5 +9,13 @@
             <field name="interval_number">1</field>
             <field name="interval_type">days</field>
         </record>
+        <record id="ir_cron_synhronize_purchase_sloc_to_sloc" model="ir.cron">
+            <field name="name">Cron Synchronize PO Sloc To Sloc SAP</field>
+            <field name="model_id" ref="model_purchase_order"/>
+            <field name="state">code</field>
+            <field name="code">model.cron_synhronize_purchase_sloc_to_sloc()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+        </record>
     </data>
 </odoo>

@@ -56,7 +56,7 @@
                         <group string="Tagging Info">
                             <field name="tagger_name"/>
                             <field name="barcode_id"/>
-                            <field name="department_ids" widget="many2many_tags" readonly="1"/>
+                            <field name="department_id" widget="many2many_tags" readonly="1"/>
                             <field name="pic_name" string="PIC Email" readonly="1"/>
                             <field name="start_date" invisible="status not in ('validated','open_wo','closed')"/>
                             <field name="end_date" invisible="status not in ('validated','open_wo','closed')"/>

@@ -9,5 +9,13 @@
             <field name="key">picking_type_po</field>
             <field name="value">111</field>
         </record>
+        <record id="query_purchase_sloc_to_sloc" model="ir.config_parameter">
+            <field name="key">query_purchase_sloc_to_sloc</field>
+            <field name="value">SELECT a.werks,  a.seqnr, a.trucknr, a.arrdate, a.ebeln, a.ebelp, a.matnr, a.qtypo, a.uoe, a.erfmg, a.meins, d.umren, d.umrez,c.slocto as kesloc,c.slocfrom as darisloc FROM ZMM_TS_STO_NCD a JOIN zmm_ts_arr_pool b ON a.werks = b.werks AND a.seqnr = b.seqnr AND a.trucknr = b.trucknr AND a.arrdate = b.arrdate JOIN ZMM_TS_STO_NCH c ON a.werks = c.werks AND a.seqnr = c.seqnr AND a.trucknr = c.trucknr AND a.arrdate = c.arrdate JOIN MARM d ON a.matnr = d.matnr AND a.uoe = d.meinh WHERE b.srctab = 'ZMM_TS_ISTO_NCSL' and b.w_odoo = ' ' and c.mblnr_ref != ' '</field>
+        </record>
+        <record id="purchase_sloc_to_sloc" model="ir.config_parameter">
+            <field name="key">purchase_sloc_to_sloc</field>
+            <field name="value">111</field>
+        </record>
     </data>
 </odoo>

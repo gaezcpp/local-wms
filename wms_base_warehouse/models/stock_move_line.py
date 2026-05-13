@@ -69,11 +69,17 @@ class InheritBaseStockMoveLine(models.Model):
         ], limit=1)
 
         if not lot:
-            lot = self.env['stock.lot'].create({
-                'name': lot_name,
-                'product_id': self.move_id.product_id.id,
-                'company_id': self.company_id.id,
-            })
+            lot = self.env['stock.lot'].search([
+                ('id', '=', self.lot_id.id),
+                ('product_id', '=', self.move_id.product_id.id),
+                ('company_id', '=', self.company_id.id)
+            ], limit=1)
+            if not lot:
+                lot = self.env['stock.lot'].create({
+                    'name': lot_name,
+                    'product_id': self.move_id.product_id.id,
+                    'company_id': self.company_id.id,
+                })
 
         return lot
     

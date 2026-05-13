@@ -6,6 +6,7 @@
             <field name="code">quality.packages</field>
             <field name="prefix">QP-</field>
             <field name="padding">4</field>
+            <field name="company_id"></field>
         </record>
     </data>
 </odoo>

@@ -56,7 +56,7 @@ class TaggingController(http.Controller):
         # departments = pics_all.mapped("department_ids")
         # departments = departments.sorted(key=lambda d: (d.name or "").lower())
         
-        departments = request.env['tagging.department'].sudo().search([('active', '=', True)])
+        departments = request.env['tagging.department'].sudo().search([('active', '=', True),('company_id', '=', company_id)])
 
         category_problems = request.env["category.problem"].sudo().search([
             ("active", "=", True),
@@ -204,6 +204,45 @@ class TaggingController(http.Controller):
         # kalau ada field char work_center
         elif "work_center" in barcode._fields:
             work_center_val = barcode.work_center or ""
+            
+        valid_files_data = [] 
+        
+        for f in files or []:
+            # Pengecekan filename memastikan user benar-benar memilih file
+            if getattr(f, "filename", ""): 
+                mimetype = (getattr(f, "mimetype", "") or "").lower()
+                
+                # 1. KONDISI FORMAT: Jika bukan JPG/PNG, tolak & JANGAN simpan data
+                if mimetype not in ALLOWED_MIMES:
+                    return request.redirect(
+                        f"/tagging?error={quote('Format foto harus JPG/PNG.')}&barcode_code={quote(barcode_code)}"
+                    )
+
+                # pastikan pointer di awal
+                try:
+                    f.stream.seek(0)
+                except Exception:
+                    pass
+
+                content = f.read() or b""
+                if len(content) > MAX_MB_PER_FILE * 1024 * 1024:
+                    return request.redirect(
+                        f"/tagging?error={quote(f'Ukuran foto maksimal {MAX_MB_PER_FILE}MB per file.')}&barcode_code={quote(barcode_code)}"
+                    )
+                
+                # Simpan data file ke memori jika file tidak kosong (0 bytes)
+                if content:
+                    valid_files_data.append({
+                        "name": f.filename,
+                        "mimetype": mimetype,
+                        "content": content
+                    })
+
+        # 2. KONDISI WAJIB: Jika array valid_files_data kosong, tolak & JANGAN simpan data
+        if not valid_files_data:
+            return request.redirect(
+                f"/tagging?error={quote('Foto wajib diupload minimal 1 (Format JPG/PNG).')}&barcode_code={quote(barcode_code)}"
+            )
 
         # 5) Create tagging record
         rec_vals = {
@@ -216,6 +255,7 @@ class TaggingController(http.Controller):
             #tambahan gaez
             "department_id": department.id or False,
             "category_problem_id": cp.id,
+            "company_id": barcode.plant_id.id,
 
             "plant_code": barcode.plant_code or "",
             "plant_name": barcode.plant_name or "",

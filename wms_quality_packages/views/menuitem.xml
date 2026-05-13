@@ -1,10 +1,26 @@
 <?xml version='1.0' encoding='utf-8'?>
 <odoo>
+
+    <menuitem
+        id="quality_packages_aft_menu_root"
+        name="Quality Packages AFT"
+        parent="stock.menu_stock_inventory_control"
+        sequence="300"
+    />
+
     <menuitem
         id="quality_packages_menu"
-        name="Quality Packages"
-        sequence="120"
-        parent="stock.menu_stock_inventory_control"
+        name="AFT"
+        parent="wms_quality_packages.quality_packages_aft_menu_root"
         action="wms_quality_packages.quality_packages_action"
+        sequence="10"
+    />
+
+    <menuitem
+        id="sap_aft_configuration_menu"
+        name="SAP AFT Configuration"
+        parent="wms_quality_packages.quality_packages_aft_menu_root"
+        action="wms_quality_packages.sap_aft_action"
+        sequence="90"
     />
 </odoo>

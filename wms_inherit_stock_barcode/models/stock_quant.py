@@ -49,41 +49,18 @@ class InheritStockQuant(models.Model):
 
         return res
     
-    # INI VERSI YANG BENER
-    # @api.model_create_multi
-    # def create(self, vals_list):
-    #     for vals in vals_list:
-    #         self._prepare_bag_pallet_vals(vals)
-
-    #     records = super().create(vals_list)
-    #     records._recompute_package_pallet_status()
-    #     return records
-
-    # INI VERSI YANG BENER
-    # def write(self, vals):
-    #     if 'product_id' in vals or 'quantity' in vals or 'inventory_quantity' in vals:
-    #         for rec in self:
-    #             rec._prepare_bag_pallet_vals(vals)
-
-    #     res = super().write(vals)
-    #     self._recompute_package_pallet_status()
-    #     return res
-    
     def _recompute_package_pallet_status(self):
         param = self.env['ir.config_parameter'].sudo().get_param('pembagi_pallet')
         if not param:
             return
-            # raise ValidationError("pembagi_pallet belum disetting!")
 
         try:
             pembagi_pallet = float(param)
         except:
             return
-            # raise ValidationError("pembagi_pallet bukan angka!")
 
         if pembagi_pallet == 0:
             return
-            # raise ValidationError("pembagi_pallet tidak boleh 0!")
 
         packages = self.mapped('package_id').filtered(lambda p: p)
         for pkg in packages:
@@ -135,43 +112,6 @@ class InheritStockQuant(models.Model):
             vals['pallet_qty'] = 0.0
 
         return vals
-
-    # INI VERSI YANG BENER
-    # def _prepare_bag_pallet_vals(self, vals):
-    #     product_id = vals.get('product_id')
-    #     quantity = vals.get('quantity')
-    #     if product_id is None and quantity is None:
-    #         return vals
-
-    #     if product_id:
-    #         product = self.env['product.product'].sudo().browse(product_id)
-    #     else:
-    #         product = self.product_id
-
-    #     qty = quantity if quantity is not None else self.quantity
-    #     uom_bag = product.uom_bag_id if product else False
-    #     uom_pallet = product.uom_pallet_id if product else False
-    #     vals['uom_bag_id'] = uom_bag.id if uom_bag else False
-    #     vals['uom_pallet_id'] = uom_pallet.id if uom_pallet else False
-
-    #     # if uom_bag and uom_bag.relative_factor and qty:
-    #     #     vals['bag_qty'] = qty / uom_bag.relative_factor
-    #     #     if uom_pallet and uom_pallet.relative_factor:
-    #     #         vals['pallet_qty'] = vals['bag_qty'] / uom_pallet.relative_factor
-    #     #     else:
-    #     #         vals['pallet_qty'] = 0.0
-    #     if uom_bag and uom_bag.factor and qty:
-    #         vals['bag_qty'] = qty / (uom_bag.factor / 1000)
-    #         if uom_pallet and uom_pallet.factor:
-    #             # vals['pallet_qty'] = vals['bag_qty'] / (uom_pallet.factor / 1000)
-    #             vals['pallet_qty'] = qty / (uom_pallet.factor / 1000)
-    #         else:
-    #             vals['pallet_qty'] = 0.0
-    #     else:
-    #         vals['bag_qty'] = 0.0
-    #         vals['pallet_qty'] = 0.0
-
-    #     return vals
     
     @api.onchange('product_id')
     def _onchange_product_bag(self):

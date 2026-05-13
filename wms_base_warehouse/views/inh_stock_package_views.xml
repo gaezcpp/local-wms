@@ -20,8 +20,9 @@
                     <field name="pallet_status" force_save="1" readonly="1"/>
                 </xpath> -->
                 <xpath expr="//field[@name='contained_quant_ids']/list/field[@name='product_uom_id']" position="after">
-                    <field name="exp_group"/>
-                    <field name="inbound_date"/>
+                    <field name="stock_type"/>
+                    <!-- <field name="exp_group"/> -->
+                    <!-- <field name="inbound_date"/> -->
                 </xpath>
             </field>
         </record>

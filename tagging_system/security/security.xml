@@ -1,4 +1,40 @@
 <odoo>
+    <record id="multi_company_tagging_department" model="ir.rule">
+        <field name="name">Tagging Department multi-company</field>
+        <field name="model_id" ref="model_tagging_department"/>
+        <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
+    </record>
+
+    <record id="multi_company_tagging_system" model="ir.rule">
+        <field name="name">Tagging System multi-company</field>
+        <field name="model_id" ref="model_tagging_system"/>
+        <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
+    </record>
+
+    <record id="multi_company_tagging_subsystem" model="ir.rule">
+        <field name="name">Tagging Sub System multi-company</field>
+        <field name="model_id" ref="model_tagging_subsystem"/>
+        <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
+    </record>
+
+    <record id="multi_company_tagging_spare_part" model="ir.rule">
+        <field name="name">Tagging Spare Part multi-company</field>
+        <field name="model_id" ref="model_tagging_spare_part"/>
+        <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
+    </record>
+
+    <record id="multi_company_barcode_tagging" model="ir.rule">
+        <field name="name">Barcode Tagging multi-company</field>
+        <field name="model_id" ref="model_barcode_tagging"/>
+        <field name="domain_force">[('plant_id', 'in', company_ids + [False])]</field>
+    </record>
+
+    <record id="multi_company_tagging_record" model="ir.rule">
+        <field name="name">Tagging multi-company</field>
+        <field name="model_id" ref="model_tagging_record"/>
+        <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
+    </record>
+
     <!-- Portal users: only see their own records -->
     <record id="tagging_record_rule_own_portal" model="ir.rule">
         <field name="name">Tagging: portal only own records</field>

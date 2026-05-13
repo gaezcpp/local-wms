@@ -143,32 +143,6 @@ class TaggingRecord(models.Model):
         string="Equipment",
         tracking=True,
     )
-    # equipment_no = fields.Char(
-    #     string="Equipment No",
-    #     compute="_compute_equipment_no",
-    #     store=True,
-    # )
-
-    # parent_equipment_no = fields.Char(
-    #     string="Parent Equipment No",
-    #     compute="_compute_parent_equipment_no",
-    #     store=True,
-    # )
-    
-    # equipment_no = fields.Char(
-    # related="equipment_id.equipment_no",
-    # string="Equipment No",
-    # store=True,
-    # readonly=True,
-    # )
-
-    # parent_equipment_no = fields.Char(
-    #     related="parent_equipment_id.equipment_no",
-    #     string="Parent Equipment No",
-    #     store=True,
-    #     readonly=True,
-    # )
-    
     parent_equipment_name = fields.Char(
     related="parent_equipment_id.name",
     store=False,
@@ -262,6 +236,7 @@ class TaggingRecord(models.Model):
     # tambahan gaez
     department_id = fields.Many2one(comodel_name='tagging.department', string="Department")
     is_locked = fields.Boolean(string="Is Locked", default=False)
+    company_id = fields.Many2one(comodel_name='res.company', string="Company", default=lambda self: self.env.company)
 
     # =========================
     # HARD LOCK WHEN CLOSED
@@ -276,10 +251,6 @@ class TaggingRecord(models.Model):
 
         return super().write(vals)
 
-
-    # =========================
-    # COMPUTE
-    # =========================
     @api.depends("equipment_id")
     def _compute_available_spareparts(self):
         for rec in self:
@@ -287,7 +258,6 @@ class TaggingRecord(models.Model):
                 rec.available_sparepart_ids = rec.equipment_id.product_line_ids.mapped("product_id")
             else:
                 rec.available_sparepart_ids = self.env["product.product"]
-
     
     @api.depends("parent_equipment_id", "equipment_id")
     def _compute_functional_location_code(self):
@@ -296,13 +266,6 @@ class TaggingRecord(models.Model):
             equip_code = getattr(rec.equipment_id, "functional_location_code", False) or ""
             rec.functional_location_code = parent_code or equip_code or ""
 
-
-    
-    # @api.depends("pic_id", "pic_id.department_ids", "pic_id.department_ids.name")
-    # def _compute_pic_department_names(self):
-    #     for rec in self:
-    #         depts = rec.pic_id.department_ids.mapped("name") if rec.pic_id else []
-    #         rec.pic_department_names = ", ".join(depts) if depts else ""
             
     @api.onchange("equipment_id")
     def _onchange_equipment_id_reset_sparepart(self):
@@ -355,8 +318,6 @@ class TaggingRecord(models.Model):
 
             return {"domain": {"parent_equipment_id": domain}}
 
-    
-    
     def action_qty_minus(self):
         for line in self:
             line.qty = max(0.0, (line.qty or 0.0) - 1.0)
@@ -364,7 +325,6 @@ class TaggingRecord(models.Model):
     def action_qty_plus(self):
         for line in self:
             line.qty = (line.qty or 0.0) + 1.0
-
     
     @api.onchange("barcode_id")
     def _onchange_barcode_snapshot_names(self):
@@ -585,22 +545,17 @@ class TaggingRecord(models.Model):
 
         return records
 
-
-    
     @api.depends("parent_equipment_id")
     def _compute_available_equipments(self):
         for rec in self:
             rec.available_equipment_ids = rec.parent_equipment_id.child_equipment_ids if rec.parent_equipment_id else self.env["maintenance.equipment"].browse([])
 
-
-
-    
     @api.onchange("parent_equipment_id")
     def _onchange_parent_equipment_id(self):
         self.equipment_id = False
         self.sparepart_product_id = False
-
         child_ids = self.parent_equipment_id.child_equipment_ids.ids if self.parent_equipment_id else []
+        self.wo_sparepart_ids = [(5, 0, 0)]
         return {
             "domain": {
                 "equipment_id": [("id", "in", child_ids)] if child_ids else [("id", "=", 0)]
@@ -626,9 +581,9 @@ class TaggingRecord(models.Model):
         Model = self.sudo()
         domain = []
 
-        # -------------------------
-        # Filters
-        # -------------------------
+        company = self.env.company
+        if company:
+            domain.append(('company_id', '=', company.id))
         plant = payload.get("plant_code")
         if plant:
             domain.append(("plant_code", "=", plant))
@@ -640,7 +595,7 @@ class TaggingRecord(models.Model):
         dr = (payload.get("date_range") or "today").strip()
         date_from = (payload.get("date_from") or "").strip()
         date_to   = (payload.get("date_to") or "").strip()
-
+        
         now = fields.Datetime.now()
 
         def dt_str(dt):
@@ -684,24 +639,15 @@ class TaggingRecord(models.Model):
             if date_to:
                 domain.append(("create_date", "<=", f"{date_to} 23:59:59"))
 
-        
-
-        # -------------------------
-        # Helpers
-        # -------------------------
         def norm(v):
             s = (v or "").strip()
             return s if s else "Others"
 
         def m2o_name(v, default="Others"):
-            # read_group M2O result = (id, name) atau False
             if isinstance(v, (list, tuple)) and len(v) >= 2:
                 return v[1] or default
             return default
 
-        # -------------------------
-        # KPI
-        # -------------------------
         # open_count = Model.search_count(domain + [("status", "=", "open")])
         open_count = Model.search_count(domain + [("status", "=", "rejected")])
         closed_count = Model.search_count(domain + [("status", "=", "closed")])
@@ -710,61 +656,49 @@ class TaggingRecord(models.Model):
         pct_closed = (closed_count / total_count * 100.0) if total_count else 0.0
         pct_not_valid = (open_count / total_count * 100.0) if total_count else 0.0
 
-        # status map untuk chart kecil
         status_map = {k: 0 for k in ["open", "validated", "open_wo", "closed"]}
         try:
-            grouped_status = Model.read_group(domain, ["id"], ["status"], lazy=False)
-            for g in grouped_status:
-                st_val = g.get("status")
-                if st_val in status_map:
-                    status_map[st_val] = g.get("__count", 0)
+            grouped_status = Model._read_group(domain, groupby=["status"], aggregates=["__count"])
+            for (status_val,), count in grouped_status:
+                if status_val in status_map:
+                    status_map[status_val] = count
         except Exception:
             pass
 
-        # -------------------------
-        # BY ABC (pie/bar)
-        # -------------------------
         by_abc = {"labels": [], "values": []}
         try:
-            grouped_abc = Model.read_group(domain, ["id"], ["abc_indic"], lazy=False)
+            grouped_abc = Model._read_group(domain, groupby=["abc_indic"], aggregates=["__count"])
             counter = defaultdict(int)
-            for g in grouped_abc:
-                key = norm(g.get("abc_indic"))
-                counter[key] += g.get("__count", 0)
+            for (abc_val,), count in grouped_abc:
+                key = (abc_val or "").strip() or "Others"
+                counter[key] += count
 
             pairs = sorted(counter.items(), key=lambda x: x[1], reverse=True)
             by_abc = {"labels": [p[0] for p in pairs], "values": [p[1] for p in pairs]}
         except Exception:
             pass
 
-        # -------------------------
-        # BY SYSTEM (Total Tagging by System)
-        # -------------------------
         by_system = {"labels": [], "values": []}
         try:
-            grouped_sys = Model.read_group(domain, ["id"], ["system_id"], lazy=False)
+            grouped_sys = Model._read_group(domain, groupby=["system_id"], aggregates=["__count"])
             counter = defaultdict(int)
-            for g in grouped_sys:
-                key = m2o_name(g.get("system_id"))
-                counter[key] += g.get("__count", 0)
+            for (system_rec,), count in grouped_sys:
+                key = system_rec.name if system_rec else "Others"
+                counter[key] += count
 
             pairs = sorted(counter.items(), key=lambda x: x[1], reverse=True)
             by_system = {"labels": [p[0] for p in pairs], "values": [p[1] for p in pairs]}
         except Exception:
             pass
 
-        # -------------------------
-        # BY PROBLEM (optional)
-        # -------------------------
         by_problem = {"labels": [], "values": []}
         if "category_problem_id" in Model._fields:
             try:
-                grouped_prob = Model.read_group(domain, ["id"], ["category_problem_id"], lazy=False)
-
+                grouped_prob = Model._read_group(domain, groupby=["category_problem_id"], aggregates=["__count"])
                 p_counter = defaultdict(int)
-                for g in grouped_prob:
-                    key = m2o_name(g.get("category_problem_id"))
-                    p_counter[key] += g.get("__count", 0)
+                for (prob_rec,), count in grouped_prob:
+                    key = prob_rec.name if prob_rec else "Others"
+                    p_counter[key] += count
 
                 p_pairs = sorted(p_counter.items(), key=lambda x: x[1], reverse=True)
                 by_problem = {
@@ -773,60 +707,43 @@ class TaggingRecord(models.Model):
                 }
             except Exception:
                 _logger.exception("Dashboard by_problem error")
-        # -------------------------
-        # TREEMAP: All -> ABC -> System  (biar mirip gambar)
-        # groupby: abc_indic + system_id
-        # node: {label=System, group=ABC, all_group="All", value=count}
-        # -------------------------
-        # -------------------------
-        # TREEMAP: ABC -> System
-        # -------------------------
+                
         treemap_nodes = []
         try:
-            grouped_tree = Model.read_group(domain, ["id"], ["abc_indic", "system_id"], lazy=False)
+            grouped_tree = Model._read_group(domain, groupby=["abc_indic", "system_id"], aggregates=["__count"])
             t_counter = defaultdict(int)
 
-            for g in grouped_tree:
-                abc_val = norm(g.get("abc_indic"))      # A/B/C/None -> Others
-                sys_name = m2o_name(g.get("system_id")) # INTAKE, WEIGHING, ...
-                t_counter[(abc_val, sys_name)] += g.get("__count", 0)
+            for (abc_val, system_rec), count in grouped_tree:
+                abc_key = (abc_val or "").strip() or "Others"
+                sys_name = system_rec.name if system_rec else "Others"
+                t_counter[(abc_key, sys_name)] += count
 
             treemap_nodes = [
                 {
-                    "group": abc_val,     # level 1
-                    "system": sys_name,   # level 2 (leaf)
+                    "group": abc_val,
+                    "system": sys_name,
                     "value": cnt,
                 }
                 for (abc_val, sys_name), cnt in t_counter.items()
             ]
-
             treemap_nodes.sort(key=lambda x: (x["group"], -x["value"], x["system"]))
         except Exception:
             pass
 
-
-        # -------------------------
-        # ABC TABLE (% closed & not closed based on ABC)
-        # groupby: abc_indic + status
-        # -------------------------
         abc_table = []
         try:
-            grouped_abc_status = Model.read_group(domain, ["id"], ["abc_indic", "status"], lazy=False)
+            grouped_abc_status = Model._read_group(domain, groupby=["abc_indic", "status"], aggregates=["__count"])
 
             agg = defaultdict(lambda: {"total": 0, "closed": 0})
-            for g in grouped_abc_status:
-                abc_val = norm(g.get("abc_indic"))
-                st_val = g.get("status")
-                cnt = g.get("__count", 0)
-
-                agg[abc_val]["total"] += cnt
-                if st_val == "closed":
-                    agg[abc_val]["closed"] += cnt
+            for (abc_val, status_val), count in grouped_abc_status:
+                abc_key = (abc_val or "").strip() or "Others"
+                agg[abc_key]["total"] += count
+                if status_val == "closed":
+                    agg[abc_key]["closed"] += count
 
             for abc_val, d in agg.items():
                 total_in_abc = d["total"]
                 closed_in_abc = d["closed"]
-
                 pct_c = (closed_in_abc / total_in_abc * 100.0) if total_in_abc else 0.0
                 pct_nc = (100.0 - pct_c) if total_in_abc else 0.0
 
@@ -841,29 +758,21 @@ class TaggingRecord(models.Model):
         except Exception:
             pass
 
-        # -------------------------
-        # NEW: GROUPING khusus A & B -> list System + count
-        # sesuai request kamu:
-        #   A: system apa saja & jumlahnya berapa
-        #   B: system apa saja & jumlahnya berapa
-        # -------------------------
         abc_system_grouping = {}
         try:
-            grouped_abcsys = Model.read_group(domain, ["id"], ["abc_indic", "system_id"], lazy=False)
+            grouped_abcsys = Model._read_group(domain, groupby=["abc_indic", "system_id"], aggregates=["__count"])
 
-            tmp = defaultdict(lambda: defaultdict(int))  # tmp[abc][system] = count
-            for g in grouped_abcsys:
-                abc_key = norm(g.get("abc_indic"))      # A/B/C/None -> "Others"
-                sys_name = m2o_name(g.get("system_id"))
-                tmp[abc_key][sys_name] += g.get("__count", 0)
+            tmp = defaultdict(lambda: defaultdict(int))
+            for (abc_val, system_rec), count in grouped_abcsys:
+                abc_key = (abc_val or "").strip() or "Others"
+                sys_name = system_rec.name if system_rec else "Others"
+                tmp[abc_key][sys_name] += count
 
-            # convert -> list & sort (desc)
             for abc_key, sys_map in tmp.items():
                 rows = [{"system": s, "count": c} for s, c in sys_map.items()]
                 rows.sort(key=lambda x: (-x["count"], x["system"]))
                 abc_system_grouping[abc_key] = rows
 
-            # optional: urutin key biar A,B,C dulu baru Others
             def key_order(k):
                 if k in ("A", "B", "C"):
                     return (0, k)
@@ -876,14 +785,11 @@ class TaggingRecord(models.Model):
         except Exception:
             pass
         
-        
         abc_system_grouping_items = [
             {"abc": k, "rows": v}
             for k, v in (abc_system_grouping or {}).items()
         ]
         
-        
-
         return {
             "kpi": {"open": open_count, "closed": closed_count, "total": total_count},
             "chart": {
@@ -900,15 +806,13 @@ class TaggingRecord(models.Model):
                 "pct_closed": round(pct_closed, 2),
                 "pct_not_valid": round(pct_not_valid, 2),
             },
-
             "by_abc": by_abc,
             "by_system": by_system,
             "by_problem": by_problem,
-
             "treemap_abc_system": treemap_nodes,
             "abc_table": abc_table,
             "abc_system_grouping": abc_system_grouping,
-            "abc_system_grouping_items": abc_system_grouping_items, 
+            "abc_system_grouping_items": abc_system_grouping_items,
         }
 
     @api.model
@@ -1290,10 +1194,16 @@ class TaggingRecord(models.Model):
         # mail.send(raise_exception=True)
         return True
     
-    def action_locked_spare_part(self):
+    def action_set_open_wo(self):
         for rec in self:
             if rec.status == 'validated':
+                if not rec.parent_equipment_id:
+                    raise UserError('Superord Equipment harus diisi!')
+                if not rec.equipment_id:
+                    raise UserError('Equipment harus diisi!')
+                if len(rec.wo_sparepart_ids) <= 0 or not rec.wo_sparepart_ids:
+                    raise UserError("Silahkan lakukan Set Spare Part terlebih dahulu untuk melakukan Open-Wo")
                 rec.is_locked = True
                 rec.status = 'open_wo'
             else:
-                raise UserError("Hanya bisa melakukan Locked pada status Validated saja!")
+                raise UserError("Hanya bisa melakukan Open-WO pada status Validated saja!")
