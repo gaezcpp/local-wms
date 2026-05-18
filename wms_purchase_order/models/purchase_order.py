@@ -221,14 +221,14 @@ class InheritPurchaseOrder(models.Model):
         icp = self.env['ir.config_parameter'].sudo()
         x_i_api_key = icp.get_param('x_i_api_key')
         ip_sap_rfc = icp.get_param('ip_sap_rfc')
-        query_purchase_sloc_to_sloc = icp.get_param('query_purchase_sloc_to_sloc')
+        query_purchase_sloc_to_sloc_sap = icp.get_param('query_purchase_sloc_to_sloc_sap')
 
         if not x_i_api_key:
             raise ValidationError("x_i_api_key belum disetting!")
         if not ip_sap_rfc:
             raise ValidationError("ip_sap_rfc belum disetting!")
-        if not query_purchase_sloc_to_sloc:
-            raise ValidationError("query_purchase_sloc_to_sloc belum disetting!")
+        if not query_purchase_sloc_to_sloc_sap:
+            raise ValidationError("query_purchase_sloc_to_sloc_sap belum disetting!")
 
         headers = {
             "x-i-api-key": str(x_i_api_key),
@@ -236,7 +236,7 @@ class InheritPurchaseOrder(models.Model):
         }
         url = f"{ip_sap_rfc}/api/v1/zfm-query-data"
         body = {
-            "I_QUERY": str(query_purchase_sloc_to_sloc),
+            "I_QUERY": str(query_purchase_sloc_to_sloc_sap),
             "I_MOD": "CRON cron_synhronize_purchase_sloc_to_sloc"
         }
 
@@ -285,7 +285,7 @@ class InheritPurchaseOrder(models.Model):
             trucknr = first.get('TRUCKNR')
             arrdate = first.get('ARRDATE')
             werks = first.get('WERKS')
-            sloc = first.get('SLOC')
+            sloc = first.get('KESLOC') or first.get('SLOCTO')
             
             company = company_model.search([('company_registry', '=', werks)], limit=1)
             if not company:

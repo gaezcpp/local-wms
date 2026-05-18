@@ -50,6 +50,7 @@
             action="tagging_system.action_tagging_pic"
             sequence="2"
             groups="base.group_no_one"
+            active="False"
         />
         <menuitem
             id="g_system_tagging_menu"

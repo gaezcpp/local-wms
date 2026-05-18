@@ -36,13 +36,36 @@ class InheritStockQuant(models.Model):
 
         return records
     
+    # def write(self, vals):
+    #     if self._skip_custom_logic():
+    #         return super().write(vals)
+
+    #     if 'product_id' in vals or 'quantity' in vals or 'inventory_quantity' in vals:
+    #         for rec in self:
+    #             rec._prepare_bag_pallet_vals(vals)
+
+    #     res = super().write(vals)
+    #     self._recompute_package_pallet_status()
+
+    #     return res
+    
     def write(self, vals):
         if self._skip_custom_logic():
             return super().write(vals)
 
         if 'product_id' in vals or 'quantity' in vals or 'inventory_quantity' in vals:
             for rec in self:
-                rec._prepare_bag_pallet_vals(vals)
+                merged_vals = dict(vals)
+                if 'product_id' not in merged_vals:
+                    merged_vals['product_id'] = rec.product_id.id
+                rec._prepare_bag_pallet_vals(merged_vals)
+                vals_to_write = {}
+                if 'bag_qty' in merged_vals:
+                    vals_to_write['bag_qty'] = merged_vals['bag_qty']
+                if 'pallet_qty' in merged_vals:
+                    vals_to_write['pallet_qty'] = merged_vals['pallet_qty']
+                if vals_to_write:
+                    vals.update(vals_to_write)
 
         res = super().write(vals)
         self._recompute_package_pallet_status()
@@ -83,6 +106,36 @@ class InheritStockQuant(models.Model):
             if pkg.pallet_status != pallet_status:
                 pkg.pallet_status = pallet_status
     
+    # def _prepare_bag_pallet_vals(self, vals):
+    #     product_id = vals.get('product_id')
+    #     quantity = vals.get('quantity')
+
+    #     if not product_id:
+    #         return vals
+
+    #     product = self.env['product.product'].sudo().browse(product_id)
+
+    #     qty = quantity if quantity is not None else 0.0
+
+    #     uom_bag = product.uom_bag_id
+    #     uom_pallet = product.uom_pallet_id
+
+    #     vals['uom_bag_id'] = uom_bag.id if uom_bag else False
+    #     vals['uom_pallet_id'] = uom_pallet.id if uom_pallet else False
+
+    #     if uom_bag and uom_bag.factor and qty:
+    #         vals['bag_qty'] = qty / (uom_bag.factor / 1000)
+
+    #         if uom_pallet and uom_pallet.factor:
+    #             vals['pallet_qty'] = qty / (uom_pallet.factor / 1000)
+    #         else:
+    #             vals['pallet_qty'] = 0.0
+    #     else:
+    #         vals['bag_qty'] = 0.0
+    #         vals['pallet_qty'] = 0.0
+
+    #     return vals
+    
     def _prepare_bag_pallet_vals(self, vals):
         product_id = vals.get('product_id')
         quantity = vals.get('quantity')
@@ -91,6 +144,7 @@ class InheritStockQuant(models.Model):
             return vals
 
         product = self.env['product.product'].sudo().browse(product_id)
+        product_uom = product.uom_id
 
         qty = quantity if quantity is not None else 0.0
 
@@ -100,11 +154,11 @@ class InheritStockQuant(models.Model):
         vals['uom_bag_id'] = uom_bag.id if uom_bag else False
         vals['uom_pallet_id'] = uom_pallet.id if uom_pallet else False
 
-        if uom_bag and uom_bag.factor and qty:
-            vals['bag_qty'] = qty / (uom_bag.factor / 1000)
+        if uom_bag and qty and product_uom:
+            vals['bag_qty'] = product_uom._compute_quantity(qty, uom_bag)
 
-            if uom_pallet and uom_pallet.factor:
-                vals['pallet_qty'] = qty / (uom_pallet.factor / 1000)
+            if uom_pallet:
+                vals['pallet_qty'] = product_uom._compute_quantity(qty, uom_pallet)
             else:
                 vals['pallet_qty'] = 0.0
         else:
@@ -132,14 +186,12 @@ class InheritStockQuant(models.Model):
                 line.inventory_quantity = 0.0
                 continue
             print("BAG DUMMY", line)
-            # line.inventory_quantity = line.bag_dummy_qty * line.uom_bag_id.relative_factor
             line.inventory_quantity = line.bag_dummy_qty * (line.uom_bag_id.factor / 1000)
     
     @api.depends('inventory_quantity', 'uom_pallet_id')
     def _compute_pallet_dummy_qty(self):
         for line in self:
             if line.inventory_quantity and line.uom_pallet_id:
-                # line.pallet_dummy_qty = line.bag_dummy_qty / line.uom_pallet_id.relative_factor
                 line.pallet_dummy_qty = line.inventory_quantity / (line.uom_pallet_id.factor / 1000)
             else:
                 line.pallet_dummy_qty = 0.0

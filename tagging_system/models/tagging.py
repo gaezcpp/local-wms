@@ -265,7 +265,6 @@ class TaggingRecord(models.Model):
             parent_code = getattr(rec.parent_equipment_id, "functional_location_code", False) or ""
             equip_code = getattr(rec.equipment_id, "functional_location_code", False) or ""
             rec.functional_location_code = parent_code or equip_code or ""
-
             
     @api.onchange("equipment_id")
     def _onchange_equipment_id_reset_sparepart(self):
@@ -277,7 +276,6 @@ class TaggingRecord(models.Model):
             domain = [("id", "in", product_ids)] if product_ids else [("id", "=", 0)]
 
         return {"domain": {"sparepart_product_id": domain}}
-
 
     @api.onchange("barcode_id", "maintenance_team_id")
     def _onchange_barcode_id_parent_equipment_domain(self):
@@ -443,7 +441,6 @@ class TaggingRecord(models.Model):
             "target": "new",
             "context": ctx,
         }
-
     
     def _resolve_system_name(self, system_code):
         if not system_code:
@@ -459,14 +456,16 @@ class TaggingRecord(models.Model):
         for rec in self:
             if rec.status == "closed":
                 continue
-
             if rec.status not in ("validated", "open_wo"):
                 raise UserError(_("Close hanya bisa setelah Validated / Open - WO."))
-
-            if not rec.close_photo:
-                raise UserError(_("Photo Close wajib diupload sebelum Close."))
+            if not rec.close_start_date:
+                raise UserError('Close Start Date harus diisi!')
+            if not rec.close_end_date:
+                raise UserError('Close End Date harus diisi!')
             if not rec.close_description:
                 raise UserError(_("Deskripsi Close wajib diisi sebelum Close."))
+            if not rec.close_photo:
+                raise UserError(_("Photo Close wajib diupload sebelum Close."))
 
             vals = {
                 "status": "closed",
@@ -497,6 +496,10 @@ class TaggingRecord(models.Model):
 
             # if not rec.start_date:
             #     vals["start_date"] = rec.end_date
+            
+            if rec.status == 'validated':
+                rec.wo_sparepart_ids.sudo().unlink()
+                rec.message_post(body=f"Sparepart dihapus karena menggunakan proses CILT")
 
             super(TaggingRecord, rec).write(vals)
 
@@ -505,9 +508,7 @@ class TaggingRecord(models.Model):
             except Exception as e:
                 _logger.exception("Gagal kirim email close untuk %s", rec.name)
 
-
         return True
-
 
     def action_open_reject_wizard(self):
         self.ensure_one()
@@ -522,9 +523,6 @@ class TaggingRecord(models.Model):
             "context": {"default_record_id": self.id},
         }
 
-    # =========================
-    # CREATE SEQUENCE
-    # =========================
     @api.model_create_multi
     def create(self, vals_list):
         seq = self.env["ir.sequence"]
@@ -562,18 +560,10 @@ class TaggingRecord(models.Model):
             }
         }
 
-
-    # -------------------------
-    # Helpers
-    # -------------------------
     def _m2o_name(self, v, default="Others"):
         if isinstance(v, (list, tuple)) and len(v) >= 2:
             return v[1] or default
         return v or default
-
-    # =========================
-    # DASHBOARD
-    # =========================
  
     @api.model
     def get_dashboard_stats(self, payload=None):
@@ -581,9 +571,6 @@ class TaggingRecord(models.Model):
         Model = self.sudo()
         domain = []
 
-        company = self.env.company
-        if company:
-            domain.append(('company_id', '=', company.id))
         plant = payload.get("plant_code")
         if plant:
             domain.append(("plant_code", "=", plant))
@@ -595,7 +582,7 @@ class TaggingRecord(models.Model):
         dr = (payload.get("date_range") or "today").strip()
         date_from = (payload.get("date_from") or "").strip()
         date_to   = (payload.get("date_to") or "").strip()
-        
+
         now = fields.Datetime.now()
 
         def dt_str(dt):
@@ -644,11 +631,11 @@ class TaggingRecord(models.Model):
             return s if s else "Others"
 
         def m2o_name(v, default="Others"):
+            # read_group M2O result = (id, name) atau False
             if isinstance(v, (list, tuple)) and len(v) >= 2:
                 return v[1] or default
             return default
 
-        # open_count = Model.search_count(domain + [("status", "=", "open")])
         open_count = Model.search_count(domain + [("status", "=", "rejected")])
         closed_count = Model.search_count(domain + [("status", "=", "closed")])
         total_count = Model.search_count(domain)
@@ -658,20 +645,21 @@ class TaggingRecord(models.Model):
 
         status_map = {k: 0 for k in ["open", "validated", "open_wo", "closed"]}
         try:
-            grouped_status = Model._read_group(domain, groupby=["status"], aggregates=["__count"])
-            for (status_val,), count in grouped_status:
-                if status_val in status_map:
-                    status_map[status_val] = count
+            grouped_status = Model.read_group(domain, ["id"], ["status"], lazy=False)
+            for g in grouped_status:
+                st_val = g.get("status")
+                if st_val in status_map:
+                    status_map[st_val] = g.get("__count", 0)
         except Exception:
             pass
 
         by_abc = {"labels": [], "values": []}
         try:
-            grouped_abc = Model._read_group(domain, groupby=["abc_indic"], aggregates=["__count"])
+            grouped_abc = Model.read_group(domain, ["id"], ["abc_indic"], lazy=False)
             counter = defaultdict(int)
-            for (abc_val,), count in grouped_abc:
-                key = (abc_val or "").strip() or "Others"
-                counter[key] += count
+            for g in grouped_abc:
+                key = norm(g.get("abc_indic"))
+                counter[key] += g.get("__count", 0)
 
             pairs = sorted(counter.items(), key=lambda x: x[1], reverse=True)
             by_abc = {"labels": [p[0] for p in pairs], "values": [p[1] for p in pairs]}
@@ -680,11 +668,11 @@ class TaggingRecord(models.Model):
 
         by_system = {"labels": [], "values": []}
         try:
-            grouped_sys = Model._read_group(domain, groupby=["system_id"], aggregates=["__count"])
+            grouped_sys = Model.read_group(domain, ["id"], ["system_id"], lazy=False)
             counter = defaultdict(int)
-            for (system_rec,), count in grouped_sys:
-                key = system_rec.name if system_rec else "Others"
-                counter[key] += count
+            for g in grouped_sys:
+                key = m2o_name(g.get("system_id"))
+                counter[key] += g.get("__count", 0)
 
             pairs = sorted(counter.items(), key=lambda x: x[1], reverse=True)
             by_system = {"labels": [p[0] for p in pairs], "values": [p[1] for p in pairs]}
@@ -694,11 +682,11 @@ class TaggingRecord(models.Model):
         by_problem = {"labels": [], "values": []}
         if "category_problem_id" in Model._fields:
             try:
-                grouped_prob = Model._read_group(domain, groupby=["category_problem_id"], aggregates=["__count"])
+                grouped_prob = Model.read_group(domain, ["id"], ["category_problem_id"], lazy=False)
                 p_counter = defaultdict(int)
-                for (prob_rec,), count in grouped_prob:
-                    key = prob_rec.name if prob_rec else "Others"
-                    p_counter[key] += count
+                for g in grouped_prob:
+                    key = m2o_name(g.get("category_problem_id"))
+                    p_counter[key] += g.get("__count", 0)
 
                 p_pairs = sorted(p_counter.items(), key=lambda x: x[1], reverse=True)
                 by_problem = {
@@ -707,21 +695,19 @@ class TaggingRecord(models.Model):
                 }
             except Exception:
                 _logger.exception("Dashboard by_problem error")
-                
         treemap_nodes = []
         try:
-            grouped_tree = Model._read_group(domain, groupby=["abc_indic", "system_id"], aggregates=["__count"])
+            grouped_tree = Model.read_group(domain, ["id"], ["abc_indic", "system_id"], lazy=False)
             t_counter = defaultdict(int)
-
-            for (abc_val, system_rec), count in grouped_tree:
-                abc_key = (abc_val or "").strip() or "Others"
-                sys_name = system_rec.name if system_rec else "Others"
-                t_counter[(abc_key, sys_name)] += count
+            for g in grouped_tree:
+                abc_val = norm(g.get("abc_indic"))      # A/B/C/None -> Others
+                sys_name = m2o_name(g.get("system_id")) # INTAKE, WEIGHING, ...
+                t_counter[(abc_val, sys_name)] += g.get("__count", 0)
 
             treemap_nodes = [
                 {
-                    "group": abc_val,
-                    "system": sys_name,
+                    "group": abc_val,     # level 1
+                    "system": sys_name,   # level 2 (leaf)
                     "value": cnt,
                 }
                 for (abc_val, sys_name), cnt in t_counter.items()
@@ -732,21 +718,21 @@ class TaggingRecord(models.Model):
 
         abc_table = []
         try:
-            grouped_abc_status = Model._read_group(domain, groupby=["abc_indic", "status"], aggregates=["__count"])
-
+            grouped_abc_status = Model.read_group(domain, ["id"], ["abc_indic", "status"], lazy=False)
             agg = defaultdict(lambda: {"total": 0, "closed": 0})
-            for (abc_val, status_val), count in grouped_abc_status:
-                abc_key = (abc_val or "").strip() or "Others"
-                agg[abc_key]["total"] += count
-                if status_val == "closed":
-                    agg[abc_key]["closed"] += count
+            for g in grouped_abc_status:
+                abc_val = norm(g.get("abc_indic"))
+                st_val = g.get("status")
+                cnt = g.get("__count", 0)
+                agg[abc_val]["total"] += cnt
+                if st_val == "closed":
+                    agg[abc_val]["closed"] += cnt
 
             for abc_val, d in agg.items():
                 total_in_abc = d["total"]
                 closed_in_abc = d["closed"]
                 pct_c = (closed_in_abc / total_in_abc * 100.0) if total_in_abc else 0.0
                 pct_nc = (100.0 - pct_c) if total_in_abc else 0.0
-
                 abc_table.append({
                     "abc": abc_val,
                     "total": total_in_abc,
@@ -760,13 +746,13 @@ class TaggingRecord(models.Model):
 
         abc_system_grouping = {}
         try:
-            grouped_abcsys = Model._read_group(domain, groupby=["abc_indic", "system_id"], aggregates=["__count"])
+            grouped_abcsys = Model.read_group(domain, ["id"], ["abc_indic", "system_id"], lazy=False)
 
             tmp = defaultdict(lambda: defaultdict(int))
-            for (abc_val, system_rec), count in grouped_abcsys:
-                abc_key = (abc_val or "").strip() or "Others"
-                sys_name = system_rec.name if system_rec else "Others"
-                tmp[abc_key][sys_name] += count
+            for g in grouped_abcsys:
+                abc_key = norm(g.get("abc_indic"))
+                sys_name = m2o_name(g.get("system_id"))
+                tmp[abc_key][sys_name] += g.get("__count", 0)
 
             for abc_key, sys_map in tmp.items():
                 rows = [{"system": s, "count": c} for s, c in sys_map.items()]
@@ -812,7 +798,7 @@ class TaggingRecord(models.Model):
             "treemap_abc_system": treemap_nodes,
             "abc_table": abc_table,
             "abc_system_grouping": abc_system_grouping,
-            "abc_system_grouping_items": abc_system_grouping_items,
+            "abc_system_grouping_items": abc_system_grouping_items, 
         }
 
     @api.model
@@ -1205,5 +1191,14 @@ class TaggingRecord(models.Model):
                     raise UserError("Silahkan lakukan Set Spare Part terlebih dahulu untuk melakukan Open-Wo")
                 rec.is_locked = True
                 rec.status = 'open_wo'
+                
+                if rec.close_start_date:
+                    rec.close_start_date = False
+                if rec.close_end_date:
+                    rec.close_end_date = False
+                if rec.close_description:
+                    rec.close_description = False
+                if rec.close_photo:
+                    rec.close_photo = False
             else:
                 raise UserError("Hanya bisa melakukan Open-WO pada status Validated saja!")

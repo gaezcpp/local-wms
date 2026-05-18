@@ -141,10 +141,8 @@ class InheritBaseStockMoveLine(models.Model):
                 lot = rec._get_or_create_lot()
                 if lot:
                     rec.lot_id = lot.id
-                    rec.stock_type = lot.stock_type
                     rec._create_update_lot_aft()
         return records
-
 
     def write(self, vals):
         res = super().write(vals)
@@ -169,11 +167,65 @@ class InheritBaseStockMoveLine(models.Model):
             elif self.move_id and self.move_id.picking_id:
                 picking = self.move_id.picking_id
             return picking and picking.picking_type_id.move_type_sap == str(prod_in_move_type)
-        
-    @api.onchange('lot_id')
-    def _onchange_lot_id_stock_type(self):
-        for rec in self:
-            if rec.lot_id and rec.lot_id.stock_type:
-                rec.stock_type = rec.lot_id.stock_type
-            else:
-                rec.stock_type = 'QI'
+    
+    # untuk stock.lot.aft ngurangin yang UU
+    def _action_done(self):
+        for line in self:
+            picking_type = line.picking_id.picking_type_code
+            if picking_type == 'outgoing' and line.lot_id:
+                lot = line.lot_id
+
+                qty_to_reduce = line.qty_done
+                bag_to_reduce = line.bag_qty
+
+                if not bag_to_reduce:
+                    product_uom = line.product_id.uom_id
+                    uom_bag = line.product_id.uom_bag_id
+                    if product_uom and uom_bag:
+                        bag_to_reduce = product_uom._compute_quantity(qty_to_reduce, uom_bag)
+
+                aft_uu_lines = lot.lot_aft_ids.filtered(
+                    lambda a: a.stock_type == 'UU' and (a.quantity > 0 or a.bag_qty > 0)
+                )
+
+                remaining_qty = qty_to_reduce
+                remaining_bag = bag_to_reduce
+
+                for aft in aft_uu_lines:
+                    if remaining_qty <= 0 and remaining_bag <= 0:
+                        break
+
+                    deduct_qty = 0
+                    deduct_bag = 0
+
+                    if remaining_qty > 0:
+                        deduct_qty = min(aft.quantity, remaining_qty)
+                        aft.quantity -= deduct_qty
+                        remaining_qty -= deduct_qty
+
+                    if remaining_bag > 0:
+                        deduct_bag = min(aft.bag_qty, remaining_bag)
+                        aft.bag_qty -= deduct_bag
+                        remaining_bag -= deduct_bag
+
+                    lot.message_post(
+                        body=(
+                            f"Updated from {line.picking_id.name}: "
+                            f"Quantity -{deduct_qty} {aft.uom_id.name or ''} → Remaining {aft.quantity} {aft.uom_id.name or ''} | "
+                            f"Bag Qty -{deduct_bag} {aft.uom_bag_id.name or ''} → Remaining {aft.bag_qty} {aft.uom_bag_id.name or ''}"
+                        )
+                    )
+                    
+            po_sap_id = line.picking_id.po_sap_id
+            if not po_sap_id:
+                continue
+
+            quants = self.env['stock.quant'].sudo().search([
+                ('product_id', '=', line.product_id.id),
+                ('location_id', '=', line.location_dest_id.id),
+                ('lot_id', '=', line.lot_id.id if line.lot_id else False),
+                ('package_id', '=', line.result_package_id.id if line.result_package_id else False),
+            ])
+            quants.write({'po_sap_id': po_sap_id.id})
+
+        return super()._action_done()

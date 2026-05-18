@@ -60,6 +60,9 @@ class InheritBaseStockPicking(models.Model):
 
             if prod_shift:
                 picking.production_shift_id = prod_shift.id
+            
+            if picking.po_sap_id and picking.po_sap_id.state == 'open':
+                picking.po_sap_id.state = 'in_progress'
         return res
 
     def button_validate(self):

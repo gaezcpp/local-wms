@@ -6,7 +6,7 @@
         <field name="arch" type="xml">
             <form string="Set SLOC Packaging">
                 <group>
-                    <field name="sloc_id" required="1"/>
+                    <field name="sloc_id" required="1" options="{'no_open': True, 'no_create': True}"/>
                 </group>
                 <footer>
                     <button name="action_apply" type="object" string="Apply" class="btn-primary" confirm="Yakin SLOC Sudah sesuai?"/>

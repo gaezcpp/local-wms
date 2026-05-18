@@ -1,13 +1,13 @@
 {
-    'name': "WMS Production Order",
+    'name': "Cron Logging",
 
-    'summary': "Production Order SAP",
+    'summary': "Cron Logging",
 
     'description': """
 Long description of module's purpose
     """,
 
-    'author': "Mr Gaez",
+    'author': "MrGaez",
     'website': "https://www.cpp.co.id",
 
     # Categories can be used to filter modules in modules listing
@@ -18,17 +18,13 @@ Long description of module's purpose
     'license': 'LGPL-3',
 
     # any module necessary for this one to work correctly
-    'depends': ['base', 'stock', 'wms_base_company'],
+    'depends': ['base'],
 
     # always loaded
     'data': [
         'security/ir.model.access.csv',
-        'data/parameter.xml',
-        'data/cron.xml',
-        'views/production_order_sap_views.xml',
-        'views/stock_picking_views.xml',
-        'views/stock_quant_views.xml',
-        'views/menuitem.xml',
+        'views/cron_logging_views.xml',
+        'views/templates.xml',
     ],
 }
 

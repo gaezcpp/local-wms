@@ -1,0 +1,68 @@
+<?xml version='1.0' encoding='utf-8'?>
+<odoo>
+    <!-- Search View -->
+    <record model="ir.ui.view" id="cron_logging_search">
+        <field name="name">cron.logging.search</field>
+        <field name="model">cron.logging</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="cron_id"/>
+                <field name="model_id"/>
+                <group>
+                    <filter name="gr_cron" string="Cron" context="{'group_by':'cron_id'}"/>
+                    <filter name="gr_model" string="Model" context="{'group_by':'model_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="cron_logging_view_list" model="ir.ui.view">
+        <field name="name">cron_logging.view.list</field>
+        <field name="model">cron.logging</field>
+        <field name="arch" type="xml">
+            <list string="Cron Logging">
+                <field name="name"/>
+                <field name="cron_id"/>
+                <field name="model_id"/>
+                <field name="messages"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="cron_logging_view_form" model="ir.ui.view">
+        <field name="name">cron_logging.view.form</field>
+        <field name="model">cron.logging</field>
+        <field name="arch" type="xml">
+            <form string="Cron Logging">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="cron_id"/>
+                            <field name="model_id"/>
+                        </group>
+                    </group>
+                    <group>
+                        <div style="max-height: 200px; overflow: auto;">
+                            <field name="messages" readonly="1"/>
+                        </div>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="cron_logging_action" model="ir.actions.act_window">
+        <field name="name">Cron Logging</field>
+        <field name="res_model">cron.logging</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem
+        id="cron_logging_menu"
+        name="Cron Logging (Scheduled Actions Logging)"
+        parent="base.menu_automation"
+        action="cron_logging_action"
+    />
+</odoo>

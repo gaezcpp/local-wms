@@ -24,7 +24,7 @@ class CategoryProblem(models.Model):
     system_code = fields.Char(string="Sys Code", related="system_id.code", store=True, readonly=True)
     subsystem_code = fields.Char(string="Sub Code", related="subsystem_id.code", store=True, readonly=True)
 
-    cat_masalah = fields.Char(string="Category Masalah", required=True)
+    cat_masalah = fields.Char(string="Category Masalah")
     problem_id = fields.Many2one(comodel_name='tagging.problem', string="Problem", required=True)
     active = fields.Boolean(default=True)
     

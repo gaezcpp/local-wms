@@ -196,6 +196,7 @@
                     <textarea class="form-control"
                       name="description"
                       rows="4"
+                      required="required" 
                       t-att-disabled="'disabled' if not barcode else None"
                       placeholder="Tuliskan detail temuan, lokasi, kondisi, dan tindakan sementara (jika ada)"></textarea>
                   </div>

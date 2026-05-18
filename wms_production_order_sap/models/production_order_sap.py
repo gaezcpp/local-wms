@@ -23,12 +23,14 @@ class ProductionOrderSAP(models.Model):
     company_id = fields.Many2one(comodel_name='res.company', string="Company", default=lambda self: self.env.company, tracking=True)
     state = fields.Selection([
         ('open', 'Open'),
+        ('in_progress', 'In Progress'),
         ('teco', 'TECO'),
         ('closed', 'Closed'),
     ], string="Status", default='open', tracking=True)
     created_user = fields.Char(string="Created By", tracking=True)
     status_teco = fields.Char(string="TECO Status", tracking=True)
     sap_pp = fields.Boolean(string="SAP PP", default=False)
+    active = fields.Boolean(string="Active", default=True)
     
     @api.model
     def cron_synchronize_sap_production_order(self):
@@ -120,6 +122,7 @@ class ProductionOrderSAP(models.Model):
             order_qty = float(data.get('GAMNG')) or 0.0
             created_user = data.get('ERNAM') or ''
             teco_status = data.get('TECO_STATUS') or ''
+            loekz = (data.get('LOEKZ') or '').strip()
             
             vals = {
                 'po_number': po_number,
@@ -134,6 +137,7 @@ class ProductionOrderSAP(models.Model):
                 'status_teco': teco_status,
                 'created_user': created_user,
                 'sap_pp': True,
+                'active': loekz != 'X',
             }
             
             existing_po_sap = po_sap.search([('po_number', '=', po_number)], limit=1)

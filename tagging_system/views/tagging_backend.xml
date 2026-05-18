@@ -58,7 +58,7 @@
           <button name="action_validate" type="object" string="Validate" class="btn-primary" invisible="status != 'open'" confirm="Are you sure that everything is already correct?"/>
           <button name="action_open_reject_wizard" type="object" string="Reject" class="btn-secondary" invisible="status != 'open'" />
           <!-- <button name="action_set_wo" type="object" string="Set Spare Part" class="btn-success" invisible="is_locked or status != 'validated'" /> -->
-          <button name="action_set_open_wo" type="object" string="Set Open-WO" class="btn-info" invisible="is_locked or status in ('open_wo')" confirm="Are you sure that everything is already correct?"/>
+          <button name="action_set_open_wo" type="object" string="Set Open-WO" class="btn-info" invisible="is_locked or status not in ('validated')" confirm="Are you sure that everything is already correct?"/>
           <button name="action_set_closed" type="object" string="Set Closed" class="btn-primary" invisible="status not in ('validated', 'open_wo')" confirm="Are you sure that everything is already correct?"/>
         </header>
         <sheet readonly="status == 'closed'">
@@ -89,12 +89,15 @@
           <group name="tag_categ" string="Category Problem">
             <field name="category_problem_id" readonly="1" options="{'no_open': True, 'no_create': True}"/>
           </group>
+          <group name="reject_info" string="Reject Information" invisible="status != 'rejected'">
+            <field name="reject_reason" readonly="1" invisible="status != 'rejected'"/>
+          </group>
           <group name="tag_equipment" string="Equipment" invisible="status not in ('validated','open_wo','closed')">
             <field name="system_id" invisible="1" options="{'no_open': True, 'no_create': True}"/>
             <field name="sub_system_id" invisible="1" options="{'no_open': True, 'no_create': True}"/>
             <field name="functional_location" invisible="1" />
-            <field name="parent_equipment_id" options="{'no_open': True, 'no_create': True}" />
-            <field name="equipment_id" options="{'no_open': True, 'no_create': True}" readonly="not parent_equipment_id" />
+            <field name="parent_equipment_id" options="{'no_open': True, 'no_create': True}" readonly="status not in ('open', 'validated')"/>
+            <field name="equipment_id" options="{'no_open': True, 'no_create': True}" readonly="not parent_equipment_id or status not in ('open', 'validated')" />
           </group>
           <br/>
           <button name="action_set_wo" type="object" string="Set Spare Part" class="btn-success" invisible="is_locked or status != 'validated'"/>
@@ -107,6 +110,9 @@
                 <field name="qty" string="Jumlah" />
                 <field name="remarks" readonly="1" />
               </list>
+              <form>
+                <field name="spare_part_id" context="{'display_name_only': 1}" options="{'no_open': True, 'no_create': True}" />
+              </form>
             </field>
           </group>
           <group>
@@ -124,23 +130,16 @@
               <group string="Close Evidence" invisible="status not in ('validated','open_wo','closed')">
                   <field name="close_start_date" 
                         string="Work Start Date" 
-                        readonly="status == 'closed'" 
-                        required="status in ('validated','open_wo','closed')"/>
-                        
+                        readonly="status == 'closed'" />
                   <field name="close_end_date" 
                         string="Work End Date" 
-                        readonly="status == 'closed'" 
-                        required="status in ('validated','open_wo','closed')"/>
-                        
+                        readonly="status == 'closed'" />
                   <field name="close_description" 
-                        readonly="status == 'closed'" 
-                        required="status in ('validated','open_wo','closed')"/>
-                        
+                        readonly="status == 'closed'" />
                   <field name="close_photo" 
                         widget="image" 
                         filename="close_photo_filename" 
                         readonly="status == 'closed'"/>
-                        
                   <field name="close_photo_filename" invisible="1"/>
               </group>
           </group>

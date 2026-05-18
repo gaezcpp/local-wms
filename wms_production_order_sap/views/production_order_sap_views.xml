@@ -12,6 +12,7 @@
                 <field name="company_id"/>
                 <field name="state"/>
                 <filter name="fl_open" string="Open" domain="[('state','=', 'open')]"/>
+                <filter name="fl_archived" string="Archived" domain="[('active','=', False)]"/>
             </search>
         </field>
     </record>
@@ -43,11 +44,6 @@
                     <field name="state" widget="statusbar"/>
                 </header>
                 <sheet>
-                    <!-- <div class="oe_button_box" name="button_box">
-                        <button name="action_smart_button_debt_line" type="object" class="oe_stat_button" icon="fa-tint">
-                            <field name="debt_line_count" string="Debts" widget="statinfo"/>
-                        </button>
-                    </div> -->
 					<label for="po_number" class="oe_edit_only"/>
                     <h1>
                         <field name="po_number" force_save="1" readonly="1"/>

@@ -33,86 +33,6 @@ class QualityPackages(models.Model):
                 vals['name'] = self.env['ir.sequence'].next_by_code('quality.packages') or _('New')
         return super().create(vals_list)
     
-    # @api.onchange('company_id')
-    # def _onchange_company_id(self):
-    #     for rec in self:
-    #         rec.product_id = False
-    #         rec.lot_id = False
-    #         rec.location_id = False
-    #         rec.action_aft_id = False
-
-    # @api.onchange('product_id')
-    # def _onchange_product_id(self):
-    #     for rec in self:
-    #         rec.lot_id = False
-    #         rec.location_id = False
-    #         rec.action_aft_id = False
-
-    # @api.onchange('lot_id')
-    # def _onchange_lot_id(self):
-    #     for rec in self:
-    #         rec.product_id = False
-    #         rec.location_id = False
-    #         rec.action_aft_id = False
-    
-    # def check_availability(self):
-    #     quant_model = self.env['stock.quant'].sudo()
-    #     quality_line_model = self.env['quality.packages.line'].sudo()
-
-    #     for rec in self:
-    #         if rec.state != 'draft':
-    #             continue
-
-    #         rec.quality_line_ids.sudo().unlink()
-    #         rec.quality_summary_line_ids.sudo().unlink()
-
-    #         domain = [
-    #             ('company_id', '=', rec.company_id.id),
-    #             ('location_id.usage', '=', 'internal'),
-    #         ]
-    #         if rec.product_id:
-    #             domain.append(('product_id', '=', rec.product_id.id))
-    #         if rec.lot_id:
-    #             domain.append(('lot_id', '=', rec.lot_id.id))
-    #         if rec.location_id:
-    #             domain.append(('location_id', '=', rec.location_id.id))
-
-    #         quants = quant_model.search(domain)
-    #         if not quants:
-    #             raise ValidationError("Packages tidak ditemukan!")
-
-    #         for quant in quants:
-    #             if not quant.lot_id:
-    #                 continue
-
-    #             if rec.action_aft_id and rec.action_aft_id.stock_type_from:
-    #                 matching_aft = quant.lot_id.lot_aft_ids.filtered(lambda la: la.stock_type == rec.action_aft_id.stock_type_from)
-    #                 if not matching_aft:
-    #                     continue
-
-    #                 quantity = matching_aft[0].quantity
-    #                 bag_qty = matching_aft[0].bag_qty
-    #                 uom_id = matching_aft[0].uom_id.id or quant.product_uom_id.id
-    #                 uom_bag_id = matching_aft[0].uom_bag_id.id or quant.uom_bag_id.id
-    #             else:
-    #                 quantity = quant.quantity
-    #                 bag_qty = quant.bag_qty
-    #                 uom_id = quant.product_uom_id.id
-    #                 uom_bag_id = quant.uom_bag_id.id
-
-    #             quality_line_model.create({
-    #                 'quality_packages_id': rec.id,
-    #                 'package_id': quant.package_id.id or False,
-    #                 'location_id': quant.location_id.id,
-    #                 'lot_id': quant.lot_id.id,
-    #                 'quantity': quantity,
-    #                 'uom_id': uom_id,
-    #                 'bag_qty': bag_qty,
-    #                 'uom_bag_id': uom_bag_id,
-    #             })
-
-    #         rec.is_checked = True
-    
     def check_availability(self):
         quant_model = self.env['stock.quant'].sudo()
         quality_line_model = self.env['quality.packages.line'].sudo()
@@ -133,9 +53,8 @@ class QualityPackages(models.Model):
             if rec.lot_id:
                 domain.append(('lot_id', '=', rec.lot_id.id))
             if rec.location_id:
-                domain.append(('location_id', '=', rec.location_id.id))
+                domain.append(('location_id', 'child_of', rec.location_id.id))
 
-            # Filter langsung di domain jika action_aft_id diset
             if rec.action_aft_id and rec.action_aft_id.stock_type_from:
                 domain.append(('stock_type', '=', rec.action_aft_id.stock_type_from))
 
@@ -175,63 +94,6 @@ class QualityPackages(models.Model):
                 rec.state = 'in_progress'
             else:
                 raise ValidationError("Hanya bisa ke In Progress jika Status Draft dan sudah Check Availability")
-            
-    # def action_done(self):
-    #     for rec in self:
-    #         if not rec.action_aft_id:
-    #             raise ValidationError("Action belum dipilih!")
-
-    #         selected_lines = rec.quality_line_ids.filtered(lambda l: l.is_selected and l.lot_id)
-    #         if not selected_lines:
-    #             raise ValidationError("Tidak ada Packages yang dipilih atau Packages yang dipilih Lotnya kosong!")
-
-    #         stock_type_from = rec.action_aft_id.stock_type_from
-    #         stock_type_to = rec.action_aft_id.stock_type_to
-
-    #         for line in selected_lines:
-    #             lot = line.lot_id
-    #             aft_from = lot.lot_aft_ids.filtered(lambda la: la.stock_type == stock_type_from)
-    #             aft_to = lot.lot_aft_ids.filtered(lambda la: la.stock_type == stock_type_to)
-                
-    #             if not aft_from:
-    #                 aft_from = self.env['stock.lot.aft'].sudo().create({
-    #                     'lot_id': lot.id,
-    #                     'stock_type': stock_type_from,
-    #                     'quantity': 0,
-    #                     'bag_qty': 0,
-    #                     'uom_id': line.uom_id.id or False,
-    #                     'uom_bag_id': line.uom_bag_id.id or False,
-    #                 })
-
-    #             if not aft_to:
-    #                 aft_to = self.env['stock.lot.aft'].sudo().create({
-    #                     'lot_id': lot.id,
-    #                     'stock_type': stock_type_to,
-    #                     'quantity': 0,
-    #                     'bag_qty': 0,
-    #                     'uom_id': line.uom_id.id or False,
-    #                     'uom_bag_id': line.uom_bag_id.id or False,
-    #                 })
-
-    #             total_quantity = aft_from.quantity
-    #             total_bag_qty = aft_from.bag_qty
-
-    #             aft_from.write({
-    #                 'quantity': 0,
-    #                 'bag_qty': 0,
-    #             })
-
-    #             aft_to.write({
-    #                 'quantity': aft_to.quantity + total_quantity,
-    #                 'bag_qty': aft_to.bag_qty + total_bag_qty,
-    #             })
-
-    #             lot.message_post(
-    #                 body=f"Stock Lot AFT Updated from {rec.name}: {stock_type_from} -{total_quantity} → {stock_type_to} +{total_quantity}"
-    #             )
-
-    #         rec.state = 'done'
-    #     self._create_summary_line()
     
     def action_done(self):
         for rec in self:
