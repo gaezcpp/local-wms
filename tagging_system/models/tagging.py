@@ -237,6 +237,7 @@ class TaggingRecord(models.Model):
     department_id = fields.Many2one(comodel_name='tagging.department', string="Department")
     is_locked = fields.Boolean(string="Is Locked", default=False)
     company_id = fields.Many2one(comodel_name='res.company', string="Company", default=lambda self: self.env.company)
+    close_reason = fields.Text(string="Close Reason")
 
     # =========================
     # HARD LOCK WHEN CLOSED

@@ -519,60 +519,6 @@ class InheritSaleOrderSAP(models.Model):
             if picking:
                 picking.button_validate()
                 
-    @api.model
-    def cron_synchronize_sap_flag_do_sap(self):
-        icp = self.env['ir.config_parameter'].sudo()
-        x_i_api_key = icp.get_param('x_i_api_key')
-        ip_sap_rfc = icp.get_param('ip_sap_rfc')
-        query_update_flag_do_sap = icp.get_param('query_update_flag_do_sap')
-        if not x_i_api_key:
-            raise ValidationError("x_i_api_key belum disetting!")
-        if not ip_sap_rfc:
-            raise ValidationError("ip_sap_rfc belum disetting!")
-        if not query_update_flag_do_sap:
-            raise ValidationError("query_update_flag_do_sap belum disetting!")
-
-        headers = {
-            "x-i-api-key": str(x_i_api_key),
-            "Content-Type": "application/json"
-        }
-
-        url = f"{ip_sap_rfc}/api/v1/zfm-query-data"
-
-        so_model = self.env['sale.order'].sudo()
-
-        vbeln_list = [
-            (so.do_sap or '').strip().replace("'", "''")
-            for so in so_model.search([('do_sap', '!=', False)])
-            if so.do_sap
-        ]
-
-        if not vbeln_list:
-            return True
-        
-        vbeln_str = ",".join(f"'{v}'" for v in set(vbeln_list))
-        query = query_update_flag_do_sap.format(vbeln=vbeln_str)
-        body = {
-            "I_QUERY": query,
-            "I_MOD": "CRON cron_synchronize_sap_flag_do_sap"
-        }
-
-        try:
-            response = requests.post(url=url, headers=headers, data=json.dumps(body), timeout=120)
-        except Exception as e:
-            raise ValidationError(str(e))
-
-        if response.status_code != 200:
-            raise ValidationError(f"{response.status_code} | {response.text}")
-
-        res = response.json()
-        if res.get('error'):
-            raise ValidationError(json.dumps(res.get('error')))
-        if not res.get('success'):
-            _logger.info("CRON cron_synchronize_sap_flag_do_sap NOT SUCCESS")
-            return True
-
-        _logger.info(f"FLAG DO SAP UPDATED: {len(vbeln_list)}")
         
     @api.model
     def cron_auto_done_git(self):
@@ -823,3 +769,150 @@ class InheritSaleOrderSAP(models.Model):
                             'product_uom_qty': qty,
                             'product_uom_id': product_uom_id,
                         })
+                        
+    @api.model
+    def _run_query_update_sap(
+        self, *,
+        cron_name,
+        query_param_key,
+        field_name,
+        format_key,
+        model_name='sale.order',
+        sync_field='is_sap',
+        state_value='sale',
+        domain_extra=None,
+    ):
+        icp = self.env['ir.config_parameter'].sudo()
+        x_i_api_key = icp.get_param('x_i_api_key')
+        ip_sap_rfc = icp.get_param('ip_sap_rfc')
+        query_template = icp.get_param(query_param_key)
+
+        for param_name, value in [
+            ('x_i_api_key', x_i_api_key),
+            ('ip_sap_rfc', ip_sap_rfc),
+            (query_param_key, query_template),
+        ]:
+            if not value:
+                raise ValidationError(f"{param_name} belum disetting!")
+
+        domain = [
+            (field_name, '!=', False),
+            (sync_field, '=', True),
+            ('state', '=', state_value),
+        ] + (domain_extra or [])
+
+        records = self.env[model_name].sudo().search(domain)
+        value_list = [
+            (getattr(rec, field_name) or '').strip().replace("'", "''")
+            for rec in records
+            if getattr(rec, field_name)
+        ]
+
+        if not value_list:
+            _logger.info(f"{cron_name}: list {field_name} kosong, skipped!")
+            return True
+
+        values_str = ",".join(f"'{v}'" for v in set(value_list))
+        query = query_template.format(**{format_key: values_str})
+
+        headers = {
+            "x-i-api-key": str(x_i_api_key),
+            "Content-Type": "application/json",
+        }
+        body = {
+            "I_QUERY": query,
+            "I_MOD": f"CRON {cron_name}",
+        }
+
+        try:
+            response = requests.post(
+                url=f"{ip_sap_rfc}/api/v1/zfm-query-data",
+                headers=headers,
+                data=json.dumps(body),
+                timeout=120,
+            )
+        except Exception as e:
+            raise ValidationError(str(e))
+
+        if response.status_code != 200:
+            raise ValidationError(f"{response.status_code} | {response.text}")
+
+        res = response.json()
+        if res.get('error'):
+            raise ValidationError(json.dumps(res['error']))
+        if not res.get('success'):
+            _logger.info(f"{cron_name}: response not success")
+            return True
+
+        _logger.info(f"{cron_name}: {len(value_list)} record(s) updated")
+        return True
+
+    @api.model
+    def cron_synchronize_sap_flag_do_sap(self):
+        return self._run_query_update_sap(
+            cron_name='cron_synchronize_sap_flag_do_sap',
+            query_param_key='query_update_flag_do_sap',
+            field_name='do_sap',
+            format_key='vbeln',
+        )
+
+    @api.model
+    def cron_update_zmm_ts_sto_ncd_sap(self):
+        return self._run_query_update_sap(
+            cron_name='cron_update_zmm_ts_sto_ncd_sap',
+            query_param_key='query_update_so_zmm_ts_sto_ncd_sap',
+            field_name='po_sap',
+            format_key='po_sap',
+        )
+
+    @api.model
+    def cron_update_zmm_ts_sl_bgd_sap(self):
+        return self._run_query_update_sap(
+            cron_name='cron_update_zmm_ts_sl_bgd_sap',
+            query_param_key='query_update_so_zmm_ts_sl_bgd_sap',
+            field_name='do_sap',
+            format_key='do_sap',
+        )
+
+    @api.model
+    def cron_update_update_zmm_ts_sto_ncd_sap(self):
+        return self._run_query_update_sap(
+            cron_name='cron_update_update_zmm_ts_sto_ncd_sap',
+            query_param_key='query_update_zmm_ts_sto_ncd_sap',
+            field_name='po_sto',
+            format_key='po_sto',
+            model_name='purchase.order',
+            sync_field='sap_synchronize',
+            state_value='purchase',
+        )
+
+    @api.model
+    def cron_update_update_zmm_ts_in_po_sap(self):
+        return self._run_query_update_sap(
+            cron_name='cron_update_update_zmm_ts_in_po_sap',
+            query_param_key='query_update_zmm_ts_in_po_sap',
+            field_name='partner_ref',
+            format_key='partner_ref',
+            model_name='purchase.order',
+            sync_field='sap_synchronize',
+            state_value='purchase',
+        )
+    
+    @api.model
+    def cron_run_all_query_update(self):
+        crons = [
+            # sale.order
+            self.cron_synchronize_sap_flag_do_sap,
+            self.cron_update_zmm_ts_sto_ncd_sap,
+            self.cron_update_zmm_ts_sl_bgd_sap,
+            # purchase.order
+            self.cron_update_update_zmm_ts_sto_ncd_sap,
+            self.cron_update_update_zmm_ts_in_po_sap,
+        ]
+        for cron in crons:
+            try:
+                cron()
+            except Exception as e:
+                _logger.error(f"cron_run_all_query_update: {cron.__name__} FAILED — {e}")
+        
+        return True

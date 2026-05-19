@@ -13,10 +13,30 @@
             <field name="key">query_auto_done_sale_order_do</field>
             <field name="value">SELECT a.mblnr,a.le_vbeln,a.budat,a.cputm, a.usnam from mkpf a join likp b on a.xblnr = b.vbeln</field>
         </record>
+        <!-- SALE ORDER -->
         <record id="query_update_flag_do_sap" model="ir.config_parameter">
             <field name="key">query_update_flag_do_sap</field>
             <field name="value">UPDATE zmm_ts_arr_pool a SET w_odoo = 'X' WHERE EXISTS ( SELECT 1 FROM zmm_ts_sto b WHERE a.werks = b.werks AND a.seqnr = b.seqnr AND a.trucknr = b.trucknr AND a.arrdate = b.arrdate AND b.vbeln_vl IN ({vbeln}))</field>
         </record>
+        <record id="query_update_so_zmm_ts_sto_ncd_sap" model="ir.config_parameter">
+            <field name="key">query_update_so_zmm_ts_sto_ncd_sap</field>
+            <field name="value">UPDATE zmm_ts_arr_pool a SET w_odoo = 'X' WHERE EXISTS ( SELECT 1 FROM  ZMM_TS_STO_NCD b WHERE a.werks = b.werks AND a.seqnr = b.seqnr AND a.trucknr = b.trucknr AND a.arrdate = b.arrdate AND b.ebeln IN ({po_sap}))</field>
+        </record>
+        <record id="query_update_so_zmm_ts_sl_bgd_sap" model="ir.config_parameter">
+            <field name="key">query_update_so_zmm_ts_sl_bgd_sap</field>
+            <field name="value">UPDATE zmm_ts_arr_pool a SET w_odoo = 'X' WHERE EXISTS ( SELECT 1 FROM zmm_ts_sl_bgd b WHERE a.werks = b.werks AND a.seqnr = b.seqnr AND a.trucknr = b.trucknr AND a.arrdate = b.arrdate AND b.vbeln IN ({do_sap}))</field>
+        </record>
+        <!-- SALE ORDER -->
+        <!-- PURCHASE ORDER -->
+        <record id="query_update_zmm_ts_sto_ncd_sap" model="ir.config_parameter">
+            <field name="key">query_update_zmm_ts_sto_ncd_sap</field>
+            <field name="value">UPDATE zmm_ts_arr_pool a SET w_odoo = 'X' WHERE EXISTS ( SELECT 1 FROM  ZMM_TS_STO_NCD b WHERE a.werks = b.werks AND a.seqnr = b.seqnr AND a.trucknr = b.trucknr AND a.arrdate = b.arrdate AND b.ebeln IN ({po_sto}))</field>
+        </record>
+        <record id="query_update_zmm_ts_in_po_sap" model="ir.config_parameter">
+            <field name="key">query_update_zmm_ts_in_po_sap</field>
+            <field name="value">UPDATE zmm_ts_arr_pool a SET w_odoo = 'X' WHERE EXISTS ( SELECT 1 FROM zmm_ts_in_po b WHERE a.werks = b.werks AND a.seqnr = b.seqnr AND a.trucknr = b.trucknr AND a.arrdate = b.arrdate AND b.donr IN ({partner_ref}))</field>
+        </record>
+        <!-- PURCHASE ORDER -->
         <record id="picking_type_git" model="ir.config_parameter">
             <field name="key">picking_type_git</field>
             <field name="value">311</field>

@@ -62,8 +62,8 @@ class StockInventoryAdjustment(models.Model):
                 domain.append(('location_id', 'child_of', rec.location_id.id))
             if rec.package_id:
                 domain.append(('package_id', '=', rec.package_id.id))
-            if rec.stock_type:
-                domain.append(('package_id.state', '=', rec.stock_type))
+            # if rec.stock_type:
+            #     domain.append(('package_id.state', '=', rec.stock_type))
             if rec.lot_id:
                 domain.append(('lot_id', '=', rec.lot_id.id))
 
@@ -184,8 +184,8 @@ class StockInventoryAdjustment(models.Model):
                 domain.append(('location_id', '=', rec.location_id.id))
             if rec.package_id:
                 domain.append(('package_id', '=', rec.package_id.id))
-            if rec.stock_type:
-                domain.append(('package_id.state', '=', rec.stock_type))
+            # if rec.stock_type:
+            #     domain.append(('package_id.state', '=', rec.stock_type))
             if rec.lot_id:
                 domain.append(('lot_id', '=', rec.lot_id.id))
             
@@ -203,8 +203,8 @@ class StockInventoryAdjustment(models.Model):
             domain.append(('location_id', '=', self.location_id.id))
         if self.package_id:
             domain.append(('package_id', '=', self.package_id.id))
-        if self.stock_type:
-            domain.append(('package_id.state', '=', self.stock_type))
+        # if self.stock_type:
+        #     domain.append(('package_id.state', '=', self.stock_type))
         if self.lot_id:
             domain.append(('lot_id', '=', self.lot_id.id))
         
