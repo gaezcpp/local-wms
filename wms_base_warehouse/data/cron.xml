@@ -41,5 +41,13 @@
             <field name="interval_number">1</field>
             <field name="interval_type">days</field>
         </record>
+        <record id="ir_cron_synhronize_sap_sales_return" model="ir.cron">
+            <field name="name">Cron Synchronize Sales Return SAP</field>
+            <field name="model_id" ref="model_stock_picking"/>
+            <field name="state">code</field>
+            <field name="code">model.cron_synhronize_sap_sales_return()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+        </record>
     </data>
 </odoo>

@@ -23,6 +23,7 @@ Long description of module's purpose
     # always loaded
     'data': [
         'data/parameter.xml',
+        'data/cron.xml',
         'data/sequence.xml',
         'security/ir.model.access.csv',
         'wizards/sloc_barcode_views.xml',
@@ -49,6 +50,7 @@ Long description of module's purpose
             'wms_inherit_stock_barcode/static/src/xml/sloc_packaging_views.xml',
             'wms_inherit_stock_barcode/static/src/xml/barcode_line_component_views.xml',
             'wms_inherit_stock_barcode/static/src/xml/quality_quantity_backorder_views.xml',
+            'wms_inherit_stock_barcode/static/src/xml/confirm_inventory_adjustment_views.xml',
         ],
     },
 

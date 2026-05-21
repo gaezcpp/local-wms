@@ -224,7 +224,7 @@ class TaggingRecord(models.Model):
     close_start_date = fields.Datetime(string="Close Start Date")
     close_end_date = fields.Datetime(string="Close End Date")
 
-    close_description = fields.Text(string="Close Description")
+    close_description = fields.Text(string="Problem Solution")
 
     close_photo_filename = fields.Char(string="Photo Filename")
 
@@ -237,7 +237,7 @@ class TaggingRecord(models.Model):
     department_id = fields.Many2one(comodel_name='tagging.department', string="Department")
     is_locked = fields.Boolean(string="Is Locked", default=False)
     company_id = fields.Many2one(comodel_name='res.company', string="Company", default=lambda self: self.env.company)
-    close_reason = fields.Text(string="Close Reason")
+    close_reason = fields.Text(string="Reason Details")
 
     # =========================
     # HARD LOCK WHEN CLOSED

@@ -64,9 +64,26 @@ class PlanMaintenanceWorkOrder(models.Model):
                 old_id = old_val.id if old_val else False
                 if old_id != new_val:
                     return True
+
+            elif field_def.type in ('many2many', 'one2many'):
+                if isinstance(new_val, list):
+                    new_ids = set()
+                    for cmd in new_val:
+                        if cmd[0] == 6:
+                            new_ids = set(cmd[2])
+                        elif cmd[0] == 4:
+                            new_ids.add(cmd[1])
+                    old_ids = set(old_val.ids)
+                    if old_ids != new_ids:
+                        return True
+                else:
+                    if set(old_val.ids) != set(new_val):
+                        return True
+
             else:
                 if (old_val or False) != (new_val or False):
                     return True
+
         return False
     
     @api.model

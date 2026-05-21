@@ -33,5 +33,13 @@
             <field name="key">query_storage_location_sap</field>
             <field name="value">select a.lgort, a.werks, a.lgobe from t001l a</field>
         </record>
+        <record id="sales_retur_barcode_sap" model="ir.config_parameter">
+            <field name="key">sales_retur_barcode_sap</field>
+            <field name="value">sales_retur_barcode</field>
+        </record>
+        <record id="query_sales_return_sap" model="ir.config_parameter">
+            <field name="key">query_sales_return_sap</field>
+            <field name="value">select a.werks,a.vgbel, a.mjahr, a.arrdate, a.lgort, a.trucknr, b.kunnr, c.posnr, c.matnr, a.doqty, a.vrkme, d.umrez, d.umren, a.bktxt from zmm_ts_ret_bgh a left join zmm_ts_ret_bgd b on a.vgbel = b.vbeln LEFT JOIN vbap c ON a.vgbel = c.vbeln LEFT JOIN marm d ON c.matnr = d.matnr AND c.vrkme = d.meinh where a.mblnr != ' '</field>
+        </record>
     </data>
 </odoo>

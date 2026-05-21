@@ -37,21 +37,38 @@ class InheritSaleOrderSAP(models.Model):
             name = '%s - [%s]' % (so_name, do_sap)
             rec.display_name = name
     
-    def _needs_update(self, so, vals):
+    def _needs_update(self, model, vals):
         for field, new_val in vals.items():
-            if field not in so._fields:
+            if field not in model._fields:
                 continue
 
-            field_def = so._fields[field]
-            old_val = so[field]
+            field_def = model._fields[field]
+            old_val = model[field]
 
             if field_def.type == 'many2one':
                 old_id = old_val.id if old_val else False
                 if old_id != new_val:
                     return True
+
+            elif field_def.type in ('many2many', 'one2many'):
+                if isinstance(new_val, list):
+                    new_ids = set()
+                    for cmd in new_val:
+                        if cmd[0] == 6:
+                            new_ids = set(cmd[2])
+                        elif cmd[0] == 4:
+                            new_ids.add(cmd[1])
+                    old_ids = set(old_val.ids)
+                    if old_ids != new_ids:
+                        return True
+                else:
+                    if set(old_val.ids) != set(new_val):
+                        return True
+
             else:
                 if (old_val or False) != (new_val or False):
                     return True
+
         return False
     
     @api.model

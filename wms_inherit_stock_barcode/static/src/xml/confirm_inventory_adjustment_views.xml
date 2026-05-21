@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-inherit="stock_barcode.ConfirmQuantDialog" t-inherit-mode="extension">
+        <xpath expr="//button[@t-on-click='onConfirm']" position="attributes">
+            <attribute name="t-if">false</attribute>
+            <attribute name="disabled">disabled</attribute>
+            <attribute name="class">o_confirm btn btn-primary disabled</attribute>
+        </xpath>
+    </t>
+</templates>

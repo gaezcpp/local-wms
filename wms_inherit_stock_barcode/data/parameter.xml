@@ -5,5 +5,9 @@
             <field name="key">pembagi_pallet</field>
             <field name="value">1000</field>
         </record>
+        <record id="query_pid_sap" model="ir.config_parameter">
+            <field name="key">query_pid_sap</field>
+            <field name="value">select a.iblnr, a.budat, a.gjahr, a.lgort, a.werks, b.zeili, b.matnr, c.maktx,b.bstar, b.menge, b.meins from ikpf a join iseg b on a.iblnr = b.iblnr and a.gjahr = b.gjahr left join makt c on b.matnr = c.matnr where a.gjahr ='2026'</field>
+        </record>
     </data>
 </odoo>
