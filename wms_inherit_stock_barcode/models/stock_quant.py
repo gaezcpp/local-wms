@@ -7,9 +7,9 @@ _logger = logging.getLogger(__name__)
 class InheritStockQuant(models.Model):
     _inherit = 'stock.quant'
 
-    uom_bag_id = fields.Many2one('uom.uom')
+    uom_bag_id = fields.Many2one('uom.uom', related='product_id.uom_bag_id', store=True)
+    uom_pallet_id = fields.Many2one('uom.uom', related='product_id.uom_pallet_id', store=True)
     bag_qty = fields.Float(string="Bag")
-    uom_pallet_id = fields.Many2one('uom.uom')
     pallet_qty = fields.Float(string="Pallet Dummy")
     bag_dummy_qty = fields.Float(string="Bag Dummy")
     pallet_dummy_qty = fields.Float(string="Pallet Qty", compute='_compute_pallet_dummy_qty')
@@ -35,19 +35,6 @@ class InheritStockQuant(models.Model):
         records._recompute_package_pallet_status()
 
         return records
-    
-    # def write(self, vals):
-    #     if self._skip_custom_logic():
-    #         return super().write(vals)
-
-    #     if 'product_id' in vals or 'quantity' in vals or 'inventory_quantity' in vals:
-    #         for rec in self:
-    #             rec._prepare_bag_pallet_vals(vals)
-
-    #     res = super().write(vals)
-    #     self._recompute_package_pallet_status()
-
-    #     return res
     
     def write(self, vals):
         if self._skip_custom_logic():
@@ -105,36 +92,6 @@ class InheritStockQuant(models.Model):
 
             if pkg.pallet_status != pallet_status:
                 pkg.pallet_status = pallet_status
-    
-    # def _prepare_bag_pallet_vals(self, vals):
-    #     product_id = vals.get('product_id')
-    #     quantity = vals.get('quantity')
-
-    #     if not product_id:
-    #         return vals
-
-    #     product = self.env['product.product'].sudo().browse(product_id)
-
-    #     qty = quantity if quantity is not None else 0.0
-
-    #     uom_bag = product.uom_bag_id
-    #     uom_pallet = product.uom_pallet_id
-
-    #     vals['uom_bag_id'] = uom_bag.id if uom_bag else False
-    #     vals['uom_pallet_id'] = uom_pallet.id if uom_pallet else False
-
-    #     if uom_bag and uom_bag.factor and qty:
-    #         vals['bag_qty'] = qty / (uom_bag.factor / 1000)
-
-    #         if uom_pallet and uom_pallet.factor:
-    #             vals['pallet_qty'] = qty / (uom_pallet.factor / 1000)
-    #         else:
-    #             vals['pallet_qty'] = 0.0
-    #     else:
-    #         vals['bag_qty'] = 0.0
-    #         vals['pallet_qty'] = 0.0
-
-    #     return vals
     
     def _prepare_bag_pallet_vals(self, vals):
         product_id = vals.get('product_id')

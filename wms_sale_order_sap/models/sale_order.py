@@ -125,7 +125,7 @@ class InheritSaleOrderSAP(models.Model):
         product_model = self.env['product.product'].sudo()
         uom_model = self.env['uom.uom'].sudo()
         delivery_carrier_model = self.env['delivery.carrier'].sudo()
-        location_model = self.env['stock.location'].sudo()
+        warehouse_model = self.env['stock.warehouse'].sudo()
 
         grouped_data = defaultdict(list)
 
@@ -146,28 +146,22 @@ class InheritSaleOrderSAP(models.Model):
 
             partner = partner_model.search([('ref', '=', customer_ref)], limit=1)
             if not partner:
+                _logger.info(f"cron_synchronize_sap_sale_order PARTNER {customer_ref} SKIPPED")
                 continue
 
             partner_shipping = partner_model.search([('ref', '=', delivery_ref)], limit=1)
             if not partner_shipping:
+                _logger.info(f"cron_synchronize_sap_sale_order DELIVERY REF {delivery_ref} SKIPPED")
                 continue
-            
 
-            company = company_model.search([
-                ('company_registry', '=', company_registry),
-                ('sync_wms', '=', True),
-            ], limit=1)
+            company = company_model.search([('company_registry', '=', company_registry),('sync_wms', '=', True)], limit=1)
             if not company:
-                _logger.info(f"CRON SALE ORDER Company {company_registry} SKIPPED")
+                _logger.info(f"cron_synchronize_sap_sale_order Company {company_registry} SKIPPED")
                 continue
             
-            warehouse = location_model.search([
-                ('sloc_id.code', '=', stock_warehouse),
-                ('location_id.usage', '=', 'view'),
-                ('company_id', '=', company.id),
-            ], limit=1)
+            warehouse = warehouse_model.search([('lot_stock_id.sloc_id.code', '=', stock_warehouse),('company_id', '=', company.id)], limit=1)
             if not warehouse:
-                _logger.info(f"CRON SALE ORDER Warehouse {stock_warehouse} SKIPPED")
+                _logger.info(f"cron_synchronize_sap_sale_order Warehouse {stock_warehouse} SKIPPED")
                 continue
 
             order_date = False
@@ -191,7 +185,7 @@ class InheritSaleOrderSAP(models.Model):
                 'carrier_id': deliv_carrier.id,
                 'sales_sap_name': ernam,
                 'company_id': company.id,
-                'warehouse_id': warehouse.warehouse_id.id,
+                'warehouse_id': warehouse.id,
             }
             if not so:
                 so = sale_order_model.create(vals)
@@ -203,9 +197,7 @@ class InheritSaleOrderSAP(models.Model):
                     so.write(vals)
 
             for row in rows:
-                product_code = row.get('MATNR')
-                if not product_code:
-                    continue
+                product_code = (row.get('MATNR')).lstrip('0')
                 product = product_model.search([('default_code', '=', product_code),('company_id', '=', company.id)], limit=1)
                 if not product:
                     continue
@@ -367,7 +359,7 @@ class InheritSaleOrderSAP(models.Model):
         company_model = self.env['res.company'].sudo()
         product_model = self.env['product.product'].sudo()
         uom_model = self.env['uom.uom'].sudo()
-        location_model = self.env['stock.location'].sudo()
+        warehouse_model = self.env['stock.warehouse'].sudo()
         
         grouped_data = defaultdict(list)
         
@@ -388,18 +380,20 @@ class InheritSaleOrderSAP(models.Model):
             
             partner = partner_model.search([('ref', '=', partner)], limit=1)
             if not partner:
+                _logger.info(f"cron_synhronize_sap_so_sto partner {partner} skipped")
                 continue
             
             company = company_model.search([('company_registry', '=', company_registry),('sync_wms', '=', True)], limit=1)
             if not company:
+                _logger.info(f"cron_synhronize_sap_so_sto company_registry {company_registry} skipped")
                 continue
             
-            warehouse = location_model.search([
-                ('sloc_id.code', '=', stock_warehouse),
-                ('location_id.usage', '=', 'view'),
-                ('company_id', '=', company.id)
+            warehouse = warehouse_model.search([
+                ('lot_stock_id.sloc_id.code', '=', stock_warehouse),
+                ('company_id', '=', company.id),
             ], limit=1)
             if not warehouse:
+                _logger.info(f"cron_synhronize_sap_so_sto warehouse sloc code {stock_warehouse} skipped")
                 continue
             
             date_order = False
@@ -416,7 +410,7 @@ class InheritSaleOrderSAP(models.Model):
                 'so_sto': True,
                 'do_sap': nomor_do,
                 'partner_id': partner.id,
-                'warehouse_id': warehouse.warehouse_id.id,
+                'warehouse_id': warehouse.id,
                 'date_order': date_order,
                 'date_order_sap': date_order,
                 'sales_sap_name': sales_name,
@@ -434,11 +428,10 @@ class InheritSaleOrderSAP(models.Model):
                     so.write(vals)
             
             for row in rows:
-                product_code = row.get('MATNR')
-                if not product_code:
-                    continue
+                product_code = (row.get('MATNR') or '').lstrip('0')
                 product = product_model.search([('default_code', '=', product_code),('company_id', '=', company.id)], limit=1)
                 if not product:
+                    _logger.info(f"cron_synhronize_sap_so_sto product {product_code} skipped")
                     continue
                 
                 delivery_uom = row.get('VRKME')
@@ -536,7 +529,6 @@ class InheritSaleOrderSAP(models.Model):
             if picking:
                 picking.button_validate()
                 
-        
     @api.model
     def cron_auto_done_git(self):
         icp = self.env['ir.config_parameter'].sudo()
@@ -669,12 +661,12 @@ class InheritSaleOrderSAP(models.Model):
             
             partner = partner_model.search([('ref', '=', company_registry)], limit=1)
             if not partner:
-                _logger.info(f"SLOC to SLOC Partner {partner} skipped")
+                _logger.info(f"cron_synhronize_so_sloc_to_sloc Partner {partner} skipped")
                 continue
             
             company = company_model.search([('company_registry', '=', company_registry),('sync_wms', '=', True)], limit=1)
             if not company:
-                _logger.info(f"SLOC to SLOC Company {company_registry} skipped")
+                _logger.info(f"cron_synhronize_so_sloc_to_sloc Company {company_registry} skipped")
                 continue
             
             warehouse = location_model.search([
@@ -683,7 +675,7 @@ class InheritSaleOrderSAP(models.Model):
                 ('company_id', '=', company.id)
             ], limit=1)
             if not warehouse:
-                _logger.info(f"SLOC to SLOC Warehouse Sloc Code {stock_warehouse} skipped")
+                _logger.info(f"cron_synhronize_so_sloc_to_sloc Warehouse Sloc Code {stock_warehouse} skipped")
                 continue
             
             date_order = False
@@ -724,15 +716,10 @@ class InheritSaleOrderSAP(models.Model):
             
             for row in rows:
                 product_code = (row.get('MATNR') or "").lstrip('0')
-                if not product_code:
-                    _logger.info("SLOC to SLOC Product skipped: Empty MATNR")
-                    continue
-                    
                 product = product_model.search([
                     ('default_code', '=', product_code),
                     ('company_id', '=', company.id)
                 ], limit=1)
-                
                 if not product:
                     _logger.info(f"SLOC to SLOC Product {product_code} skipped: Not found in master data")
                     continue
@@ -890,6 +877,15 @@ class InheritSaleOrderSAP(models.Model):
             field_name='do_sap',
             format_key='do_sap',
         )
+        
+    @api.model
+    def cron_update_zmm_ts_sto(self):
+        return self._run_query_update_sap(
+            cron_name='cron_update_zmm_ts_sto',
+            query_param_key='query_update_zmm_ts_sto',
+            field_name='do_sap',
+            format_key='do_sap',
+        )
 
     @api.model
     def cron_update_update_zmm_ts_sto_ncd_sap(self):
@@ -922,6 +918,7 @@ class InheritSaleOrderSAP(models.Model):
             self.cron_synchronize_sap_flag_do_sap,
             self.cron_update_zmm_ts_sto_ncd_sap,
             self.cron_update_zmm_ts_sl_bgd_sap,
+            self.cron_update_zmm_ts_sto,
             # purchase.order
             self.cron_update_update_zmm_ts_sto_ncd_sap,
             self.cron_update_update_zmm_ts_in_po_sap,

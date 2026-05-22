@@ -108,6 +108,7 @@ class InheritPurchaseOrder(models.Model):
         uom_model = self.env['uom.uom'].sudo()
         location_model = self.env['stock.location'].sudo()
         operation_type_model = self.env['stock.picking.type'].sudo()
+        wh_model = self.env['stock.warehouse'].sudo()
         
         grouped_data = defaultdict(list)
         
@@ -136,27 +137,22 @@ class InheritPurchaseOrder(models.Model):
                 _logger.info(f"cron_synchronize_sap_po_sto company {company_registry} skipped")
                 continue
             
-            lot_stock = location_model.search([
-                ('sloc_id.code', '=', stock_warehouse),
-                ('location_id.usage', '=', 'view'),
+            warehouse = wh_model.search([
+                ('lot_stock_id.sloc_id.code', '=', stock_warehouse),
                 ('company_id', '=', company.id)
             ], limit=1)
-            if not lot_stock:
+            if not warehouse:
                 _logger.info(f"cron_synchronize_sap_po_sto sloc code {stock_warehouse} skipped")
                 continue
             
             picking_type = operation_type_model.search([
                 ('move_type_sap', '=', str(picking_type_po)),
-                ('warehouse_id.lot_stock_id', '=', lot_stock.id),
+                ('warehouse_id', '=', warehouse.id),
                 ('company_id', '=', company.id)
             ], limit=1)
             if not picking_type:
-                _logger.info(f"cron_synchronize_sap_po_sto move type {picking_type_po} & warehouse lot stock {lot_stock.name} skipped")
+                _logger.info(f"cron_synchronize_sap_po_sto move type {picking_type_po} & warehouse lot stock {warehouse.lot_stock_id.sloc_id.code} skipped")
                 continue
-            
-            po_date = False
-            if arrdate and len(arrdate) == 8:
-                po_date = datetime.strptime(arrdate, "%Y%m%d")
                 
             po = po_model.search([
                 ('po_sto', '=', nomor_po),
@@ -186,8 +182,6 @@ class InheritPurchaseOrder(models.Model):
             
             for row in rows:
                 product_code = (row.get('MATNR') or '').lstrip('0')
-                if not product_code:
-                    continue
                 product = product_model.search([('default_code', '=', product_code), ('company_id', '=', company.id)], limit=1)
                 if not product:
                     _logger.info(f"cron_synchronize_sap_po_sto product {product_code} skipped")
@@ -290,6 +284,7 @@ class InheritPurchaseOrder(models.Model):
         product_model = self.env['product.product'].sudo()
         unit_model = self.env['uom.uom'].sudo()
         location_model = self.env['stock.location'].sudo()
+        warehouse_model = self.env['stock.warehouse'].sudo()
         operation_type_model = self.env['stock.picking.type'].sudo()
         
         grouped_data = defaultdict(list)
@@ -306,7 +301,7 @@ class InheritPurchaseOrder(models.Model):
             werks = first.get('WERKS')
             sloc = first.get('KESLOC') or first.get('SLOCTO')
             
-            company = company_model.search([('company_registry', '=', werks)], limit=1)
+            company = company_model.search([('company_registry', '=', werks),('sync_wms', '=', True)], limit=1)
             if not company:
                 _logger.info(f"cron_synhronize_purchase_sloc_to_sloc company {werks} skipped")
                 continue
@@ -316,22 +311,21 @@ class InheritPurchaseOrder(models.Model):
                 _logger.info(f"cron_synhronize_purchase_sloc_to_sloc partner {werks} skipped")
                 continue
             
-            lot_stock = location_model.search([
-                ('sloc_id.code', '=', sloc),
-                ('location_id.usage', '=', 'view'),
-                ('company_id', '=', company.id)
+            warehouse = warehouse_model.search([
+                ('lot_stock_id.sloc_id.code', '=', sloc),
+                ('company_id', '=', company.id),
             ], limit=1)
-            if not lot_stock:
+            if not warehouse:
                 _logger.info(f"cron_synhronize_purchase_sloc_to_sloc sloc code {sloc} skipped")
                 continue
             
             picking_type = operation_type_model.search([
                 ('move_type_sap', '=', str(purchase_sloc_to_sloc)),
-                ('warehouse_id.lot_stock_id', '=', lot_stock.id),
+                ('warehouse_id', '=', warehouse.id),
                 ('company_id', '=', company.id)
             ], limit=1)
             if not picking_type:
-                _logger.info(f"cron_synchronize_sap_po_sto move type {purchase_sloc_to_sloc} & warehouse lot stock {lot_stock.name} skipped")
+                _logger.info(f"cron_synchronize_sap_po_sto move type {purchase_sloc_to_sloc} & warehouse lot stock {warehouse.name} skipped")
                 continue
             
             if arrdate and len(arrdate) == 8:
@@ -367,8 +361,6 @@ class InheritPurchaseOrder(models.Model):
             
             for row in rows:
                 product_code = (row.get('MATNR') or '').lstrip('0')
-                if not product_code:
-                    continue
                 product = product_model.search([('default_code', '=', product_code), ('company_id', '=', company.id)], limit=1)
                 if not product:
                     _logger.info(f"cron_synchronize_sap_po_sto product {product_code} skipped")

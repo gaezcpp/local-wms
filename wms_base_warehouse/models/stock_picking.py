@@ -111,6 +111,7 @@ class InheritBaseStockPicking(models.Model):
 
         picking_model = self.env['stock.picking'].sudo()
         move_model = self.env['stock.move'].sudo()
+        wh_model = self.env['stock.warehouse'].sudo()
         operation_type_model = self.env['stock.picking.type'].sudo()
         partner_model = self.env['res.partner'].sudo()
         company_model = self.env['res.company'].sudo()
@@ -132,6 +133,7 @@ class InheritBaseStockPicking(models.Model):
             trucknr = (first.get('TRUCKNR') or '').strip()
             kunnr = (first.get('KUNNR') or '').strip()
             bktxt = (first.get('BKTXT') or '').strip()
+            note = '\n'.join(filter(None, [bktxt, trucknr]))
             
             company = company_model.search([('company_registry', '=', werks),('sync_wms', '=', True)], limit=1)
             if not company:
@@ -143,8 +145,20 @@ class InheritBaseStockPicking(models.Model):
                 _logger.info(f"cron_synhronize_sap_sales_return PARTNER {kunnr} SKIPPED")
                 continue
             
-            sales_retur_barcode_sap = icp.get_param('sales_retur_barcode_sap')            
-            operation_type = operation_type_model.search([('barcode', '=', str(sales_retur_barcode_sap)),('company_id', '=', company.id)], limit=1)
+            sales_retur_barcode_sap = icp.get_param('sales_retur_barcode_sap')   
+            warehouse = wh_model.search([
+                ('lot_stock_id.sloc_id.code', '=', lgort),
+                ('company_id', '=', company.id),
+            ], limit=1)
+            if not warehouse:
+                _logger.info(f"cron_synhronize_sap_sales_return WAREHOUSE lgort={lgort} SKIPPED")
+                continue
+            
+            operation_type = operation_type_model.search([
+                ('barcode', '=', str(sales_retur_barcode_sap)),
+                ('warehouse_id', '=', warehouse.id),
+                ('company_id', '=', company.id)
+            ], limit=1)
             if not operation_type:
                 _logger.info(f"cron_synhronize_sap_sales_return OPERATION TYPE {sales_retur_barcode_sap} SKIPPED")
                 continue
@@ -162,7 +176,7 @@ class InheritBaseStockPicking(models.Model):
                 'origin': vgbel,
                 'scheduled_date': schedule_date,
                 'company_id': company.id,
-                'note': bktxt,
+                'note': note,
             }
             if not sales_return:
                 sales_return = sales_return.create(vals)

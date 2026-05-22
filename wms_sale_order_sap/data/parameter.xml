@@ -36,6 +36,10 @@
             <field name="key">query_update_zmm_ts_in_po_sap</field>
             <field name="value">UPDATE zmm_ts_arr_pool a SET w_odoo = 'X' WHERE EXISTS ( SELECT 1 FROM zmm_ts_in_po b WHERE a.werks = b.werks AND a.seqnr = b.seqnr AND a.trucknr = b.trucknr AND a.arrdate = b.arrdate AND b.donr IN ({partner_ref}))</field>
         </record>
+        <record id="query_update_zmm_ts_sto" model="ir.config_parameter">
+            <field name="key">query_update_zmm_ts_sto</field>
+            <field name="value">UPDATE zmm_ts_arr_pool a SET w_odoo = 'X' WHERE EXISTS ( SELECT 1 FROM  ZMM_TS_STO b WHERE a.werks = b.werks AND a.seqnr = b.seqnr AND a.trucknr = b.trucknr AND a.arrdate = b.arrdate AND b.vbeln_vl IN ({do_sap}))</field>
+        </record>
         <!-- PURCHASE ORDER -->
         <record id="picking_type_git" model="ir.config_parameter">
             <field name="key">picking_type_git</field>

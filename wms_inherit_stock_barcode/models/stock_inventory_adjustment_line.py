@@ -17,7 +17,7 @@ class StockInventoryAdjustmentLine(models.Model):
         ('QI', 'QI'),
         ('Blocked', 'Blocked'),
         ('UU', 'UU')
-    ], string="Package Status", default=False)
+    ], string="Stock Type", default=False)
     zeili = fields.Char(string="Zeili")
     quant_id = fields.Many2one('stock.quant', string="Quant", ondelete='set null')
     quantity = fields.Float(string="On Hand")
