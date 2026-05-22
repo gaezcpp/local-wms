@@ -3,7 +3,7 @@
     <data noupdate="1">
         <record id="query_sale_order_sap" model="ir.config_parameter">
             <field name="key">query_sale_order_sap</field>
-            <field name="value">select b.posnr,a.vbeln as nomor_do, a.erdat, so.vbeln AS sales_order_no, vbkd.inco1 as delivery_method, ks.name1 AS sold_to_name, so.kunnr AS sold_to_code, ksh.name1 AS ship_to_name, a.kunnr AS ship_to_code, b.werks, b.lgort, b.matnr, m.maktx AS product_description, c.vrkme AS sales_order_uom, b.vrkme AS delivery_uom, b.lfimg AS delivery_qty, mara.meins AS base_uom, marm.umrez AS uom_numerator, marm.umren AS uom_denominator, a.ernam from likp a JOIN lips b ON a.vbeln = b.vbeln JOIN vbak so ON b.vgbel = so.vbeln JOIN vbap c ON b.vgbel = c.vbeln AND b.vgpos = c.posnr LEFT JOIN vbkd ON vbkd.vbeln = so.vbeln AND vbkd.posnr = '000000' JOIN kna1 ks ON so.kunnr = ks.kunnr JOIN kna1 ksh ON a.kunnr = ksh.kunnr LEFT JOIN makt m ON b.matnr = m.matnr AND m.spras = 'E' LEFT JOIN mara ON b.matnr = mara.matnr LEFT JOIN marm ON marm.matnr = b.matnr AND marm.meinh = c.vrkme where TO_DATE(a.erdat,'YYYYMMDD') between CURRENT_DATE-30 and CURRENT_DATE</field>
+            <field name="value">select ks.ktokd, t.trucknr, b.posnr,a.vbeln as nomor_do, a.erdat, so.vbeln AS sales_order_no, vbkd.inco1 as delivery_method, ks.name1 AS sold_to_name, so.kunnr AS sold_to_code, ksh.name1 AS ship_to_name, a.kunnr AS ship_to_code, b.werks, b.lgort, b.matnr, m.maktx AS product_description, c.vrkme AS sales_order_uom, b.vrkme AS delivery_uom, b.lfimg AS delivery_qty, mara.meins AS base_uom, marm.umrez AS uom_numerator, marm.umren AS uom_denominator, a.ernam from likp a JOIN lips b ON a.vbeln = b.vbeln JOIN vbak so ON b.vgbel = so.vbeln JOIN vbap c ON b.vgbel = c.vbeln AND b.vgpos = c.posnr LEFT JOIN vbkd ON vbkd.vbeln = so.vbeln AND vbkd.posnr = '000000' JOIN kna1 ks ON so.kunnr = ks.kunnr JOIN kna1 ksh ON a.kunnr = ksh.kunnr LEFT JOIN makt m ON b.matnr = m.matnr AND m.spras = 'E' LEFT JOIN mara ON b.matnr = mara.matnr LEFT JOIN marm ON marm.matnr = b.matnr AND marm.meinh = c.vrkme left join zmm_ts_sl_bgd t on a.vbeln = t.vbeln where t.vbeln != ' ' and TO_DATE(a.erdat,'YYYYMMDD') between CURRENT_DATE-7 and CURRENT_DATE AND EXISTS (SELECT 1 FROM ZMM_TS_SCHDR s where t.werks = s.werks and t.seqnr = s.seqnr and t.trucknr = s.trucknr and t.arrdate = s.arrdate)</field>
         </record>
         <record id="query_so_sto_sap" model="ir.config_parameter">
             <field name="key">query_so_sto_sap</field>
@@ -36,8 +36,8 @@
             <field name="key">query_update_zmm_ts_in_po_sap</field>
             <field name="value">UPDATE zmm_ts_arr_pool a SET w_odoo = 'X' WHERE EXISTS ( SELECT 1 FROM zmm_ts_in_po b WHERE a.werks = b.werks AND a.seqnr = b.seqnr AND a.trucknr = b.trucknr AND a.arrdate = b.arrdate AND b.donr IN ({partner_ref}))</field>
         </record>
-        <record id="query_update_zmm_ts_sto" model="ir.config_parameter">
-            <field name="key">query_update_zmm_ts_sto</field>
+        <record id="query_update_zmm_ts_sto_sap" model="ir.config_parameter">
+            <field name="key">query_update_zmm_ts_sto_sap</field>
             <field name="value">UPDATE zmm_ts_arr_pool a SET w_odoo = 'X' WHERE EXISTS ( SELECT 1 FROM  ZMM_TS_STO b WHERE a.werks = b.werks AND a.seqnr = b.seqnr AND a.trucknr = b.trucknr AND a.arrdate = b.arrdate AND b.vbeln_vl IN ({do_sap}))</field>
         </record>
         <!-- PURCHASE ORDER -->

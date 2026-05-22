@@ -122,10 +122,10 @@ class InheritBaseStockPicking(models.Model):
         grouped_data = defaultdict(list)
 
         for row in data_list:
-            vgbel = row.get('VGBEL')
-            if vgbel:
-                grouped_data[vgbel].append(row)
-        for vgbel, rows in grouped_data.items():
+            vblen = row.get('VBLEN')
+            if vblen:
+                grouped_data[vblen].append(row)
+        for vblen, rows in grouped_data.items():
             first = rows[0]
             werks = (first.get('WERKS') or '').strip()
             arrdate = (first.get('ARRDATE') or '').strip()
@@ -167,21 +167,21 @@ class InheritBaseStockPicking(models.Model):
             if arrdate and len(arrdate) == 8:
                 schedule_date = datetime.strptime(arrdate, "%Y%m%d")
 
-            sales_return = picking_model.search([('origin', '=', vgbel),('company_id', '=', company.id),('state', '!=', 'cancel')], limit=1)
+            sales_return = picking_model.search([('origin', '=', vblen),('company_id', '=', company.id),('state', '!=', 'cancel')], limit=1)
             vals = {
                 'partner_id': partner.id,
                 'picking_type_id': operation_type.id,
                 'location_dest_id': operation_type.default_location_dest_id.id,
                 'synchronize_sap': True,
-                'origin': vgbel,
+                'origin': vblen,
                 'scheduled_date': schedule_date,
                 'company_id': company.id,
                 'note': note,
             }
             if not sales_return:
                 sales_return = sales_return.create(vals)
-                sales_return.message_post(body=f"SALES RETURN {vgbel} Created from Cron")
-                _logger.info(f"SALES RETURN {vgbel}")
+                sales_return.message_post(body=f"SALES RETURN {vblen} Created from Cron")
+                _logger.info(f"SALES RETURN {vblen}")
             else:
                 if self._needs_update(sales_return, vals):
                     sales_return.write(vals)

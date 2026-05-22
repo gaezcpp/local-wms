@@ -22,7 +22,7 @@
                     <field name="sloc_to" readonly="1"/>
                 </xpath>
                 <xpath expr="//page[@name='extra']" position="before">
-                    <page name="product_packaging_sap" string="Packaging Details" invisible="not production_only">
+                    <page name="product_packaging_sap" string="Packaging Details" invisible="1"> <!--invisible="not production_only"-->
                         <field name="product_packaging_ids">
                             <list create="0" delete="0" edit="0">
                                 <field name="picking_id" column_invisible="1"/>

@@ -855,7 +855,7 @@ class TaggingRecord(models.Model):
     def cron_remind_open_tagging(self):
         self = self.sudo()
         Tagging = self.env['tagging.record']
-        open_taggings = Tagging.search([('status', '!=', 'closed')])
+        open_taggings = Tagging.search([('status', 'not in', ('closed', 'rejected', 'cancelled'))])
         if not open_taggings:
             return True
 

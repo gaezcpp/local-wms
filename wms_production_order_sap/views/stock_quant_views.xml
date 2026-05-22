@@ -1,6 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <data>
+        <record model="ir.ui.view" id="inherit_physical_inventory">
+            <field name="name">inherit.physical.inventory.tree</field>
+            <field name="model">stock.quant</field>
+            <field name="inherit_id" ref="stock.view_stock_quant_tree_inventory_editable"/>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='product_uom_id']" position="after">
+                    <field name="po_sap_id" readonly="1" options="{'no_open': True, 'no_create': True}"/>
+                </xpath>
+            </field>
+        </record>
+
         <record model="ir.ui.view" id="prod_order_stock_quant_tree">
             <field name="name">prod.order.stock.quant.tree</field>
             <field name="model">stock.quant</field>

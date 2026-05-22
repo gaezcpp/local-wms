@@ -92,11 +92,12 @@ class InheritBaseStockMoveLine(models.Model):
         if not lot:
             return False
 
-        existing_aft = lot.lot_aft_ids.filtered(lambda l: l.stock_type == (self.stock_type or 'QI'))
+        existing_aft = lot.lot_aft_ids.filtered(lambda l: l.stock_type == self.stock_type)
         
+        # coba pake compute bawaan odoo
         bag = self.bag_qty
         if bag <= 0:
-            bag = ((self.quantity * self.product_uom_id.factor) / 1000) / (self.uom_bag_id.factor / 1000)
+            bag = self.product_uom_id._compute_quantity(self.quantity, self.uom_bag_id)
 
         if existing_aft:
             aft = existing_aft[0]
@@ -111,9 +112,9 @@ class InheritBaseStockMoveLine(models.Model):
             })
 
             lot.message_post(body=(
-                f"Stock Type : {self.stock_type or 'QI'} "
-                f"Quantity   : {old_qty} → {new_qty} {self.product_uom_id.name} "
-                f"Bag Qty    : {old_bag} → {new_bag} {self.uom_bag_id.name} "
+                f"Update Stock Type: {self.stock_type} ({self.picking_id.name or ''})"
+                f"Quantity: {old_qty} → {new_qty} {self.product_uom_id.name} "
+                f"Bag Qty: {old_bag} → {new_bag} {self.uom_bag_id.name} "
             ))
         else:
             self.env['stock.lot.aft'].create({
@@ -122,13 +123,13 @@ class InheritBaseStockMoveLine(models.Model):
                 'uom_id': self.product_uom_id.id,
                 'bag_qty': bag,
                 'uom_bag_id': self.uom_bag_id.id,
-                'stock_type': self.stock_type or 'QI',
+                'stock_type': self.stock_type,
             })
 
             lot.message_post(body=(
-                f"Stock Type : {self.stock_type or 'QI'} "
-                f"Quantity   : {self.quantity} {self.product_uom_id.name} "
-                f"Bag Qty    : {bag} {self.uom_bag_id.name} "
+                f"Create Stock Type: {self.stock_type} ({self.picking_id.name or ''})"
+                f"Quantity: {self.quantity} {self.product_uom_id.name} "
+                f"Bag Qty: {bag} {self.uom_bag_id.name} "
             ))
 
         return True
@@ -140,17 +141,19 @@ class InheritBaseStockMoveLine(models.Model):
             if rec._is_gr_prod():
                 lot = rec._get_or_create_lot()
                 if lot:
-                    rec.lot_id = lot.id
+                    rec.with_context(skip_lot_aft=True).write({'lot_id': lot.id})
                     rec._create_update_lot_aft()
         return records
 
     def write(self, vals):
         res = super().write(vals)
+        if self.env.context.get('skip_lot_aft'):
+            return res
         for rec in self:
             if 'expiration_date' in vals and rec._is_gr_prod():
                 lot = rec._get_or_create_lot()
                 if lot:
-                    rec.lot_id = lot.id
+                    rec.with_context(skip_lot_aft=True).write({'lot_id': lot.id})
                     rec._create_update_lot_aft()
         return res
     

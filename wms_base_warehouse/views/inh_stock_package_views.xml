@@ -15,10 +15,10 @@
                     <button name="action_blocked" string="Set Blocked" type="object" class="btn-danger" invisible="state == 'Blocked'"/>
                     <button name="action_uu" string="Set UU" type="object" class="oe_highlight" invisible="state == 'UU'"/>
                     <field name="state" widget="statusbar"/>
-                </xpath>
+                </xpath>-->
                 <xpath expr="//field[@name='pack_date']" position="after">
                     <field name="pallet_status" force_save="1" readonly="1"/>
-                </xpath> -->
+                </xpath> 
                 <xpath expr="//field[@name='contained_quant_ids']/list/field[@name='lot_id']" position="after">
                     <field name="stock_type"/>
                     <!-- <field name="exp_group"/> -->

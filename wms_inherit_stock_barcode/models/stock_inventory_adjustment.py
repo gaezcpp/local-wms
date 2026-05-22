@@ -326,7 +326,7 @@ class StockInventoryAdjustment(models.Model):
         grouped_data = defaultdict(list)
 
         for row in data_list:
-            iblnr = (row.get('IBLNR') or '').lstrip('0')
+            iblnr = (row.get('IBLNR') or '')
             if iblnr:
                 grouped_data[iblnr].append(row)
         for iblnr, rows in grouped_data.items():

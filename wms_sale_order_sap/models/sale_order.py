@@ -141,8 +141,10 @@ class InheritSaleOrderSAP(models.Model):
             erdat = first.get('ERDAT')
             company_registry = first.get('WERKS')
             ernam = first.get('ERNAM')
-            delivery_method = first.get('DELIVERY_METHOD')
+            delivery_method = (first.get('DELIVERY_METHOD') or '').strip().upper()
             stock_warehouse = first.get('LGORT')
+            trucknr = first.get('TRUCKNR')
+            ktokd = (first.get('KTOKD') or '').strip().upper()
 
             partner = partner_model.search([('ref', '=', customer_ref)], limit=1)
             if not partner:
@@ -168,10 +170,18 @@ class InheritSaleOrderSAP(models.Model):
             if erdat and len(erdat) == 8:
                 order_date = datetime.strptime(erdat, "%Y%m%d")
                 
-            deliv_method = "Loco"
+            deliv_method = ""
+            if delivery_method == "LOC":
+                if ktokd == 'ZN01' or ktokd == 'ZI01':
+                    deliv_method = "SO LOCO 909"
+                if ktokd == 'ZR01':
+                    deliv_method = "SO LOCO 905"
             if delivery_method == "FRC":
-                deliv_method = "Franco"
+                deliv_method = "SO FRANCO"
+            
             deliv_carrier = delivery_carrier_model.search([('name', 'ilike', deliv_method),('company_id', '=', company.id)], limit=1)
+            if not deliv_carrier:
+                _logger.info(f"cron_synchronize_sap_sale_order Delivery Carrier {deliv_method} SKIPPED")
 
             so = sale_order_model.search([('do_sap', '=', nomor_do),('company_id', '=', company.id)], limit=1)
             vals = {
@@ -186,6 +196,7 @@ class InheritSaleOrderSAP(models.Model):
                 'sales_sap_name': ernam,
                 'company_id': company.id,
                 'warehouse_id': warehouse.id,
+                'nomor_polisi_desc': trucknr,
             }
             if not so:
                 so = sale_order_model.create(vals)
@@ -246,6 +257,7 @@ class InheritSaleOrderSAP(models.Model):
             
     @api.model
     def cron_update_nopol_sap_sale_order(self):
+        raise ValidationError("Cron dimatikan, NOPOL pindah ke SALE ORDER TRUCKNR")
         icp = self.env['ir.config_parameter'].sudo()
         x_i_api_key = icp.get_param('x_i_api_key')
         ip_sap_rfc = icp.get_param('ip_sap_rfc')
@@ -882,7 +894,7 @@ class InheritSaleOrderSAP(models.Model):
     def cron_update_zmm_ts_sto(self):
         return self._run_query_update_sap(
             cron_name='cron_update_zmm_ts_sto',
-            query_param_key='query_update_zmm_ts_sto',
+            query_param_key='query_update_zmm_ts_sto_sap',
             field_name='do_sap',
             format_key='do_sap',
         )

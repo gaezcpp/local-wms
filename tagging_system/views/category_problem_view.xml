@@ -30,7 +30,7 @@
                             <field name="subsystem_id" domain="[('system_id', '=', system_id)]" options="{'no_open': True, 'no_create': True}"/>
                         </group>
                         <group string="Details">
-                            <field name="cat_masalah" force_save="1" readonly="1" invisible="1"/>
+                            <field name="cat_masalah" readonly="1"/>
                             <field name="problem_id" options="{'no_open': True, 'no_create': True}"/>
                             <field name="active"/>
                         </group>
