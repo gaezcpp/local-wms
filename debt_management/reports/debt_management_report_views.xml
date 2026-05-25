@@ -60,7 +60,6 @@
                                     <th>Tipe Piutang</th>
                                     <th>Jatuh Tempo</th>
                                     <th class="text-end">Jumlah</th>
-                                    <th class="text-end">Sisa Bayar</th>
                                     <th class="text-center">Status</th>
                                 </tr>
                             </thead>
