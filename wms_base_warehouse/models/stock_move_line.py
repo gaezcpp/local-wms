@@ -20,7 +20,7 @@ class InheritBaseStockMoveLine(models.Model):
         ('QI', 'QI'),
         ('BLOCKED', 'BLOCKED'),
         ('UU', 'UU'),
-    ], string="Stock Type")
+    ], string="Stock Type", default="QI")
     
     # ini dipake kalo odoo.sh salah
     def _skip_custom_logic(self):
@@ -92,12 +92,13 @@ class InheritBaseStockMoveLine(models.Model):
         if not lot:
             return False
 
-        existing_aft = lot.lot_aft_ids.filtered(lambda l: l.stock_type == self.stock_type)
+        existing_aft = lot.lot_aft_ids.filtered(lambda l: l.stock_type == (self.stock_type or 'QI'))
         
         # coba pake compute bawaan odoo
         bag = self.bag_qty
         if bag <= 0:
-            bag = self.product_uom_id._compute_quantity(self.quantity, self.uom_bag_id)
+            # bag = self.product_uom_id._compute_quantity(self.quantity, self.uom_bag_id)
+            bag = ((self.quantity * self.product_uom_id.factor) / 1000) / (self.uom_bag_id.factor / 1000)
 
         if existing_aft:
             aft = existing_aft[0]
@@ -112,7 +113,7 @@ class InheritBaseStockMoveLine(models.Model):
             })
 
             lot.message_post(body=(
-                f"Update Stock Type: {self.stock_type} ({self.picking_id.name or ''})"
+                f"Update Stock Type: {self.stock_type} ({self.picking_id.name})"
                 f"Quantity: {old_qty} → {new_qty} {self.product_uom_id.name} "
                 f"Bag Qty: {old_bag} → {new_bag} {self.uom_bag_id.name} "
             ))
@@ -123,11 +124,11 @@ class InheritBaseStockMoveLine(models.Model):
                 'uom_id': self.product_uom_id.id,
                 'bag_qty': bag,
                 'uom_bag_id': self.uom_bag_id.id,
-                'stock_type': self.stock_type,
+                'stock_type': self.stock_type or 'QI',
             })
 
             lot.message_post(body=(
-                f"Create Stock Type: {self.stock_type} ({self.picking_id.name or ''})"
+                f"Create Stock Type: {self.stock_type} ({self.picking_id.name})"
                 f"Quantity: {self.quantity} {self.product_uom_id.name} "
                 f"Bag Qty: {bag} {self.uom_bag_id.name} "
             ))
@@ -219,6 +220,9 @@ class InheritBaseStockMoveLine(models.Model):
                         )
                     )
                     
+        res = super()._action_done()
+        
+        for line in self:
             po_sap_id = line.picking_id.po_sap_id
             if not po_sap_id:
                 continue
@@ -228,7 +232,8 @@ class InheritBaseStockMoveLine(models.Model):
                 ('location_id', '=', line.location_dest_id.id),
                 ('lot_id', '=', line.lot_id.id if line.lot_id else False),
                 ('package_id', '=', line.result_package_id.id if line.result_package_id else False),
+                ('company_id', '=', line.company_id.id),
             ])
             quants.write({'po_sap_id': po_sap_id.id})
-
-        return super()._action_done()
+            
+        return res

@@ -54,33 +54,33 @@ class InheritPurchaseOrder(models.Model):
         return False
     
     @api.model
-    def cron_synchronize_sap_po_sto(self):
+    def _fetch_sap_data(self, config_key, cron_name):
         icp = self.env['ir.config_parameter'].sudo()
         x_i_api_key = icp.get_param('x_i_api_key')
         ip_sap_rfc = icp.get_param('ip_sap_rfc')
-        query_po_sto_sap = icp.get_param('query_po_sto_sap')
+        query = icp.get_param(config_key)
 
         if not x_i_api_key:
             raise ValidationError("x_i_api_key belum disetting!")
         if not ip_sap_rfc:
             raise ValidationError("ip_sap_rfc belum disetting!")
-        if not query_po_sto_sap:
-            raise ValidationError("query_po_sto_sap belum disetting!")
+        if not query:
+            raise ValidationError(f"{config_key} belum disetting!")
 
         headers = {
             "x-i-api-key": str(x_i_api_key),
             "Content-Type": "application/json"
         }
-
-        url = f"{ip_sap_rfc}/api/v1/zfm-query-data"
-
         body = {
-            "I_QUERY": str(query_po_sto_sap),
-            "I_MOD": "CRON cron_synchronize_sap_po_sto"
+            "I_QUERY": str(query),
+            "I_MOD": f"CRON {cron_name}"
         }
-
         try:
-            response = requests.post(url=url, headers=headers, data=json.dumps(body))
+            response = requests.post(
+                url=f"{ip_sap_rfc}/api/v1/zfm-query-data",
+                headers=headers,
+                data=json.dumps(body),
+            )
         except Exception as e:
             raise ValidationError(str(e))
 
@@ -88,13 +88,22 @@ class InheritPurchaseOrder(models.Model):
         if res.get('error'):
             raise ValidationError(json.dumps(res.get('error')))
         if not res.get('success'):
-            _logger.info("CRON cron_synchronize_sap_po_sto NOT SUCCESS")
-            return True
+            _logger.info(f"CRON {cron_name} NOT SUCCESS")
+            return []
 
         data_list = res.get('data', [])
+        _logger.info(f"CRON {cron_name} - TOTAL DATA: {len(data_list)}")
+        return data_list
+    
+    @api.model
+    def cron_synchronize_sap_po_sto(self):
+        data_list = self._fetch_sap_data(
+            config_key='query_po_sto_sap',
+            cron_name='cron_synchronize_sap_po_sto',
+        )
         if not data_list:
             return True
-        _logger.info(f"TOTAL DATA SAP {len(data_list)}")
+        _logger.info(f"TOTAL DATA cron_synchronize_sap_po_sto: {len(data_list)}")
         
         picking_type_po = self.env['ir.config_parameter'].sudo().get_param('picking_type_po')
         if not picking_type_po:
@@ -106,7 +115,6 @@ class InheritPurchaseOrder(models.Model):
         company_model = self.env['res.company'].sudo()
         product_model = self.env['product.product'].sudo()
         uom_model = self.env['uom.uom'].sudo()
-        location_model = self.env['stock.location'].sudo()
         operation_type_model = self.env['stock.picking.type'].sudo()
         wh_model = self.env['stock.warehouse'].sudo()
         
@@ -119,7 +127,6 @@ class InheritPurchaseOrder(models.Model):
         
         for nomor_po, rows in grouped_data.items():
             first = rows[0]
-            arrdate = first.get('ARRDATE')
             nomor_polisi_desc = first.get('TRUCKNR')
             partner_ref = first.get('DONR')
             company_registry = first.get('PENERIMA')
@@ -231,47 +238,13 @@ class InheritPurchaseOrder(models.Model):
     
     @api.model
     def cron_synhronize_purchase_sloc_to_sloc(self):
-        icp = self.env['ir.config_parameter'].sudo()
-        x_i_api_key = icp.get_param('x_i_api_key')
-        ip_sap_rfc = icp.get_param('ip_sap_rfc')
-        query_purchase_sloc_to_sloc_sap = icp.get_param('query_purchase_sloc_to_sloc_sap')
-
-        if not x_i_api_key:
-            raise ValidationError("x_i_api_key belum disetting!")
-        if not ip_sap_rfc:
-            raise ValidationError("ip_sap_rfc belum disetting!")
-        if not query_purchase_sloc_to_sloc_sap:
-            raise ValidationError("query_purchase_sloc_to_sloc_sap belum disetting!")
-
-        headers = {
-            "x-i-api-key": str(x_i_api_key),
-            "Content-Type": "application/json"
-        }
-        url = f"{ip_sap_rfc}/api/v1/zfm-query-data"
-        body = {
-            "I_QUERY": str(query_purchase_sloc_to_sloc_sap),
-            "I_MOD": "CRON cron_synhronize_purchase_sloc_to_sloc"
-        }
-
-        try:
-            response = requests.post(url=url, headers=headers, data=json.dumps(body))
-        except Exception as e:
-            raise ValidationError(str(e))
-
-        res = response.json()
-
-        if res.get('error'):
-            raise ValidationError(json.dumps(res.get('error')))
-
-        if not res.get('success'):
-            _logger.info("CRON cron_synhronize_purchase_sloc_to_sloc NOT SUCCESS")
-            return True
-
-        data_list = res.get('data', [])
-        _logger.info(f"TOTAL DATA SAP {len(data_list)}")
-
+        data_list = self._fetch_sap_data(
+            config_key='query_purchase_sloc_to_sloc_sap',
+            cron_name='cron_synhronize_purchase_sloc_to_sloc',
+        )
         if not data_list:
             return True
+        _logger.info(f"TOTAL DATA cron_synhronize_purchase_sloc_to_sloc: {len(data_list)}")
         
         purchase_sloc_to_sloc = self.env['ir.config_parameter'].sudo().get_param('purchase_sloc_to_sloc')
         if not purchase_sloc_to_sloc:
@@ -283,7 +256,6 @@ class InheritPurchaseOrder(models.Model):
         company_model = self.env['res.company'].sudo()
         product_model = self.env['product.product'].sudo()
         unit_model = self.env['uom.uom'].sudo()
-        location_model = self.env['stock.location'].sudo()
         warehouse_model = self.env['stock.warehouse'].sudo()
         operation_type_model = self.env['stock.picking.type'].sudo()
         

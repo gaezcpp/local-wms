@@ -32,6 +32,16 @@ class StockMoveLine(models.Model):
         if 'qty_done' in vals or 'bag_qty' in vals or 'result_package_id' in vals:
             self._update_package_can_be_use()
         return res
+    
+    def unlink(self):
+        packages = self.mapped('result_package_id').filtered(lambda p: p)
+        res = super().unlink()
+        for package in packages:
+            lines = self.sudo().search([('result_package_id', '=', package.id)])
+            total_pallet = sum(lines.mapped('pallet_qty'))
+            if total_pallet < 1:
+                package.sudo().write({'can_be_use': True})
+        return res
 
     def _sync_qty_from_bag(self, vals, records=None):
         if 'bag_qty' not in vals:

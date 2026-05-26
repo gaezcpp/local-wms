@@ -72,51 +72,57 @@ class InheritSaleOrderSAP(models.Model):
         return False
     
     @api.model
-    def cron_synchronize_sap_sale_order(self):
+    def _fetch_sap_data(self, config_key, cron_name):
         icp = self.env['ir.config_parameter'].sudo()
         x_i_api_key = icp.get_param('x_i_api_key')
         ip_sap_rfc = icp.get_param('ip_sap_rfc')
-        query_sale_order_sap = icp.get_param('query_sale_order_sap')
+        query = icp.get_param(config_key)
 
         if not x_i_api_key:
             raise ValidationError("x_i_api_key belum disetting!")
         if not ip_sap_rfc:
             raise ValidationError("ip_sap_rfc belum disetting!")
-        if not query_sale_order_sap:
-            raise ValidationError("query_sale_order_sap belum disetting!")
+        if not query:
+            raise ValidationError(f"{config_key} belum disetting!")
 
         headers = {
             "x-i-api-key": str(x_i_api_key),
             "Content-Type": "application/json"
         }
-
-        url = f"{ip_sap_rfc}/api/v1/zfm-query-data"
-
         body = {
-            "I_QUERY": str(query_sale_order_sap),
-            "I_MOD": "CRON cron_synchronize_sap_sale_order"
+            "I_QUERY": str(query),
+            "I_MOD": f"CRON {cron_name}"
         }
-
         try:
-            response = requests.post(url=url, headers=headers, data=json.dumps(body))
+            response = requests.post(
+                url=f"{ip_sap_rfc}/api/v1/zfm-query-data",
+                headers=headers,
+                data=json.dumps(body),
+            )
         except Exception as e:
             raise ValidationError(str(e))
 
         res = response.json()
-
         if res.get('error'):
             raise ValidationError(json.dumps(res.get('error')))
-
         if not res.get('success'):
-            _logger.info("CRON cron_synchronize_sap_sale_order NOT SUCCESS")
-            return True
+            _logger.info(f"CRON {cron_name} NOT SUCCESS")
+            return []
 
         data_list = res.get('data', [])
-
+        _logger.info(f"CRON {cron_name} - TOTAL DATA: {len(data_list)}")
+        return data_list
+    
+    @api.model
+    def cron_synchronize_sap_sale_order(self):
+        data_list = self._fetch_sap_data(
+            config_key='query_sale_order_sap',
+            cron_name='cron_synchronize_sap_sale_order',
+        )
         if not data_list:
             return True
 
-        _logger.info(f"TOTAL DATA SAP {len(data_list)}")
+        _logger.info(f"TOTAL DATA cron_synchronize_sap_sale_order {len(data_list)}")
 
         sale_order_model = self.env['sale.order'].sudo()
         sale_order_line_model = self.env['sale.order.line'].sudo()
@@ -253,117 +259,17 @@ class InheritSaleOrderSAP(models.Model):
 
             _logger.info(f"SO {nomor_do} total line {len(rows)}")
             
-        self.cron_auto_done_sale_order_do()
-            
-    @api.model
-    def cron_update_nopol_sap_sale_order(self):
-        raise ValidationError("Cron dimatikan, NOPOL pindah ke SALE ORDER TRUCKNR")
-        icp = self.env['ir.config_parameter'].sudo()
-        x_i_api_key = icp.get_param('x_i_api_key')
-        ip_sap_rfc = icp.get_param('ip_sap_rfc')
-
-        if not x_i_api_key:
-            raise ValidationError("x_i_api_key belum disetting!")
-        if not ip_sap_rfc:
-            raise ValidationError("ip_sap_rfc belum disetting!")
-
-        headers = {
-            "x-i-api-key": str(x_i_api_key),
-            "Content-Type": "application/json"
-        }
-
-        url = f"{ip_sap_rfc}/api/v1/zfm-query-data"
-
-        sale_orders = self.env['sale.order'].sudo().search([
-            ('is_sap', '=', True),
-            ('do_sap', '!=', False),
-            ('state', 'not in', ('draft', 'cancel'))
-        ])
-
-        for so in sale_orders:
-            body = {
-                "I_QUERY": f"[READ_TEXT]:Z005-EN-{so.do_sap}-VBBK",
-                "I_MOD": "CRON cron_update_nopol_sap_sale_order"
-            }
-
-            try:
-                response = requests.post(url=url, headers=headers, data=json.dumps(body))
-            except Exception as e:
-                _logger.error(f"SAP Request Error DO {so.do_sap}: {e}")
-                continue
-
-            res = response.json()
-
-            if res.get('error'):
-                _logger.error(f"SAP Error DO {so.do_sap}: {res.get('error')}")
-                continue
-
-            if not res.get('success'):
-                _logger.info(f"CRON cron_update_nopol_sap_sale_order NOT SUCCESS DO {so.do_sap}")
-                continue
-
-            data = res.get('data', [])
-
-            if not data:
-                continue
-
-            nopol_lines = []
-            for row in data:
-                tdline = row.get('TDLINE')
-                if tdline:
-                    nopol_lines.append(tdline.strip())
-
-            if not nopol_lines:
-                continue
-
-            nomor_polisi_desc = "\n".join(nopol_lines)
-            if so.nomor_polisi_desc != nomor_polisi_desc:
-                so.write({'nomor_polisi_desc': nomor_polisi_desc})
-                _logger.info(f"Nopol updated DO {so.do_sap}")
                 
     @api.model
     def cron_synhronize_sap_so_sto(self):
-        icp = self.env['ir.config_parameter'].sudo()
-        x_i_api_key = icp.get_param('x_i_api_key')
-        ip_sap_rfc = icp.get_param('ip_sap_rfc')
-        query_so_sto_sap = icp.get_param('query_so_sto_sap')
-
-        if not x_i_api_key:
-            raise ValidationError("x_i_api_key belum disetting!")
-        if not ip_sap_rfc:
-            raise ValidationError("ip_sap_rfc belum disetting!")
-        if not query_so_sto_sap:
-            raise ValidationError("query_so_sto_sap belum disetting!")
-
-        headers = {
-            "x-i-api-key": str(x_i_api_key),
-            "Content-Type": "application/json"
-        }
-        url = f"{ip_sap_rfc}/api/v1/zfm-query-data"
-        body = {
-            "I_QUERY": str(query_so_sto_sap),
-            "I_MOD": "CRON cron_synhronize_sap_so_sto"
-        }
-
-        try:
-            response = requests.post(url=url, headers=headers, data=json.dumps(body))
-        except Exception as e:
-            raise ValidationError(str(e))
-
-        res = response.json()
-
-        if res.get('error'):
-            raise ValidationError(json.dumps(res.get('error')))
-
-        if not res.get('success'):
-            _logger.info("CRON cron_synchronize_sap_sale_order NOT SUCCESS")
-            return True
-
-        data_list = res.get('data', [])
-        _logger.info(f"TOTAL DATA SAP {len(data_list)}")
-
+        data_list = self._fetch_sap_data(
+            config_key='query_so_sto_sap',
+            cron_name='cron_synhronize_sap_so_sto',
+        )
         if not data_list:
             return True
+
+        _logger.info(f"TOTAL DATA cron_synhronize_sap_so_sto {len(data_list)}")
         
         so_model = self.env['sale.order'].sudo()
         so_line_model = self.env['sale.order.line'].sudo()
@@ -372,6 +278,7 @@ class InheritSaleOrderSAP(models.Model):
         product_model = self.env['product.product'].sudo()
         uom_model = self.env['uom.uom'].sudo()
         warehouse_model = self.env['stock.warehouse'].sudo()
+        delivery_carrier_model = self.env['delivery.carrier'].sudo()
         
         grouped_data = defaultdict(list)
         
@@ -411,6 +318,8 @@ class InheritSaleOrderSAP(models.Model):
             date_order = False
             if date_order_sap and len(date_order_sap) == 8:
                 date_order = datetime.strptime(date_order_sap, "%Y%m%d")
+                
+            deliv_carrier = delivery_carrier_model.search([('name', 'ilike', "STO Plant to Plant"),('company_id', '=', company.id)], limit=1)
             
             so = so_model.search([
                 ('do_sap', '=', nomor_do),
@@ -427,6 +336,7 @@ class InheritSaleOrderSAP(models.Model):
                 'date_order_sap': date_order,
                 'sales_sap_name': sales_name,
                 'nomor_polisi_desc': nomor_polisi_desc,
+                'carrier_id': deliv_carrier.id if deliv_carrier else False,
                 'company_id': company.id,
                 'po_sap': po_sap,
             }
@@ -485,19 +395,20 @@ class InheritSaleOrderSAP(models.Model):
                         })
         # sekalian jalanin sloc to sloc
         self.cron_synhronize_so_sloc_to_sloc()
-                        
+      
     @api.model
-    def cron_auto_done_sale_order_do(self):
+    def _process_auto_done_picking(self, config_key, search_field, data_key, cron_name):
         icp = self.env['ir.config_parameter'].sudo()
         x_i_api_key = icp.get_param('x_i_api_key')
         ip_sap_rfc = icp.get_param('ip_sap_rfc')
-        query_auto_done_sale_order_do = icp.get_param('query_auto_done_sale_order_do')
+        query = icp.get_param(config_key)
+
         if not x_i_api_key:
             raise ValidationError("x_i_api_key belum disetting!")
         if not ip_sap_rfc:
             raise ValidationError("ip_sap_rfc belum disetting!")
-        if not query_auto_done_sale_order_do:
-            raise ValidationError("query_auto_done_sale_order_do belum disetting!")
+        if not query:
+            raise ValidationError(f"{config_key} belum disetting!")
 
         headers = {
             "x-i-api-key": str(x_i_api_key),
@@ -505,8 +416,8 @@ class InheritSaleOrderSAP(models.Model):
         }
         url = f"{ip_sap_rfc}/api/v1/zfm-query-data"
         body = {
-            "I_QUERY": str(query_auto_done_sale_order_do),
-            "I_MOD": "CRON cron_auto_done_sale_order_do"
+            "I_QUERY": str(query),
+            "I_MOD": f"CRON {cron_name}"
         }
 
         try:
@@ -518,13 +429,69 @@ class InheritSaleOrderSAP(models.Model):
         if res.get('error'):
             raise ValidationError(json.dumps(res.get('error')))
         if not res.get('success'):
-            _logger.info("CRON cron_auto_done_sale_order_do NOT SUCCESS")
-            return True
+            _logger.info(f"CRON {cron_name} NOT SUCCESS")
+            return
 
         data_list = res.get('data', [])
         if not data_list:
+            return
+
+        _logger.info(f"TOTAL DATA {cron_name}: {len(data_list)}")
+
+        pick_delivery_model = self.env['stock.picking'].sudo()
+        for data in data_list:
+            if not data.get('MBLNR'):
+                continue
+
+            value = data.get(data_key)
+            picking = pick_delivery_model.search([
+                (search_field, '=', value),
+                ('picking_type_id.code', '=', 'outgoing'),
+                ('state', '=', 'assigned'),
+            ], limit=1)
+            if picking:
+                picking.button_validate()
+
+
+    @api.model
+    def cron_auto_done_all(self):
+        jobs = [
+            {
+                'config_key': 'query_auto_done_sale_order_do_sap',
+                'search_field': 'sale_id.do_sap',
+                'data_key': 'LE_VBELN',
+                'cron_name': 'cron_auto_done_sale_order_do',
+            },
+            {
+                'config_key': 'query_done_so_plan_to_plan_sap',
+                'search_field': 'sale_id.do_sap',
+                'data_key': 'EBELN',
+                'cron_name': 'cron_auto_done_so_plan_to_plan',
+            },
+            {
+                'config_key': 'query_done_so_sloc_to_sloc_sap',
+                'search_field': 'sale_id.po_sap',
+                'data_key': 'EBELN',
+                'cron_name': 'cron_auto_done_so_sloc_to_sloc',
+            },
+        ]
+        for job in jobs:
+            try:
+                self._process_auto_done_picking(**job)
+            except Exception as e:
+                _logger.error(f"Error pada {job['cron_name']}: {e}")
+                continue
+                            
+    @api.model
+    def cron_auto_done_sale_order_do(self):
+        data_list = self._fetch_sap_data(
+            config_key='query_auto_done_sale_order_do_sap',
+            cron_name='cron_auto_done_sale_order_do',
+        )
+        if not data_list:
             return True
-        _logger.info(f"TOTAL DATA AUTO DONE SO DO {len(data_list)}")
+
+        _logger.info(f"TOTAL DATA cron_auto_done_sale_order_do {len(data_list)}")
         
         pick_delivery_model = self.env['stock.picking'].sudo()
         for data in data_list:
@@ -544,52 +511,22 @@ class InheritSaleOrderSAP(models.Model):
     @api.model
     def cron_auto_done_git(self):
         icp = self.env['ir.config_parameter'].sudo()
-        x_i_api_key = icp.get_param('x_i_api_key')
-        ip_sap_rfc = icp.get_param('ip_sap_rfc')
-        query_auto_done_git_sap = icp.get_param('query_auto_done_git_sap')
         picking_type_git = icp.get_param('picking_type_git')
-        if not x_i_api_key:
-            raise ValidationError("x_i_api_key belum disetting!")
-        if not ip_sap_rfc:
-            raise ValidationError("ip_sap_rfc belum disetting!")
-        if not query_auto_done_git_sap:
-            raise ValidationError("query_auto_done_git_sap belum disetting!")
         if not picking_type_git:
             raise ValidationError("picking_type_git belum disetting!")
 
-        headers = {
-            "x-i-api-key": str(x_i_api_key),
-            "Content-Type": "application/json"
-        }
-        url = f"{ip_sap_rfc}/api/v1/zfm-query-data"
-        body = {
-            "I_QUERY": str(query_auto_done_git_sap),
-            "I_MOD": "CRON cron_auto_done_git"
-        }
-
-        try:
-            response = requests.post(url=url, headers=headers, data=json.dumps(body))
-        except Exception as e:
-            raise ValidationError(str(e))
-
-        res = response.json()
-        if res.get('error'):
-            raise ValidationError(json.dumps(res.get('error')))
-        if not res.get('success'):
-            _logger.info("CRON cron_auto_done_git NOT SUCCESS")
-            return True
-
-        data_list = res.get('data', [])
+        data_list = self._fetch_sap_data(
+            config_key='query_auto_done_git_sap',
+            cron_name='cron_auto_done_git',
+        )
         if not data_list:
             return True
-        _logger.info(f"TOTAL DATA AUTO DONE GIT {len(data_list)}")
-        
+
         pick_delivery_model = self.env['stock.picking'].sudo()
         for data in data_list:
-            mblnr = data.get('MBLNR')
-            if not mblnr:
+            if not data.get('MBLNR'):
                 continue
-            
+
             nomor_do = data.get('VBELN')
             picking = pick_delivery_model.search([
                 ('sale_id.do_sap', '=', nomor_do),
@@ -602,47 +539,13 @@ class InheritSaleOrderSAP(models.Model):
                 
     @api.model
     def cron_synhronize_so_sloc_to_sloc(self):
-        icp = self.env['ir.config_parameter'].sudo()
-        x_i_api_key = icp.get_param('x_i_api_key')
-        ip_sap_rfc = icp.get_param('ip_sap_rfc')
-        query_so_sloc_to_sloc_sap = icp.get_param('query_so_sloc_to_sloc_sap')
-
-        if not x_i_api_key:
-            raise ValidationError("x_i_api_key belum disetting!")
-        if not ip_sap_rfc:
-            raise ValidationError("ip_sap_rfc belum disetting!")
-        if not query_so_sloc_to_sloc_sap:
-            raise ValidationError("query_so_sloc_to_sloc_sap belum disetting!")
-
-        headers = {
-            "x-i-api-key": str(x_i_api_key),
-            "Content-Type": "application/json"
-        }
-        url = f"{ip_sap_rfc}/api/v1/zfm-query-data"
-        body = {
-            "I_QUERY": str(query_so_sloc_to_sloc_sap),
-            "I_MOD": "CRON cron_synhronize_so_sloc_to_sloc"
-        }
-
-        try:
-            response = requests.post(url=url, headers=headers, data=json.dumps(body))
-        except Exception as e:
-            raise ValidationError(str(e))
-
-        res = response.json()
-
-        if res.get('error'):
-            raise ValidationError(json.dumps(res.get('error')))
-
-        if not res.get('success'):
-            _logger.info("CRON cron_synhronize_so_sloc_to_sloc NOT SUCCESS")
-            return True
-
-        data_list = res.get('data', [])
-        _logger.info(f"TOTAL DATA SAP {len(data_list)}")
-
+        data_list = self._fetch_sap_data(
+            config_key='query_so_sloc_to_sloc_sap',
+            cron_name='cron_synhronize_so_sloc_to_sloc',
+        )
         if not data_list:
             return True
+        _logger.info(f"TOTAL DATA cron_synhronize_so_sloc_to_sloc: {len(data_list)}")
         
         so_model = self.env['sale.order'].sudo()
         so_line_model = self.env['sale.order.line'].sudo()
@@ -694,7 +597,7 @@ class InheritSaleOrderSAP(models.Model):
             if date_order_sap and len(date_order_sap) == 8:
                 date_order = datetime.strptime(date_order_sap, "%Y%m%d")
                 
-            deliv_carrier = delivery_carrier_model.search([('name', 'ilike', "sloc to sloc"),('company_id', '=', company.id)], limit=1)
+            deliv_carrier = delivery_carrier_model.search([('name', 'ilike', "STO Sloc to Sloc"),('company_id', '=', company.id)], limit=1)
             
             so = so_model.search([
                 ('po_sap', '=', po_sap),

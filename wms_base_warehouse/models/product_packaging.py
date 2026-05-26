@@ -20,45 +20,56 @@ class ProductPackagingSAP(models.Model):
     company_id = fields.Many2one(comodel_name='res.company', string="Company", default=lambda self: self.env.company)
     
     @api.model
-    def cron_synchronize_sap_product_packaging(self):
+    def _fetch_sap_data(self, config_key, cron_name):
         icp = self.env['ir.config_parameter'].sudo()
         x_i_api_key = icp.get_param('x_i_api_key')
         ip_sap_rfc = icp.get_param('ip_sap_rfc')
-        query_product_packaging_sap = icp.get_param('query_product_packaging_sap')
-        
+        query = icp.get_param(config_key)
+
         if not x_i_api_key:
             raise ValidationError("x_i_api_key belum disetting!")
         if not ip_sap_rfc:
             raise ValidationError("ip_sap_rfc belum disetting!")
-        if not query_product_packaging_sap:
-            raise ValidationError("query_product_packaging_sap belum disetting!")
-        
+        if not query:
+            raise ValidationError(f"{config_key} belum disetting!")
+
         headers = {
             "x-i-api-key": str(x_i_api_key),
             "Content-Type": "application/json"
         }
-        
-        url = f"{str(ip_sap_rfc)}/api/v1/zfm-query-data"
         body = {
-            "I_QUERY": str(query_product_packaging_sap),
-            "I_MOD": "CRON cron_synchronize_sap_product_packaging"
+            "I_QUERY": str(query),
+            "I_MOD": f"CRON {cron_name}"
         }
-        
         try:
-            response = requests.post(url=url, headers=headers, data=json.dumps(body),)
+            response = requests.post(
+                url=f"{ip_sap_rfc}/api/v1/zfm-query-data",
+                headers=headers,
+                data=json.dumps(body),
+            )
         except Exception as e:
             raise ValidationError(str(e))
-        
+
         res = response.json()
-        
         if res.get('error'):
             raise ValidationError(json.dumps(res.get('error')))
         if not res.get('success'):
-            _logger.info("=== CRON cron_synchronize_sap_product_packaging NOT SUCCESS ===")
-            return True
-        
+            _logger.info(f"CRON {cron_name} NOT SUCCESS")
+            return []
+
         data_list = res.get('data', [])
-        _logger.info(f"TOTAL DATA aufk: {len(data_list)}")
+        _logger.info(f"CRON {cron_name} - TOTAL DATA: {len(data_list)}")
+        return data_list
+    
+    @api.model
+    def cron_synchronize_sap_product_packaging(self):
+        data_list = self._fetch_sap_data(
+            config_key='query_product_packaging_sap',
+            cron_name='cron_synchronize_sap_product_packaging',
+        )
+        if not data_list:
+            return True
+        _logger.info(f"TOTAL DATA cron_synchronize_sap_product_packaging: {len(data_list)}")
         
         product_packaging_sap = self.env['product.packaging.sap'].sudo()
         companies = self.env['res.company'].sudo()

@@ -9,14 +9,14 @@
             <field name="interval_number">1</field>
             <field name="interval_type">days</field>
         </record>
-        <!-- <record id="ir_cron_update_nopol_sap_sale_order" model="ir.cron">
-            <field name="name">Cron Synchronize NoPol Sale order SAP</field>
+        <record id="ir_cron_auto_done_all" model="ir.cron">
+            <field name="name">Cron Auto Done Delivery Order SO SAP</field>
             <field name="model_id" ref="model_sale_order"/>
             <field name="state">code</field>
-            <field name="code">model.cron_update_nopol_sap_sale_order()</field>
+            <field name="code">model.cron_auto_done_all()</field>
             <field name="interval_number">1</field>
             <field name="interval_type">days</field>
-        </record> -->
+        </record>
         <record id="ir_cron_synhronize_sap_so_sto" model="ir.cron">
             <field name="name">Cron Synchronize SO STO SAP</field>
             <field name="model_id" ref="model_sale_order"/>

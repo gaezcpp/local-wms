@@ -63,52 +63,58 @@ class InheritBaseStockPicking(models.Model):
         return False
     
     @api.model
-    def cron_synhronize_sap_sales_return(self):
+    def _fetch_sap_data(self, config_key, cron_name):
         icp = self.env['ir.config_parameter'].sudo()
         x_i_api_key = icp.get_param('x_i_api_key')
         ip_sap_rfc = icp.get_param('ip_sap_rfc')
-        query_sales_return_sap = icp.get_param('query_sales_return_sap')
+        query = icp.get_param(config_key)
 
         if not x_i_api_key:
             raise ValidationError("x_i_api_key belum disetting!")
         if not ip_sap_rfc:
             raise ValidationError("ip_sap_rfc belum disetting!")
-        if not query_sales_return_sap:
-            raise ValidationError("query_sales_return_sap belum disetting!")
+        if not query:
+            raise ValidationError(f"{config_key} belum disetting!")
 
         headers = {
             "x-i-api-key": str(x_i_api_key),
             "Content-Type": "application/json"
         }
-
-        url = f"{ip_sap_rfc}/api/v1/zfm-query-data"
-
         body = {
-            "I_QUERY": str(query_sales_return_sap),
-            "I_MOD": "CRON cron_synhronize_sap_sales_return"
+            "I_QUERY": str(query),
+            "I_MOD": f"CRON {cron_name}"
         }
-
         try:
-            response = requests.post(url=url, headers=headers, data=json.dumps(body))
+            response = requests.post(
+                url=f"{ip_sap_rfc}/api/v1/zfm-query-data",
+                headers=headers,
+                data=json.dumps(body),
+            )
         except Exception as e:
             raise ValidationError(str(e))
 
         res = response.json()
-
         if res.get('error'):
             raise ValidationError(json.dumps(res.get('error')))
-
         if not res.get('success'):
-            _logger.info("CRON cron_synhronize_sap_sales_return NOT SUCCESS")
-            return True
+            _logger.info(f"CRON {cron_name} NOT SUCCESS")
+            return []
 
         data_list = res.get('data', [])
-
+        _logger.info(f"CRON {cron_name} - TOTAL DATA: {len(data_list)}")
+        return data_list
+    
+    @api.model
+    def cron_synhronize_sap_sales_return(self):
+        sales_retur_barcode_sap = self.env['ir.config_parameter'].sudo().get_param('sales_retur_barcode_sap')
+        data_list = self._fetch_sap_data(
+            config_key='query_sales_return_sap',
+            cron_name='cron_synhronize_sap_sales_return',
+        )
         if not data_list:
             return True
-
-        _logger.info(f"TOTAL DATA cron_synhronize_sap_sales_return {len(data_list)}")
-
+        _logger.info(f"TOTAL DATA cron_synhronize_sap_sales_return: {len(data_list)}")
+        
         picking_model = self.env['stock.picking'].sudo()
         move_model = self.env['stock.move'].sudo()
         wh_model = self.env['stock.warehouse'].sudo()
@@ -117,7 +123,6 @@ class InheritBaseStockPicking(models.Model):
         company_model = self.env['res.company'].sudo()
         product_model = self.env['product.product'].sudo()
         uom_model = self.env['uom.uom'].sudo()
-        # uom_kg = uom_model.search([('name', '=', 'kg')], limit=1)
 
         grouped_data = defaultdict(list)
 
@@ -145,7 +150,6 @@ class InheritBaseStockPicking(models.Model):
                 _logger.info(f"cron_synhronize_sap_sales_return PARTNER {kunnr} SKIPPED")
                 continue
             
-            sales_retur_barcode_sap = icp.get_param('sales_retur_barcode_sap')   
             warehouse = wh_model.search([
                 ('lot_stock_id.sloc_id.code', '=', lgort),
                 ('company_id', '=', company.id),
@@ -233,4 +237,4 @@ class InheritBaseStockPicking(models.Model):
                 else:
                     move_model.create(vals_line)
 
-            _logger.info(f"SALES RETUR {vgbel} total line {len(rows)}")
+            _logger.info(f"SALES RETUR {vblen} total line {len(rows)}")

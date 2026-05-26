@@ -33,45 +33,56 @@ class ProductionOrderSAP(models.Model):
     active = fields.Boolean(string="Active", default=True)
     
     @api.model
-    def cron_synchronize_sap_production_order(self):
+    def _fetch_sap_data(self, config_key, cron_name):
         icp = self.env['ir.config_parameter'].sudo()
         x_i_api_key = icp.get_param('x_i_api_key')
         ip_sap_rfc = icp.get_param('ip_sap_rfc')
-        query_production_order_sap = icp.get_param('query_production_order_sap')
-        
+        query = icp.get_param(config_key)
+
         if not x_i_api_key:
             raise ValidationError("x_i_api_key belum disetting!")
         if not ip_sap_rfc:
             raise ValidationError("ip_sap_rfc belum disetting!")
-        if not query_production_order_sap:
-            raise ValidationError("query_production_order_sap belum disetting!")
-        
+        if not query:
+            raise ValidationError(f"{config_key} belum disetting!")
+
         headers = {
             "x-i-api-key": str(x_i_api_key),
             "Content-Type": "application/json"
         }
-        
-        url = f"{str(ip_sap_rfc)}/api/v1/zfm-query-data"
         body = {
-            "I_QUERY": str(query_production_order_sap),
-            "I_MOD": "CRON cron_synchronize_sap_production_order"
+            "I_QUERY": str(query),
+            "I_MOD": f"CRON {cron_name}"
         }
-        
         try:
-            response = requests.post(url=url, headers=headers, data=json.dumps(body),)
+            response = requests.post(
+                url=f"{ip_sap_rfc}/api/v1/zfm-query-data",
+                headers=headers,
+                data=json.dumps(body),
+            )
         except Exception as e:
             raise ValidationError(str(e))
-        
+
         res = response.json()
-        
         if res.get('error'):
             raise ValidationError(json.dumps(res.get('error')))
         if not res.get('success'):
-            _logger.info("=== CRON cron_synchronize_sap_production_order NOT SUCCESS ===")
-            return True
-        
+            _logger.info(f"CRON {cron_name} NOT SUCCESS")
+            return []
+
         data_list = res.get('data', [])
-        _logger.info(f"TOTAL DATA aufk: {len(data_list)}")
+        _logger.info(f"CRON {cron_name} - TOTAL DATA: {len(data_list)}")
+        return data_list
+    
+    @api.model
+    def cron_synchronize_sap_production_order(self):
+        data_list = self._fetch_sap_data(
+            config_key='query_production_order_sap',
+            cron_name='cron_synchronize_sap_production_order',
+        )
+        if not data_list:
+            return True
+        _logger.info(f"TOTAL DATA cron_synchronize_sap_production_order: {len(data_list)}")
         
         po_sap = self.env['production.order.sap'].sudo()
         companies = self.env['res.company'].sudo()

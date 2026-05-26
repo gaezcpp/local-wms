@@ -74,9 +74,16 @@ class InheritStockQuant(models.Model):
 
         packages = self.mapped('package_id').filtered(lambda p: p)
         for pkg in packages:
-            pallet_status = 'eceran'
             quants = pkg.contained_quant_ids.filtered(lambda q: q.quantity > 0)
-
+            if not quants:
+                if pkg.pallet_status or not pkg.can_be_use:
+                    pkg.sudo().write({
+                        'pallet_status': False,
+                        'can_be_use': True,
+                    })
+                continue
+            
+            pallet_status = 'eceran'
             product_ids = quants.mapped('product_id')
             if len(product_ids) == 1 and quants:
                 quant = quants[0]
@@ -89,9 +96,14 @@ class InheritStockQuant(models.Model):
                             pallet_status = 'full_pallet'
                     except ZeroDivisionError:
                         pass
-
+            if not pallet_status:
+                pallet_status = 'eceran'
+            
             if pkg.pallet_status != pallet_status:
-                pkg.pallet_status = pallet_status
+                pkg.sudo().write({
+                    'pallet_status': pallet_status,
+                    'can_be_use': pallet_status == 'eceran',
+                })
     
     def _prepare_bag_pallet_vals(self, vals):
         product_id = vals.get('product_id')
