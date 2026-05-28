@@ -184,6 +184,7 @@ class InheritProductTemplate(models.Model):
                     uom_ids.append(existing_uom.id)
 
                 meinh_upper = (meinh or "").upper()
+                uom_name_upper = (uom_name or "").upper()
                 try:
                     if re.match(r'^B\d+$', meinh_upper):
                         bag_size = int(meinh_upper[1:])
@@ -193,6 +194,14 @@ class InheritProductTemplate(models.Model):
                         umren = float(data.get('UMREN') or 1)
                         if umren:
                             bag_size = int(umrez / umren)
+                            bag_candidates.append((bag_size, existing_uom.id))
+                    # elif re.match(r'^BOX\s*(\d+)$', meinh_upper):
+                    #     bag_size = int(re.match(r'^BOX\s*(\d+)$', meinh_upper).group(1))
+                    #     bag_candidates.append((bag_size, existing_uom.id))
+                    else:
+                        match = re.search(r'\d+', uom_name_upper)
+                        if match:
+                            bag_size = int(match.group())
                             bag_candidates.append((bag_size, existing_uom.id))
                 except Exception:
                     pass

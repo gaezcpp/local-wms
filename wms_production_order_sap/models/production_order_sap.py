@@ -39,8 +39,9 @@ class ProductionOrderSAP(models.Model):
     @api.depends('picking_ids.state', 'picking_ids.move_ids.quantity')
     def _compute_gr_qty(self):
         for po in self:
-            done_moves = po.picking_ids.filtered(lambda p: p.state == 'done').mapped('move_ids').filtered(lambda m: m.state == 'done')
-            po.gr_qty = sum(done_moves.mapped('quantity'))
+            done_moves = po.picking_ids.filtered(lambda p: p.state == 'done' and p.location_dest_id.id == p.location_dest_id.warehouse_id.lot_stock_id.id).mapped('move_ids').filtered(lambda m: m.state == 'done')
+            per_kg = sum(done_moves.mapped('quantity'))
+            po.gr_qty = ((per_kg / po.uom_id.factor) * 1000)
     
     def _compute_picking_count(self):
         domain = [('po_sap_id', 'in', self.ids)]
@@ -255,6 +256,7 @@ class ProductionOrderSAP(models.Model):
             for rec in self:
                 if rec.state in ('open', 'in_progress'):
                     move_vals = []
+                    bag_qty = ((self.order_qty * self.uom_id.factor) / 1000)
                     picking = self.env['stock.picking'].sudo().create({
                         'picking_type_id': operation_type.id,
                         'location_dest_id': operation_type.default_location_dest_id.id,
@@ -270,7 +272,7 @@ class ProductionOrderSAP(models.Model):
                         move_vals.append({
                             'picking_id': picking.id,
                             'product_id': rec.product_id.id,
-                            'product_uom_qty': rec.order_qty,
+                            'product_uom_qty': bag_qty,
                             'product_uom': uom_kg.id,
                             'company_id': rec.company_id.id,
                         })
