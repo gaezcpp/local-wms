@@ -32,6 +32,7 @@
         <field name="arch" type="xml">
             <form string="Debt Management">
                 <header>
+                    <!-- <button name="action_open_wizard_pay" string="Pay" type="object" class="oe_highlight"/> -->
                     <button name="action_in_progress" string="Set In Progress" type="object" class="oe_highlight" invisible="state != 'draft'"/>
                     <button name="action_draft" string="Set Draft" type="object" class="oe_highlight" invisible="state != 'in_progress'"/>
                     <button name="action_paid" string="Set Paid" type="object" class="oe_highlight" invisible="state != 'in_progress'"/>
@@ -53,7 +54,7 @@
                             <field name="customer_id" required="1" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}"/>
                             <label for="amount" invisible="state != 'in_progress'"/>
                             <div class="o_row" invisible="state != 'in_progress'">
-                                <field name="amount" readonly="state != 'in_progress'"/>
+                                <field name="amount" readonly="state != 'in_progress'" string="Auto Reconcile"/>
                                 <button name="action_distribute_payment" string="PAY" type="object" class="btn btn-success" invisible="state != 'in_progress'" confirm="Make sure the amount is correct!"/>
                             </div>
                             <field name="paid_amount" force_save="1" readonly="1"/>
@@ -71,8 +72,8 @@
 									<field name="due_days" force_save="1" readonly="1"/>
 									<field name="amount" readonly="parent.state != 'draft' or state != 'in_progress'" sum="Total"/>
                                     <field name="partially_paid" optional="hide" readonly="parent.state == 'paid' or state != 'in_progress'"/>
-                                    <field name="paid_amount" force_save="1" readonly="1" sum="partial_total"/>
-                                    <field name="amount_total" force_save="1" readonly="1" sum="all_total"/>
+                                    <field name="paid_amount" readonly="parent.state != 'in_progress'" sum="partial_total"/>
+                                    <field name="amount_total" string="Remaining" force_save="1" readonly="1" sum="all_total"/>
 									<field name="state" optional="hide" force_save="1" readonly="1"/>
                                     <field name="notes" optional="show" readonly="parent.state == 'paid' or state != 'in_progress'"/>
                                     <!-- <button name="action_paid" string="Paid" type="object" class="oe_highlight" confirm="Confirm?" invisible="state != 'in_progress'"/> -->

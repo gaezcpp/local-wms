@@ -14,4 +14,5 @@
     "installable": True,
     "application": False,
     "external_dependencies": {"python": ["cryptography", "pycryptodome"]},
+    'category': 'WMS',
 }

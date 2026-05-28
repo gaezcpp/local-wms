@@ -505,7 +505,7 @@ class TaggingRecord(models.Model):
             super(TaggingRecord, rec).write(vals)
 
             try:
-                rec._send_email_close_to_tagger()
+                rec.sudo()._send_email_close_to_tagger()
             except Exception as e:
                 _logger.exception("Gagal kirim email close untuk %s", rec.name)
 
@@ -936,7 +936,7 @@ class TaggingRecord(models.Model):
             mails.append(mail_values)
 
         if mails:
-            self.env['mail.mail'].create(mails)
+            self.env['mail.mail'].sudo().create(mails)
 
     def _send_reminder_listing_to_department(self):
         """Kirim email reminder listing untuk recordset self (multi)."""
@@ -1177,8 +1177,7 @@ class TaggingRecord(models.Model):
             "reply_to": closed_by_email or "adminitc@cpp.co.id",
         }
 
-        mail = self.env["mail.mail"].sudo().create(mail_vals)
-        # mail.send(raise_exception=True)
+        self.env["mail.mail"].sudo().create(mail_vals)
         return True
     
     def action_set_open_wo(self):

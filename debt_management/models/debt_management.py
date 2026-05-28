@@ -17,7 +17,7 @@ class DebtManagement(models.Model):
     ], string="State", default='draft', tracking=True)
     amount = fields.Float(string="Amount")
     paid_amount = fields.Float(string="Paid Amount", tracking=True)
-    total_amount = fields.Float(string="Total Amount", compute='_compute_total_amount', store=True)
+    total_amount = fields.Float(string="Remaining", compute='_compute_total_amount', store=True)
     over_paid_amount = fields.Float(string="Over Paid Amount", tracking=True)
     debt_line_ids = fields.One2many('debt.management.line', 'debt_management_id', ondelete='cascade')
     debt_line_count = fields.Integer(string="Debt Line Count", compute='_compute_debt_line_count')
@@ -41,6 +41,12 @@ class DebtManagement(models.Model):
             total = 0.0
             for line in rec.debt_line_ids:
                 total += max(line.amount - line.paid_amount, 0)
+                # if line.paid_amount == 0.0:
+                #     line.state = 'in_progress'
+                # if line.paid_amount >= 1:
+                #     line.state = 'partially_paid'
+                # if line.paid_amount >= line.amount:
+                #     line.state = 'paid'
             rec.total_amount = total
             
     def _compute_debt_line_count(self):
@@ -134,4 +140,24 @@ class DebtManagement(models.Model):
             else:
                 raise ValidationError("State can only set to Paid while the state is In Progress")
     
-    
+    # def action_open_wizard_pay(self):
+    #     self.ensure_one()
+    #     view = self.env.ref('debt_management.view_debt_payment_wizard_form')
+    #     return {
+    #         'type': 'ir.actions.act_window',
+    #         'name': 'Update Pay',
+    #         'res_model': 'debt.payment.wizard',
+    #         'views': [(view.id, 'form')],
+    #         'target': 'new',
+    #         'context': {
+    #             'default_debt_management_id': self.id,
+    #             # 'default_picking_type_id': self.picking_type_id.id,
+    #             # 'default_line_ids': [(0, 0, {
+    #             #     'backorder_wizard_id': 0,
+    #             #     'product_id': line.product_id.id,
+    #             #     'qty': line.bag_qty,
+    #             #     'product_uom_id': line.uom_bag_id.id,
+    #             # }) for line in self.move_ids ],
+    #             # 'default_is_quality': True,
+    #         }
+    #     }

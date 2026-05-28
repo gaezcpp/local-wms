@@ -24,10 +24,10 @@ class DebtManagementLine(models.Model):
         ('paid', 'Paid')
     ], string="State", default="in_progress", tracking=True)
     
-    def unlink(self):
-        if any(self.filtered(lambda debt: debt.state in ('paid', 'partially_paid'))):
-            raise ValidationError("You cannot delete a line which is paid or partially paid!")
-        return super().unlink()
+    # def unlink(self):
+    #     if any(self.filtered(lambda debt: debt.state in ('paid', 'partially_paid'))):
+    #         raise ValidationError("You cannot delete a line which is paid or partially paid!")
+    #     return super().unlink()
     
     @api.depends('start_date', 'end_date')
     def _compute_due_days(self):
@@ -46,6 +46,11 @@ class DebtManagementLine(models.Model):
     def action_paid(self):
         for rec in self:
             if rec.state == 'in_progress':
-                pass
+                if rec.paid_amount == 0.0:
+                    rec.state = 'in_progress'
+                if rec.paid_amount >= 1:
+                    rec.state = 'partially_paid'
+                if rec.paid_amount >= rec.amount:
+                    rec.state = 'paid'
             else:
                 raise ValidationError("Staus Already Paid!")
