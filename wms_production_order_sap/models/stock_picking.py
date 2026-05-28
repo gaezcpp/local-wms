@@ -11,18 +11,6 @@ class InheritBaseStockPicking(models.Model):
         tz = pytz.timezone('Asia/Jakarta')
         return datetime.now(tz)
 
-    @api.onchange('po_sap_id')
-    def _onchange_po_sap_product(self):
-        for rec in self:
-            if not rec.po_sap_id:
-                continue
-
-            product = rec.po_sap_id.product_id
-            rec.move_ids = [(5, 0, 0)]
-            rec.move_ids = [(0, 0, {
-                'product_id': product.id,
-            })]
-
     def _prepare_backorder_picking_vals(self):
         self.ensure_one()
         vals = super()._prepare_backorder_picking_vals()
@@ -60,9 +48,6 @@ class InheritBaseStockPicking(models.Model):
 
             if prod_shift:
                 picking.production_shift_id = prod_shift.id
-            
-            if picking.po_sap_id and picking.po_sap_id.state == 'open':
-                picking.po_sap_id.state = 'in_progress'
         return res
 
     def button_validate(self):
@@ -96,7 +81,10 @@ class InheritBaseStockPicking(models.Model):
     
     def _action_done(self):
         res = super()._action_done()
-        self._propagate_po_sap_to_quant()
+        for picking in self:
+            picking._propagate_po_sap_to_quant()
+            if picking.po_sap_id and picking.po_sap_id.state != 'teco':
+                picking.po_sap_id.state = 'in_progress'
         return res
     
     # isi po_sap_id di stock.quant

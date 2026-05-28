@@ -22,6 +22,7 @@
                 <attribute name="options">{'no_open': True, 'no_create': True}</attribute>
             </xpath>
             <xpath expr="//field[@name='result_package_id']" position="attributes">
+                <!-- <attribute name="required">1</attribute> -->
                 <attribute name="options">{'no_open': True, 'no_create': True}</attribute>
                 <attribute name="domain">
                     (company_id and [('company_id', 'in', [company_id] + [False])] or [('company_id', '=', False)]) + ['|', '|', ('location_id', '=', False), ('location_id', '=', location_dest_id), ('id', '=', package_id)] + [('can_be_use', '=', True)]

@@ -18,6 +18,7 @@ class StockMoveLine(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         for vals in vals_list:
+            # self._validate_bag_qty(vals) # belum dinaikin karna takut error mau show user
             self._sync_qty_from_bag(vals)
             self._validate_pallet(vals)
         records = super().create(vals_list)
@@ -25,6 +26,7 @@ class StockMoveLine(models.Model):
         return records
 
     def write(self, vals):
+        # self._validate_bag_qty(vals, records=self) # belum dinaikin karna takut error mau show user
         self._sync_qty_from_bag(vals, records=self)
         self._validate_pallet(vals)
         self._validate_qty_packaging_sap(vals)
@@ -72,6 +74,28 @@ class StockMoveLine(models.Model):
             value = vals.get('qty_packaging_sap', rec.qty_packaging_sap)
             if value is None or value <= 0:
                 raise ValidationError(f"Packaging Qty untuk product {rec.product_id.default_code} tidak boleh kurang dari 0!")
+    
+    def _validate_bag_qty(self, vals, records=None):
+        if 'bag_qty' not in vals:
+            return
+        
+        bag_qty = vals.get('bag_qty')
+        if not bag_qty:
+            return
+        
+        recs = records or self
+        
+        if not recs:
+            if bag_qty != int(bag_qty):
+                raise ValidationError("Quantity BAG tidak boleh desimal! Masukkan bilangan bulat.")
+            return
+        
+        for rec in recs:
+            if bag_qty != int(bag_qty):
+                raise ValidationError(
+                    f"Quantity BAG untuk produk {rec.product_id.default_code or rec.product_id.name} "
+                    f"tidak boleh desimal! Masukkan bilangan bulat."
+                )
 
     @api.depends('qty_done', 'uom_pallet_id')
     def _compute_pallet_qty(self):
