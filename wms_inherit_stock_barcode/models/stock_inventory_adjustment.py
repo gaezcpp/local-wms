@@ -19,6 +19,7 @@ class StockInventoryAdjustment(models.Model):
     
     name = fields.Char(string="Name", default="New")
     pid_sap = fields.Char(string="PID SAP")
+    done_pid_number = fields.Char(string="Done PID")
     user_id = fields.Many2one(comodel_name='res.users', string="User", default=lambda self:self.env.user)
     location_id = fields.Many2one(comodel_name='stock.location', index=True)
     company_id = fields.Many2one(comodel_name='res.company', default=lambda self:self.env.company, string="Company")
@@ -228,21 +229,58 @@ class StockInventoryAdjustment(models.Model):
             
             rec.quant_count = Quant.search_count(domain)
     
+    # def action_view_quant(self):
+    #     self.ensure_one()
+    #     domain = [('company_id', '=', self.company_id.id),]
+        
+    #     if self.product_ids:
+    #         domain.append(('product_id', 'in', self.product_ids.ids))
+    #     if self.location_id:
+    #         domain.append(('location_id', 'child_of', self.location_id.id))
+        
+    #     return {
+    #         'type': 'ir.actions.act_window',
+    #         'name': 'Physical Inventory',
+    #         'view_mode': 'list',
+    #         'res_model': 'stock.quant',
+    #         'domain': domain,
+    #         'context': {
+    #             'create': 0,
+    #             'edit': 0,
+    #             'delete': 0,
+    #             'duplicate': 0,
+    #         }
+    #     }
+    
     def action_view_quant(self):
         self.ensure_one()
-        domain = [('company_id', '=', self.company_id.id),]
-        
+
+        domain = [
+            ('company_id', '=', self.company_id.id),
+            ('location_id.usage', '=', 'internal'),
+        ]
         if self.product_ids:
             domain.append(('product_id', 'in', self.product_ids.ids))
         if self.location_id:
             domain.append(('location_id', 'child_of', self.location_id.id))
-        
+
+        list_view_id = self.env.ref('wms_inherit_stock_barcode.view_stock_quant_readonly_list').id
+
         return {
             'type': 'ir.actions.act_window',
             'name': 'Physical Inventory',
             'view_mode': 'list',
+            'views': [(list_view_id, 'list')],
             'res_model': 'stock.quant',
             'domain': domain,
+            'context': {
+                'create': False,
+                'edit': False,
+                'delete': False,
+                'duplicate': False,
+                'inventory_mode': False,
+                'no_recompute': True,
+            }
         }
     
     # Ini yang auto scan
@@ -439,27 +477,68 @@ class StockInventoryAdjustment(models.Model):
     @api.model
     def cron_synchronize_auto_done_pid(self):
         data_list = self._fetch_sap_data(
-            config_key='query_pid_sap',
+            config_key='query_auto_done_pid_sap',
             cron_name='cron_synchronize_auto_done_pid',
         )
         if not data_list:
             return True
-        _logger.info(f"TOTAL DATA cron_synchronize_auto_done_pid: {len(data_list)}")
-        
+
+        _logger.info("TOTAL DATA cron_synchronize_auto_done_pid: %d", len(data_list))
+
         sia_model = self.env['stock.inventory.adjustment'].sudo()
-        summary_sia_model = self.env['stock.inventory.adjustment.summary'].sudo()
-        wh_model = self.env['stock.warehouse'].sudo()
-        product_model = self.env['product.product'].sudo()
-        unit_model = self.env['uom.uom'].sudo()
         company_model = self.env['res.company'].sudo()
 
         grouped_data = defaultdict(list)
-        
         for row in data_list:
-            iblnr = (row.get('IBLNR') or '')
+            iblnr = (row.get('IBLNR') or '').strip()
             if iblnr:
                 grouped_data[iblnr].append(row)
-        
+
         for iblnr, rows in grouped_data.items():
             first = rows[0]
-            sia = sia_model.search([('pid_sap', '=', iblnr)])
+            mblnr = (first.get('MBLNR') or '').strip()
+            werks = (first.get('WERKS') or '').strip()
+
+            if not mblnr:
+                _logger.info(f"cron_synchronize_auto_done_pid IBLNR {iblnr} SKIPPED")
+                continue
+
+            company = company_model.search([
+                ('company_registry', '=', werks),
+                ('sync_wms', '=', True),
+            ], limit=1)
+            if not company:
+                _logger.info(f"cron_synchronize_auto_done_pid COMPANY {werks} SKIPPED")
+                continue
+
+            sia = sia_model.search([
+                ('pid_sap', '=', iblnr),
+                ('company_id', '=', company.id),
+                ('state', '=', 'done_counting'),
+            ], limit=1)
+            if not sia:
+                _logger.info(f"cron_synchronize_auto_done_pid {iblnr} tidak ditemukan atau bukan done_counting, SKIPPED.")
+                continue
+
+            quant_ids = sia.adjustment_line_ids.mapped('quant_id').filtered(lambda q: q.id)
+
+            try:
+                if quant_ids:
+                    quants_to_apply = quant_ids.filtered(lambda q: q.inventory_quantity_set)
+                    if quants_to_apply:
+                        quants_to_apply.action_apply_inventory()
+                        _logger.info(f"cron_synchronize_auto_done_pid IBLNR {iblnr}: action_apply_inventory berhasil untuk {len(quants_to_apply)} quant.")
+                    else:
+                        _logger.warning(f"cron_synchronize_auto_done_pid IBLNR {iblnr}: Tidak ada quant dengan inventory_quantity_set=True.")
+                else:
+                    _logger.warning(f"cron_synchronize_auto_done_pid IBLNR {iblnr}: Tidak ada quant terkait pada SIA {sia.name}")
+
+                sia.write({
+                    'state': 'done_sap',
+                    'done_pid_number': mblnr,
+                })
+                sia.message_post(body=f"Inventory applied & status Done SAP via cron. IBLNR: {iblnr}, MBLNR: {mblnr}")
+            except Exception as e:
+                _logger.error("cron_synchronize_auto_done_pid IBLNR %s: Gagal proses SIA %s — %s", iblnr, sia.name, str(e))
+                sia.message_post(body=f"GAGAL apply inventory via cron: {str(e)}")
+                continue

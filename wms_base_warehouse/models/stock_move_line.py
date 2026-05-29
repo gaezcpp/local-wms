@@ -20,7 +20,7 @@ class InheritBaseStockMoveLine(models.Model):
         ('QI', 'QI'),
         ('BLOCKED', 'BLOCKED'),
         ('UU', 'UU'),
-    ], string="Stock Type", default="QI")
+    ], string="Stock Type")
     
     # ini dipake kalo odoo.sh salah
     def _skip_custom_logic(self):
@@ -95,7 +95,7 @@ class InheritBaseStockMoveLine(models.Model):
         if not lot:
             return False
 
-        existing_aft = lot.lot_aft_ids.filtered(lambda l: l.stock_type == (self.stock_type or 'QI'))
+        existing_aft = lot.lot_aft_ids.filtered(lambda l: l.stock_type == self.stock_type)
         
         # coba pake compute bawaan odoo
         bag = self.bag_qty

@@ -40,7 +40,6 @@
                     <button name="check_details" string="Get Details" type="object" class="oe_highlight" invisible="state != 'draft'"/>
                     <button name="action_in_progress" string="Confirm" type="object" class="oe_highlight" invisible="state != 'draft' or not is_checked"/>
                     <button name="action_done_counting" string="Done Counting" type="object" class="btn btn-success" invisible="state != 'in_progress'" confirm="Are you sure?"/>
-                    <button name="action_done_sap" string="Done SAP" type="object" class="oe_highlight" invisible="state != 'done_counting'" confirm="Are you sure?"/>
                     <button name="action_cancelled" string="Cancel" type="object" class="btn btn-danger" invisible="state != 'in_progress'" confirm="Are you sure?"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,in_progress,done_counting,done_sap"/>
                 </header>
@@ -58,6 +57,7 @@
                         <group>
                             <field name="pid_sap" readonly="1"/>
                             <field name="location_id" readonly="1" options="{'no_open': True, 'no_create': True}" domain="[('usage', '=', 'internal')]"/>
+                            <field name="done_pid_number" invisible="done_pid_number != True" readonly="1"/>
                         </group>
                         <group>
                             <field name="date_time" readonly="1"/>
@@ -169,13 +169,13 @@
     </record>
 
     <record id="stock_inventory_adjustment_action" model="ir.actions.act_window">
-        <field name="name">Inventory Adjustment</field>
+        <field name="name">Inventory Adjustment (PID)</field>
         <field name="res_model">stock.inventory.adjustment</field>
         <field name="view_mode">list,form,kanban</field>
     </record>
 
     <record id="stock_inventory_adjustment_action_kanban_validated" model="ir.actions.act_window">
-        <field name="name">Inventory Adjustment</field>
+        <field name="name">Inventory Adjustment (PID)</field>
         <field name="res_model">stock.inventory.adjustment</field>
         <field name="view_mode">kanban</field>
         <field name="domain">[('state','=','in_progress')]</field>

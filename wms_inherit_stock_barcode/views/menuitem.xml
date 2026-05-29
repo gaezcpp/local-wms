@@ -2,7 +2,7 @@
 <odoo>
     <menuitem
         id="stock_inventory_adjustment_menu"
-        name="Inventory Adjustment"
+        name="Inventory Adjustment (PID)"
         parent="stock.menu_stock_adjustments"
         sequence="0"
         action="wms_inherit_stock_barcode.stock_inventory_adjustment_action"

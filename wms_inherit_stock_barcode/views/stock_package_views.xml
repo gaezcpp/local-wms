@@ -9,7 +9,7 @@
                 <field name="can_be_use" readonly="1"/>
             </xpath>
             <xpath expr="//field[@name='product_uom_id']" position="after">
-                <field name="bag_qty" string="Bag" readonly="1"/>
+                <field name="bag_qty" string="Quantity" readonly="1"/>
                 <field name="uom_bag_id" string="Unit" readonly="1" options="{'no_open': True, 'no_create': True}"/>
             </xpath>
         </field>

@@ -11,7 +11,7 @@
         </record>
         <record id="query_auto_done_pid_sap" model="ir.config_parameter">
             <field name="key">query_auto_done_pid_sap</field>
-            <field name="value">select a.iblnr, a.budat, a.gjahr, a.lgort, a.werks, b.zeili, b.matnr, c.maktx,b.bstar, b.menge, b.meins from ikpf a join iseg b on a.iblnr = b.iblnr and a.gjahr = b.gjahr left join makt c on b.matnr = c.matnr where b.mblnr != ' ' and TO_DATE(a.gjahr,'YYYY') BETWEEN CURRENT_DATE-100 AND CURRENT_DATE</field>
+            <field name="value">select b.mblnr, a.iblnr, a.budat, a.gjahr, a.lgort, a.werks, b.zeili, b.matnr, c.maktx,b.bstar, b.menge, b.meins from ikpf a join iseg b on a.iblnr = b.iblnr and a.gjahr = b.gjahr left join makt c on b.matnr = c.matnr where b.mblnr != ' ' and TO_DATE(a.gjahr,'YYYY') BETWEEN CURRENT_DATE-100 AND CURRENT_DATE</field>
         </record>
     </data>
 </odoo>

@@ -8,7 +8,7 @@ class InheritStockLot(models.Model):
     _inherit = 'stock.lot'
 
     uom_bag_id = fields.Many2one('uom.uom',  tracking=True)
-    bag_qty = fields.Float(string="Bag", tracking=True)
+    bag_qty = fields.Float(string="Quantity", tracking=True)
     
     @api.model_create_multi
     def create(self, vals_list):

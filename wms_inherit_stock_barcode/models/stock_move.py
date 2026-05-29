@@ -8,7 +8,7 @@ class InheritStockMove(models.Model):
 
     uom_bag_id = fields.Many2one('uom.uom',  related='product_id.uom_bag_id', store=True)
     uom_pallet_id = fields.Many2one('uom.uom', related='product_id.uom_pallet_id', store=True)
-    bag_qty = fields.Float(string="Bag Qty", compute="_compute_bag_qty", store=True)
+    bag_qty = fields.Float(string="Quantity", compute="_compute_bag_qty", store=True)
     pallet_qty = fields.Float(string="Pallet Qty", compute="_compute_pallet_qty", store=True)
     product_packaging_id = fields.Many2one(comodel_name='product.packaging.sap', string="Product Packaging")
     qty_packaging_sap = fields.Float(string="Qty Packaging", compute='_compute_qty_packaging_sap')

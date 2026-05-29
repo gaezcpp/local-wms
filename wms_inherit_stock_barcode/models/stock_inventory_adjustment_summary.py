@@ -9,7 +9,7 @@ class StockInventoryAdjustmentSummary(models.Model):
     stock_adjustment_id = fields.Many2one('stock.inventory.adjustment')
     product_id = fields.Many2one('product.product')
     uom_id = fields.Many2one('uom.uom')
-    uom_bag_id = fields.Many2one(comodel_name='uom.uom', string="Bag")
+    uom_bag_id = fields.Many2one(comodel_name='uom.uom', string="Unit")
     sloc_name = fields.Char(string="SLOC Name")
     sloc_id = fields.Many2one(comodel_name='storage.location', string="SLOC")
     stock_type = fields.Selection([

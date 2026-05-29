@@ -9,7 +9,7 @@ class InheritStockQuant(models.Model):
 
     uom_bag_id = fields.Many2one('uom.uom', related='product_id.uom_bag_id', store=True)
     uom_pallet_id = fields.Many2one('uom.uom', related='product_id.uom_pallet_id', store=True)
-    bag_qty = fields.Float(string="Bag")
+    bag_qty = fields.Float(string="Quantity")
     pallet_qty = fields.Float(string="Pallet Dummy")
     bag_dummy_qty = fields.Float(string="Bag Dummy")
     pallet_dummy_qty = fields.Float(string="Pallet Qty", compute='_compute_pallet_dummy_qty')
