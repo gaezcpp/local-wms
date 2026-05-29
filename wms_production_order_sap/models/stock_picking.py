@@ -33,7 +33,6 @@ class InheritBaseStockPicking(models.Model):
         return vals
     
     def action_confirm(self):
-        res = super().action_confirm()
         Shift = self.env['production.shift'].sudo()
         for picking in self:
             right_now = self.now_jakarta()
@@ -48,19 +47,14 @@ class InheritBaseStockPicking(models.Model):
 
             if prod_shift:
                 picking.production_shift_id = prod_shift.id
-        return res
+        return super().action_confirm()
 
     def button_validate(self):
-        res = super().button_validate()
-
         Shift = self.env['production.shift'].sudo()
-
         for picking in self:
             next_pickings = picking.move_ids.move_dest_ids.picking_id.filtered(lambda p: p)
-
             right_now = self.now_jakarta()
             now_hour = right_now.strftime('%H%M')
-
             prod_shift = picking.production_shift_id
             if not prod_shift:
                 prod_shift = Shift.search([
@@ -76,8 +70,7 @@ class InheritBaseStockPicking(models.Model):
                     'production_shift_id': prod_shift.id if prod_shift else False,
                     'po_sap_id': picking.po_sap_id.id,
                 })
-
-        return res
+        return super().button_validate()
     
     def _action_done(self):
         res = super()._action_done()

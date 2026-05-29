@@ -13,7 +13,7 @@ class ProductPackagingSAP(models.Model):
     _rec_name = 'packaging_code'
     _order = 'id desc'
     
-    product_id = fields.Many2one(comodel_name='product.template', string="Product")
+    product_id = fields.Many2one(comodel_name='product.product', string="Product")
     product_uom_desc = fields.Char(string="UoM")
     packaging_code = fields.Char(string="Packaging")
     packaging_desc = fields.Char(string="Packaging Description")
@@ -85,7 +85,7 @@ class ProductPackagingSAP(models.Model):
                     continue
             
             finish_good = (data.get('FNSH_GOOD') or "").lstrip('0')
-            product_id = self.env['product.template'].sudo().search([('default_code', '=', finish_good)], limit=1)
+            product_id = self.env['product.product'].sudo().search([('default_code', '=', finish_good)], limit=1)
             if not product_id:
                 continue
             

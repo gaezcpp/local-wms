@@ -17,7 +17,7 @@ class ProductionOrderSAP(models.Model):
     order_type = fields.Char(string="Order Type", tracking=True)
     start_date = fields.Date(string="Start Date", tracking=True)
     finish_date = fields.Date(string="Finish Date", tracking=True)
-    product_id = fields.Many2one(comodel_name='product.template', string="Product", tracking=True)
+    product_id = fields.Many2one(comodel_name='product.product', string="Product", tracking=True)
     uom_id = fields.Many2one(comodel_name='uom.uom', string="UoM", tracking=True)
     order_qty = fields.Float(string="Order Qty", tracking=True)
     company_registry = fields.Char(string="Company Registry", tracking=True)
@@ -33,24 +33,30 @@ class ProductionOrderSAP(models.Model):
     sap_pp = fields.Boolean(string="SAP PP", default=False)
     active = fields.Boolean(string="Active", default=True)
     picking_count = fields.Integer(string="Picking Count", compute='_compute_picking_count')
-    gr_qty = fields.Float(string="GR Qty", compute='_compute_gr_qty', store=True, tracking=True)
+    gr_bag_qty = fields.Float(string="GR Bag", compute='_compute_gr_qty', store=True, tracking=True)
+    gr_kg_qty = fields.Float(string="GR Kg", compute='_compute_gr_qty', store=True, tracking=True)
     picking_ids = fields.One2many('stock.picking', 'po_sap_id', string="Pickings")
 
     @api.depends('picking_ids.state', 'picking_ids.move_ids.quantity')
     def _compute_gr_qty(self):
         for po in self:
-            done_moves = po.picking_ids.filtered(lambda p: p.state == 'done' and p.location_dest_id.id == p.location_dest_id.warehouse_id.lot_stock_id.id).mapped('move_ids').filtered(lambda m: m.state == 'done')
-            per_kg = sum(done_moves.mapped('quantity'))
-            po.gr_qty = ((per_kg / po.uom_id.factor) * 1000)
+            done_moves = po.picking_ids.filtered(
+                lambda p: p.state == 'done' and
+                        p.picking_type_id.warehouse_id and
+                        p.location_dest_id.id == p.picking_type_id.warehouse_id.lot_stock_id.id
+            ).mapped('move_ids').filtered(lambda m: m.state == 'done')
+
+            po.gr_bag_qty = sum(done_moves.mapped('bag_qty'))
+            po.gr_kg_qty = sum(done_moves.mapped('quantity'))
     
     def _compute_picking_count(self):
         domain = [('po_sap_id', 'in', self.ids)]
-        groups = self.env['stock.picking'].read_group(
+        groups = self.env['stock.picking']._read_group(
             domain=domain,
-            fields=['po_sap_id'],
             groupby=['po_sap_id'],
+            aggregates=['__count'],
         )
-        count_map = {g['po_sap_id'][0]: g['po_sap_id_count'] for g in groups}
+        count_map = {po_sap.id: count for po_sap, count in groups}
         for rec in self:
             rec.picking_count = count_map.get(rec.id, 0)
         
@@ -162,7 +168,7 @@ class ProductionOrderSAP(models.Model):
         
         po_sap = self.env['production.order.sap'].sudo()
         companies = self.env['res.company'].sudo()
-        product_template = self.env['product.template'].sudo()
+        product_template = self.env['product.product'].sudo()
         unit_of_measure = self.env['uom.uom'].sudo()
         for data in data_list:
             po_number = data.get('AUFNR')
@@ -175,7 +181,6 @@ class ProductionOrderSAP(models.Model):
                 company_id = companies.search([
                     ('company_registry', '=', company_registry),
                     ('sync_wms', '=', True),
-                    ('sync_pm', '=', False),
                 ], limit=1)
                 if not company_id:
                     _logger.info(f"cron_synchronize_sap_production_order COMPANY: {company_registry} SKIPPED")

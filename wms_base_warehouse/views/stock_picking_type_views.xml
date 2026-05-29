@@ -13,6 +13,7 @@
                     <field name="uu_only"/>
                     <field name="production_only"/>
                     <field name="checker_only"/>
+                    <field name="mandatory_destination"/>
                 </xpath>
                 <xpath expr="//field[@name='return_picking_type_id']" position="after">
                     <field name="packaging_type_id"/>

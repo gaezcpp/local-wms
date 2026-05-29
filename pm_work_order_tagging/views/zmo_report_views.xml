@@ -1,0 +1,92 @@
+<?xml version='1.0' encoding='utf-8'?>
+<odoo>
+    <!-- Search View -->
+    <record model="ir.ui.view" id="zmo_report_search">
+        <field name="name">zmo.report.search</field>
+        <field name="model">zmo.report</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="nomor_mo"/>
+                <field name="order_type"/>
+                <field name="plan"/>
+                <field name="equipment_code"/>
+                <field name="func_loc_code"/>
+                <field name="material_sku"/>
+                <group>
+                    <filter name="gr_nmo" string="Nomor MO" context="{'group_by':'nomor_mo'}"/>
+                    <filter name="gr_ot" string="Order Type" context="{'group_by':'order_type'}"/>
+                    <filter name="gr_plan" string="Plan" context="{'group_by':'plan'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="zmo_report_view_list" model="ir.ui.view">
+        <field name="name">zmo.report.view.list</field>
+        <field name="model">zmo.report</field>
+        <field name="arch" type="xml">
+            <list string="ZMO Report" create="0" edit="0" delete="0" duplicate="0">
+                <header>
+                    <button name="generate_dummy_data" string="Create 50 Dummy" type="object" class="oe_highlight" display="always" context="{'dummy_count': 50}"/>
+                </header>
+                <field name="nomor_mo"/>
+                <field name="order_type"/>
+                <field name="plan"/>
+                <field name="start_date"/>
+                <field name="end_date"/>
+                <field name="equipment_code"/>
+                <field name="equipment_desc" optional="hide"/>
+                <field name="func_loc_code"/>
+                <field name="func_loc_desc" optional="hide"/>
+                <field name="material_sku"/>
+                <field name="material_desc" optional="hide"/>
+                <field name="quantity"/>
+                <field name="plan_cost" optional="hide"/>
+                <field name="act_cost" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="zmo_report_view_form" model="ir.ui.view">
+        <field name="name">zmo.report.view.form</field>
+        <field name="model">zmo.report</field>
+        <field name="arch" type="xml">
+            <form string="ZMO Report" create="0" edit="0" delete="0" duplicate="0">
+                <!-- <header>
+                    <button name="generate_dummy_data" string="Create Dummy" type="object" class="oe_highlight"/>
+                </header> -->
+                <sheet>
+                    <label for="nomor_mo" class="oe_edit_only"/>
+                    <h1>
+                        <field name="nomor_mo"/>
+                    </h1>
+                    <group>
+                        <group name="zmo_left">
+                            <field name="order_type"/>
+                            <field name="plan"/>
+                            <field name="start_date"/>
+                            <field name="end_date"/>
+                            <field name="plan_cost"/>
+                            <field name="act_cost"/>
+                        </group>
+                        <group name="zmo_right">
+                            <field name="equipment_code"/>
+                            <field name="equipment_desc"/>
+                            <field name="func_loc_code"/>
+                            <field name="func_loc_desc"/>
+                            <field name="material_sku"/>
+                            <field name="material_desc"/>
+                            <field name="quantity"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="zmo_report_action" model="ir.actions.act_window">
+        <field name="name">ZMO Report</field>
+        <field name="res_model">zmo.report</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>

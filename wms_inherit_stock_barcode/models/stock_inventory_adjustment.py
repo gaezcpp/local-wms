@@ -47,6 +47,48 @@ class StockInventoryAdjustment(models.Model):
         res = super().create(vals_list)
         return res
     
+    @api.model
+    def _fetch_sap_data(self, config_key, cron_name):
+        icp = self.env['ir.config_parameter'].sudo()
+        x_i_api_key = icp.get_param('x_i_api_key')
+        ip_sap_rfc = icp.get_param('ip_sap_rfc')
+        query = icp.get_param(config_key)
+
+        if not x_i_api_key:
+            raise ValidationError("x_i_api_key belum disetting!")
+        if not ip_sap_rfc:
+            raise ValidationError("ip_sap_rfc belum disetting!")
+        if not query:
+            raise ValidationError(f"{config_key} belum disetting!")
+
+        headers = {
+            "x-i-api-key": str(x_i_api_key),
+            "Content-Type": "application/json"
+        }
+        body = {
+            "I_QUERY": str(query),
+            "I_MOD": f"CRON {cron_name}"
+        }
+        try:
+            response = requests.post(
+                url=f"{ip_sap_rfc}/api/v1/zfm-query-data",
+                headers=headers,
+                data=json.dumps(body),
+            )
+        except Exception as e:
+            raise ValidationError(str(e))
+
+        res = response.json()
+        if res.get('error'):
+            raise ValidationError(json.dumps(res.get('error')))
+        if not res.get('success'):
+            _logger.info(f"CRON {cron_name} NOT SUCCESS")
+            return []
+
+        data_list = res.get('data', [])
+        _logger.info(f"CRON {cron_name} - TOTAL DATA: {len(data_list)}")
+        return data_list
+    
     def check_details(self):
         Quant = self.env['stock.quant'].sudo()
         for rec in self:
@@ -273,48 +315,13 @@ class StockInventoryAdjustment(models.Model):
     
     @api.model
     def cron_synhronize_pid_sap(self):
-        icp = self.env['ir.config_parameter'].sudo()
-        x_i_api_key = icp.get_param('x_i_api_key')
-        ip_sap_rfc = icp.get_param('ip_sap_rfc')
-        query_pid_sap = icp.get_param('query_pid_sap')
-
-        if not x_i_api_key:
-            raise ValidationError("x_i_api_key belum disetting!")
-        if not ip_sap_rfc:
-            raise ValidationError("ip_sap_rfc belum disetting!")
-        if not query_pid_sap:
-            raise ValidationError("query_pid_sap belum disetting!")
-
-        headers = {
-            "x-i-api-key": str(x_i_api_key),
-            "Content-Type": "application/json"
-        }
-        url = f"{ip_sap_rfc}/api/v1/zfm-query-data"
-        body = {
-            "I_QUERY": str(query_pid_sap),
-            "I_MOD": "CRON cron_synhronize_pid_sap"
-        }
-
-        try:
-            response = requests.post(url=url, headers=headers, data=json.dumps(body))
-        except Exception as e:
-            raise ValidationError(str(e))
-
-        res = response.json()
-
-        if res.get('error'):
-            raise ValidationError(json.dumps(res.get('error')))
-
-        if not res.get('success'):
-            _logger.info("CRON cron_synhronize_pid_sap NOT SUCCESS")
-            return True
-
-        data_list = res.get('data', [])
+        data_list = self._fetch_sap_data(
+            config_key='query_pid_sap',
+            cron_name='cron_synhronize_pid_sap',
+        )
         if not data_list:
-            _logger.info("cron_synhronize_pid_sap NO DATA")
             return True
-
-        _logger.info(f"TOTAL DATA cron_synhronize_pid_sap {len(data_list)}")
+        _logger.info(f"TOTAL DATA cron_synhronize_pid_sap: {len(data_list)}")
 
         sia_model = self.env['stock.inventory.adjustment'].sudo()
         summary_sia_model = self.env['stock.inventory.adjustment.summary'].sudo()
@@ -428,3 +435,31 @@ class StockInventoryAdjustment(models.Model):
                     summary_sia_model.create(vals_line)
 
             _logger.info(f"SIA Summary {iblnr} total line {len(rows)}")
+            
+    @api.model
+    def cron_synchronize_auto_done_pid(self):
+        data_list = self._fetch_sap_data(
+            config_key='query_pid_sap',
+            cron_name='cron_synchronize_auto_done_pid',
+        )
+        if not data_list:
+            return True
+        _logger.info(f"TOTAL DATA cron_synchronize_auto_done_pid: {len(data_list)}")
+        
+        sia_model = self.env['stock.inventory.adjustment'].sudo()
+        summary_sia_model = self.env['stock.inventory.adjustment.summary'].sudo()
+        wh_model = self.env['stock.warehouse'].sudo()
+        product_model = self.env['product.product'].sudo()
+        unit_model = self.env['uom.uom'].sudo()
+        company_model = self.env['res.company'].sudo()
+
+        grouped_data = defaultdict(list)
+        
+        for row in data_list:
+            iblnr = (row.get('IBLNR') or '')
+            if iblnr:
+                grouped_data[iblnr].append(row)
+        
+        for iblnr, rows in grouped_data.items():
+            first = rows[0]
+            sia = sia_model.search([('pid_sap', '=', iblnr)])

@@ -1,0 +1,14 @@
+<?xml version='1.0' encoding='utf-8'?>
+<odoo>
+    <data noupdate="0">
+        <record id="action_generate_dummy_zmo_data" model="ir.actions.server">
+            <field name="name">Generate Dummy ZMO Data</field>
+            <field name="model_id" ref="model_zmo_report"/>
+            <field name="binding_model_id" ref="model_zmo_report"/>
+            <field name="state">code</field>
+            <field name="code">
+                model.generate_dummy_data(20)
+            </field>
+        </record>
+    </data>
+</odoo>

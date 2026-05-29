@@ -12,7 +12,7 @@ class StockSAP(models.Model):
     _description = 'Stock SAP'
     _rec_name = 'product_id'
     
-    product_id = fields.Many2one(comodel_name='product.template', string="Product")
+    product_id = fields.Many2one(comodel_name='product.product', string="Product")
     product_uom_id = fields.Many2one(comodel_name='uom.uom', string="Units")
     location_id = fields.Many2one(comodel_name='stock.location', string="Location")
     company_id = fields.Many2one(comodel_name='res.company', string="Company")
@@ -75,7 +75,7 @@ class StockSAP(models.Model):
         
         stock_sap = self.env['stock.sap'].sudo()
         companies = self.env['res.company'].sudo()
-        product_template = self.env['product.template'].sudo()
+        product_template = self.env['product.product'].sudo()
         stock_location = self.env['stock.location'].sudo()
         unit_of_measure = self.env['uom.uom'].sudo()
         
@@ -86,7 +86,7 @@ class StockSAP(models.Model):
                 if not company_id:
                     continue
                 
-            product_code = data.get('MATNR') or ''
+            product_code = (data.get('MATNR') or '').lstrip('0')
             if product_code:
                 product_id = product_template.search([('default_code', '=', product_code),('company_id', '=', company_id.id)], limit=1)
                 if not product_id:

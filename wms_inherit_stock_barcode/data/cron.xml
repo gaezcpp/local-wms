@@ -9,5 +9,13 @@
             <field name="interval_number">1</field>
             <field name="interval_type">days</field>
         </record>
+        <record id="ir_cron_synchronize_auto_done_pid" model="ir.cron">
+            <field name="name">Cron Auto Done PID SAP</field>
+            <field name="model_id" ref="model_stock_inventory_adjustment"/>
+            <field name="state">code</field>
+            <field name="code">model.cron_synchronize_auto_done_pid()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+        </record>
     </data>
 </odoo>

@@ -3,3 +3,4 @@ access_user_pm_work_order,access_user_pm_work_order,model_pm_work_order,base.gro
 access_user_pm_work_order_material_line,access_user_pm_work_order_material_line,model_pm_work_order_material_line,base.group_user,1,1,1,1
 access_user_tagging_type_notification,access_user_tagging_type_notification,model_tagging_type_notification,base.group_user,1,1,1,1
 access_user_pm_analysis,access_user_pm_analysis,model_pm_analysis,base.group_user,1,1,1,1
+access_user_zmo_report,access_user_zmo_report,model_zmo_report,base.group_user,1,1,1,1

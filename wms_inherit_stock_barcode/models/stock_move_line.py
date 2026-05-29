@@ -14,11 +14,12 @@ class StockMoveLine(models.Model):
         ('full_pallet', 'Full Pallet'),
         ('eceran', 'Eceran'),
     ], string="Pallet Status", default=False)
+    mandatory_destination = fields.Boolean(related='picking_id.picking_type_id.mandatory_destination', readonly=False)
 
     @api.model_create_multi
     def create(self, vals_list):
         for vals in vals_list:
-            # self._validate_bag_qty(vals) # belum dinaikin karna takut error mau show user
+            self._validate_bag_qty(vals) # belum dinaikin karna takut error mau show user
             self._sync_qty_from_bag(vals)
             self._validate_pallet(vals)
         records = super().create(vals_list)
@@ -26,7 +27,7 @@ class StockMoveLine(models.Model):
         return records
 
     def write(self, vals):
-        # self._validate_bag_qty(vals, records=self) # belum dinaikin karna takut error mau show user
+        self._validate_bag_qty(vals, records=self) # belum dinaikin karna takut error mau show user
         self._sync_qty_from_bag(vals, records=self)
         self._validate_pallet(vals)
         self._validate_qty_packaging_sap(vals)

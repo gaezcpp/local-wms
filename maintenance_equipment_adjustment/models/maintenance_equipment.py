@@ -426,12 +426,12 @@ class MaintenanceEquipment(models.Model):
             .with_company(company)
         )
 
-        Product = (
-            self.env["product.product"]
-            .sudo()
-            .with_context(allowed_company_ids=[company.id])
-            .with_company(company)
-        )
+        # Product = (
+        #     self.env["product.product"]
+        #     .sudo()
+        #     .with_context(allowed_company_ids=[company.id])
+        #     .with_company(company)
+        # )
 
         spare_part = False
 
@@ -455,33 +455,33 @@ class MaintenanceEquipment(models.Model):
                 return spare_part
 
         # 2. cari / create product.product
-        product = False
-        if sku:
-            product = Product.search([("default_code", "=ilike", sku)], limit=1)
+        # product = False
+        # if sku:
+        #     product = Product.search([("default_code", "=ilike", sku)], limit=1)
 
-        if not product and spare_name:
-            product = Product.search([("name", "=ilike", spare_name)], limit=1)
+        # if not product and spare_name:
+        #     product = Product.search([("name", "=ilike", spare_name)], limit=1)
 
-        if not product:
-            product_vals = {
-                "name": spare_name or sku,
-                "default_code": sku or False,
-                "sale_ok": True,
-                "purchase_ok": True,
-                "type": "consu",
-                "company_id": company.id if "company_id" in Product._fields else False,
-            }
-            product = Product.create(product_vals)
-            _logger.warning(
-                "PRODUCT AUTO-CREATED id=%s name=%s sku=%s company=%s",
-                product.id, product.name, sku, company.display_name
-            )
+        # if not product:
+        #     product_vals = {
+        #         "name": spare_name or sku,
+        #         "default_code": sku or False,
+        #         "sale_ok": True,
+        #         "purchase_ok": True,
+        #         "type": "consu",
+        #         "company_id": company.id if "company_id" in Product._fields else False,
+        #     }
+        #     product = Product.create(product_vals)
+        #     _logger.warning(
+        #         "PRODUCT AUTO-CREATED id=%s name=%s sku=%s company=%s",
+        #         product.id, product.name, sku, company.display_name
+        #     )
 
         # 3. create tagging.spare_part
         spare_vals = {
-            "name": spare_name or product.display_name or sku,
-            "sku": sku or product.default_code or False,
-            "product_id": product.id,
+            "name": spare_name or False,
+            "sku": sku or False,
+            # "product_id": product.id,
         }
         if "company_id" in SparePart._fields:
             spare_vals["company_id"] = company.id
@@ -493,7 +493,7 @@ class MaintenanceEquipment(models.Model):
             spare_part.id,
             spare_vals.get("name"),
             spare_vals.get("sku"),
-            product.id,
+            # product.id,
             company.display_name,
         )
 

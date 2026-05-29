@@ -26,10 +26,12 @@ Handover task dari Bayu (tagging dan maintenance)
         'data/sequence.xml',
         'data/parameter.xml',
         'data/cron.xml',
+        # 'data/server_action.xml',
         'views/pm_work_order_views.xml',
         'views/tagging_record_views.xml',
         'views/tagging_type_notification_views.xml',
         'views/pm_analysis_views.xml',
+        'views/zmo_report_views.xml',
         'views/menuitem.xml',
     ],
 }

@@ -926,8 +926,8 @@ class TaggingRecord(models.Model):
                 "subject": subject,
                 "body_html": body_html,
                 "email_to": ",".join(emails),
-                "email_from": "admin.ict@cpp.co.id",
-                "reply_to": "admin.ict@cpp.co.id",
+                "email_from": "noreply-ops@cpp.co.id",
+                "reply_to": "noreply-ops@cpp.co.id",
                 "message_type": "email", 
             }
             if ccs:
@@ -1038,8 +1038,8 @@ class TaggingRecord(models.Model):
             "subject": subject,
             "body_html": body_html,
             "email_to": ",".join(to_emails),
-            "email_from": "admin.ict@cpp.co.id",
-            "reply_to": "admin.ict@cpp.co.id",
+            "email_from": "noreply-ops@cpp.co.id",
+            "reply_to": "noreply-ops@cpp.co.id",
         }
 
         if to_ccs:
@@ -1116,8 +1116,8 @@ class TaggingRecord(models.Model):
             "subject": subject,
             "body_html": body_html,
             "email_to": ",".join(to_emails),
-            "email_from": "admin.ict@cpp.co.id",
-            "reply_to": tagger_email or "admin.ict@cpp.co.id",
+            "email_from": "noreply-ops@cpp.co.id",
+            "reply_to": tagger_email or "noreply-ops@cpp.co.id",
         }
 
         if to_ccs:
@@ -1173,8 +1173,8 @@ class TaggingRecord(models.Model):
             "subject": subject,
             "body_html": body_html,
             "email_to": to_email,
-            "email_from": "adminitc@cpp.co.id",
-            "reply_to": closed_by_email or "adminitc@cpp.co.id",
+            "email_from": "noreply-ops@cpp.co.id",
+            "reply_to": closed_by_email or "noreply-ops@cpp.co.id",
         }
 
         self.env["mail.mail"].sudo().create(mail_vals)

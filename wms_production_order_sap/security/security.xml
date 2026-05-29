@@ -1,0 +1,7 @@
+<odoo>
+    <record id="multi_company_production_order_sap" model="ir.rule">
+        <field name="name">Production Order SAP multi-company</field>
+        <field name="model_id" ref="model_production_order_sap"/>
+        <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
+    </record>
+</odoo>

@@ -26,6 +26,7 @@ Long description of module's purpose
         'data/cron.xml',
         'data/sequence.xml',
         'security/ir.model.access.csv',
+        'security/security.xml',
         'wizards/sloc_barcode_views.xml',
         'wizards/quality_quantity_backorder_views.xml',
         'views/product_template_views.xml',

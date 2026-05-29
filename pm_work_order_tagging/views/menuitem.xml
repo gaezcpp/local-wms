@@ -35,4 +35,12 @@
         action="pm_work_order_tagging.pm_analysis_action"
         sequence="10"
     />
+
+    <menuitem
+        id="zmo_report_menu"
+        name="ZMO Report"
+        parent="maintenance.maintenance_reporting"
+        action="pm_work_order_tagging.zmo_report_action"
+        sequence="20"
+    />
 </odoo>

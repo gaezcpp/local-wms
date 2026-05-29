@@ -36,6 +36,9 @@ class InheritBaseStockMoveLine(models.Model):
         self.ensure_one()
         if not self.move_id.product_id:
             return False
+        
+        if not self.production_line_id:
+            return False
 
         prod_code_rec = self.env['production.code'].search([('company_id', '=', self.company_id.id)], limit=1)
         if not prod_code_rec or not prod_code_rec.code:
@@ -151,11 +154,15 @@ class InheritBaseStockMoveLine(models.Model):
         if self.env.context.get('skip_lot_aft'):
             return res
         for rec in self:
-            if 'expiration_date' in vals and rec._is_gr_prod():
-                lot = rec._get_or_create_lot()
-                if lot:
-                    rec.with_context(skip_lot_aft=True).write({'lot_id': lot.id})
-                    rec._create_update_lot_aft()
+            if not rec._is_gr_prod():
+                continue
+            trigger_fields = {'production_line_id', 'expiration_date'}
+            if trigger_fields & set(vals.keys()):
+                if rec.production_line_id and rec.expiration_date:
+                    lot = rec._get_or_create_lot()
+                    if lot:
+                        rec.with_context(skip_lot_aft=True).write({'lot_id': lot.id})
+                        rec._create_update_lot_aft()
         return res
     
     def _is_gr_prod(self, vals=None):

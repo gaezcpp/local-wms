@@ -18,11 +18,12 @@ Long description of module's purpose
     'license': 'LGPL-3',
 
     # any module necessary for this one to work correctly
-    'depends': ['base', 'stock', 'wms_base_company'],
+    'depends': ['base', 'stock', 'wms_base_company', 'wms_inherit_stock_barcode'],
 
     # always loaded
     'data': [
         'security/ir.model.access.csv',
+        'security/security.xml',
         'data/parameter.xml',
         'data/cron.xml',
         'views/production_order_sap_views.xml',
