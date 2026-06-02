@@ -178,6 +178,7 @@ class QualityPackages(models.Model):
                 raise ValidationError("Hanya bisa Done dari status In Progress!")
             if not rec.action_aft_id:
                 raise ValidationError("Action belum dipilih!")
+
             selected_lines = rec.quality_line_ids.filtered(lambda l: l.is_selected and l.lot_id)
             if not selected_lines:
                 raise ValidationError("Tidak ada Packages yang dipilih atau Packages yang dipilih Lotnya kosong!")
@@ -197,7 +198,11 @@ class QualityPackages(models.Model):
                     )
                     continue
 
-                aft_from = lot.lot_aft_ids.filtered(lambda la: la.stock_type == stock_type_from)
+                aft_from = self.env['stock.lot.aft'].sudo().search([
+                    ('lot_id', '=', lot.id),
+                    ('stock_type', '=', stock_type_from),
+                ], limit=1)
+
                 if not aft_from:
                     aft_from = self.env['stock.lot.aft'].sudo().create({
                         'lot_id': lot.id,
@@ -208,7 +213,11 @@ class QualityPackages(models.Model):
                         'uom_bag_id': line.uom_bag_id.id or False,
                     })
 
-                aft_to = lot.lot_aft_ids.filtered(lambda la: la.stock_type == stock_type_to)
+                aft_to = self.env['stock.lot.aft'].sudo().search([
+                    ('lot_id', '=', lot.id),
+                    ('stock_type', '=', stock_type_to),
+                ], limit=1)
+
                 if not aft_to:
                     aft_to = self.env['stock.lot.aft'].sudo().create({
                         'lot_id': lot.id,

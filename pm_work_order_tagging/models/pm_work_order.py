@@ -243,7 +243,10 @@ class PlanMaintenanceWorkOrder(models.Model):
     def action_close(self):
         for rec in self:
             if rec.state == 'waiting_sap':
-                rec.state = 'closed'
+                rec.write({
+                    'state': 'closed',
+                    'end_date': fields.Datetime.now(),
+                })
                 
     def action_cancel(self):
         for rec in self:

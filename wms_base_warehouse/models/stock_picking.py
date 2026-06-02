@@ -62,6 +62,92 @@ class InheritBaseStockPicking(models.Model):
 
         return False
     
+    def _is_gr_prod(self):
+        self.ensure_one()
+        prod_in_move_type = self.env['ir.config_parameter'].sudo().get_param('prod_in_move_type')
+        if not prod_in_move_type:
+            raise ValidationError("prod_in_move_type pada Operation Type belum disetting!")
+        
+        return self.picking_type_id.move_type_sap == str(prod_in_move_type)
+
+    def button_validate(self):
+        res = super(InheritBaseStockPicking, self).button_validate()
+        if isinstance(res, dict):
+            return res
+
+        for picking in self:
+            if not picking._is_gr_prod() or picking.state != 'done':
+                continue
+
+            lot_updates = {}
+            for move_line in picking.move_line_ids:
+                if not move_line.move_id.product_id or not move_line.production_line_id:
+                    continue
+                
+                lot = move_line.lot_id
+                if not lot:
+                    continue
+
+                stype = move_line.stock_type or 'QI'
+                
+                bag = move_line.bag_qty
+                if bag <= 0 and move_line.uom_bag_id.factor:
+                    bag = ((move_line.quantity * move_line.product_uom_id.factor) / 1000) / (move_line.uom_bag_id.factor / 1000)
+
+                if lot not in lot_updates:
+                    lot_updates[lot] = {}
+                if stype not in lot_updates[lot]:
+                    lot_updates[lot][stype] = {
+                        'qty': 0.0,
+                        'bag': 0.0,
+                        'uom': move_line.product_uom_id,
+                        'bag_uom': move_line.uom_bag_id
+                    }
+                
+                lot_updates[lot][stype]['qty'] += move_line.quantity
+                lot_updates[lot][stype]['bag'] += bag
+
+            for lot, stype_data in lot_updates.items():
+                ref_data = list(stype_data.values())[0]
+                stock_types = ['QI', 'UU', 'BLOCKED']
+                for st in stock_types:
+                    aft_exists = self.env['stock.lot.aft'].search([
+                        ('lot_id', '=', lot.id),
+                        ('stock_type', '=', st)
+                    ], limit=1)
+                    
+                    if not aft_exists:
+                        self.env['stock.lot.aft'].create({
+                            'lot_id': lot.id,
+                            'quantity': 0.0,
+                            'uom_id': ref_data['uom'].id,
+                            'bag_qty': 0.0,
+                            'uom_bag_id': ref_data['bag_uom'].id,
+                            'stock_type': st,
+                        })
+
+                for stype, vals in stype_data.items():
+                    target_aft = self.env['stock.lot.aft'].search([
+                        ('lot_id', '=', lot.id),
+                        ('stock_type', '=', stype)
+                    ], limit=1)
+                    
+                    old_qty = target_aft.quantity
+                    old_bag = target_aft.bag_qty
+                    new_qty = old_qty + vals['qty']
+                    new_bag = old_bag + vals['bag']
+
+                    target_aft.write({
+                        'quantity': new_qty,
+                        'bag_qty': new_bag,
+                    })
+
+                    lot.message_post(body=(
+                        f"Update Stock Type: {stype} ({picking.name}), Quantity: {old_qty} → {new_qty} {vals['uom'].name}, Bag Qty: {old_bag} → {new_bag} {vals['bag_uom'].name}"
+                    ))
+
+        return res
+    
     @api.model
     def _fetch_sap_data(self, config_key, cron_name):
         icp = self.env['ir.config_parameter'].sudo()

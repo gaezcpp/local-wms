@@ -81,8 +81,62 @@ class StockMove(models.Model):
             
         return values
     
+    # def _prepare_move_line_vals(self, quantity=None, reserved_quant=None):
+    #     res = super()._prepare_move_line_vals(quantity=quantity, reserved_quant=reserved_quant)
+    #     if not self.move_orig_ids:
+    #         return res
+
+    #     origin_lines = self.move_orig_ids.mapped('move_line_ids').sorted('id')
+    #     matched_line = False
+
+    #     if reserved_quant:
+    #         if reserved_quant.package_id:
+    #             matched_line = origin_lines.filtered(
+    #                 lambda l:
+    #                     l.package_history_id.id == reserved_quant.package_id.id and
+    #                     l.product_id == self.product_id
+    #             )[:1]
+
+    #         if not matched_line and reserved_quant.package_id:
+    #             matched_line = origin_lines.filtered(
+    #                 lambda l:
+    #                     l.result_package_id.id == reserved_quant.package_id.id and
+    #                     l.product_id == self.product_id
+    #             )[:1]
+
+    #         if not matched_line and reserved_quant.lot_id:
+    #             matched_line = origin_lines.filtered(
+    #                 lambda l:
+    #                     l.lot_id.id == reserved_quant.lot_id.id and
+    #                     l.product_id == self.product_id
+    #             )[:1]
+
+    #     if not matched_line:
+    #         matched_line = origin_lines.filtered(
+    #             lambda l: l.product_id == self.product_id
+    #         )[:1]
+
+    #     if not matched_line and origin_lines:
+    #         matched_line = origin_lines[:1]
+
+    #     if matched_line:
+    #         res.update({
+    #             'production_line_id': matched_line.production_line_id.id,
+    #             'first_count': matched_line.first_count,
+    #             'last_count': matched_line.last_count,
+    #             'detail_text': matched_line.detail_text,
+    #             'qty_packaging_sap': matched_line.qty_packaging_sap,
+    #             'stock_type': matched_line.stock_type,
+    #         })
+
+    #     return res
+    
     def _prepare_move_line_vals(self, quantity=None, reserved_quant=None):
         res = super()._prepare_move_line_vals(quantity=quantity, reserved_quant=reserved_quant)
+        
+        if reserved_quant and reserved_quant.stock_type:
+            res['stock_type'] = reserved_quant.stock_type
+
         if not self.move_orig_ids:
             return res
 
@@ -120,13 +174,20 @@ class StockMove(models.Model):
             matched_line = origin_lines[:1]
 
         if matched_line:
-            res.update({
+            update_vals = {
                 'production_line_id': matched_line.production_line_id.id,
                 'first_count': matched_line.first_count,
                 'last_count': matched_line.last_count,
                 'detail_text': matched_line.detail_text,
                 'qty_packaging_sap': matched_line.qty_packaging_sap,
                 'stock_type': matched_line.stock_type,
-            })
+            }
+            
+            # (Opsional) Jika stock_type gagal didapat dari reserved_quant, 
+            # jadikan matched_line sebagai cadangan (fallback).
+            if not res.get('stock_type') and matched_line.stock_type:
+                update_vals['stock_type'] = matched_line.stock_type
+                
+            res.update(update_vals)
 
         return res

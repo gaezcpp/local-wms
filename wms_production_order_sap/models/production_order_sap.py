@@ -41,9 +41,7 @@ class ProductionOrderSAP(models.Model):
     def _compute_gr_qty(self):
         for po in self:
             done_moves = po.picking_ids.filtered(
-                lambda p: p.state == 'done' and
-                        p.picking_type_id.warehouse_id and
-                        p.location_dest_id.id == p.picking_type_id.warehouse_id.lot_stock_id.id
+                lambda p: p.state == 'done' and p.location_dest_id.id == p.picking_type_id.warehouse_id.lot_stock_id.id
             ).mapped('move_ids').filtered(lambda m: m.state == 'done')
 
             po.gr_bag_qty = sum(done_moves.mapped('bag_qty'))

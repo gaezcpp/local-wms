@@ -33,6 +33,7 @@ class InheritBaseStockPicking(models.Model):
         return vals
     
     def action_confirm(self):
+        res = super().action_confirm()
         Shift = self.env['production.shift'].sudo()
         for picking in self:
             right_now = self.now_jakarta()
@@ -47,12 +48,13 @@ class InheritBaseStockPicking(models.Model):
 
             if prod_shift:
                 picking.production_shift_id = prod_shift.id
-        return super().action_confirm()
+        return res
+        # return super().action_confirm()
 
     def button_validate(self):
+        res = super().button_validate()
         Shift = self.env['production.shift'].sudo()
         for picking in self:
-            next_pickings = picking.move_ids.move_dest_ids.picking_id.filtered(lambda p: p)
             right_now = self.now_jakarta()
             now_hour = right_now.strftime('%H%M')
             prod_shift = picking.production_shift_id
@@ -65,12 +67,15 @@ class InheritBaseStockPicking(models.Model):
             if prod_shift:
                 picking.production_shift_id = prod_shift.id
 
+            next_pickings = picking.move_ids.move_dest_ids.picking_id.filtered(lambda p: p.state not in ('done', 'cancel'))
             if next_pickings:
                 next_pickings.write({
                     'production_shift_id': prod_shift.id if prod_shift else False,
-                    'po_sap_id': picking.po_sap_id.id,
+                    # hanya isi jika po_sap_id ada
+                    **(({'po_sap_id': picking.po_sap_id.id}) if picking.po_sap_id else {}),
                 })
-        return super().button_validate()
+        # return super().button_validate()
+        return res
     
     def _action_done(self):
         res = super()._action_done()
