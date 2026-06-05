@@ -42,11 +42,13 @@ Long description of module's purpose
     
     "assets": {
         "web.assets_backend": [
+            "wms_inherit_stock_barcode/static/src/js/bypass_scan_lot.js",
             "wms_inherit_stock_barcode/static/src/js/digipad_patch.js",
             "wms_inherit_stock_barcode/static/src/js/barcode_auto_fill.js",
             "wms_inherit_stock_barcode/static/src/js/main_patch.js",
             "wms_inherit_stock_barcode/static/src/js/sloc_packaging.js",
             "wms_inherit_stock_barcode/static/src/js/quality_quantity_backorder.js",
+            "wms_inherit_stock_barcode/static/src/js/duplicate_product.js",
             'wms_inherit_stock_barcode/static/src/xml/stock_barcode_menu.xml',
             'wms_inherit_stock_barcode/static/src/xml/sloc_packaging_views.xml',
             'wms_inherit_stock_barcode/static/src/xml/barcode_line_component_views.xml',

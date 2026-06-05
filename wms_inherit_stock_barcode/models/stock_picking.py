@@ -39,7 +39,13 @@ class StockPicking(models.Model):
         
     def action_open_quality_backorder(self):
         self.ensure_one()
-
+        
+        active_line_id = self.env.context.get('active_line_id')
+        if active_line_id:
+            lines_to_process = self.move_line_ids.filtered(lambda l: l.id == active_line_id)
+        else:
+            lines_to_process = self.move_line_ids
+            
         view = self.env.ref('wms_inherit_stock_barcode.view_quality_quantity_backorder_wizard_form')
         return {
             'type': 'ir.actions.act_window',
@@ -49,13 +55,17 @@ class StockPicking(models.Model):
             'target': 'new',
             'context': {
                 'default_picking_id': self.id,
-                'default_picking_type_id': self.picking_type_id.id,
+                'default_picking_type_id': self.picking_type_id.quality_type_id.id or False,
                 'default_line_ids': [(0, 0, {
                     'backorder_wizard_id': 0,
-                    'product_id': line.product_id.id,
-                    'qty': line.bag_qty,
-                    'product_uom_id': line.uom_bag_id.id,
-                }) for line in self.move_ids ],
+                    'product_id': line.product_id.id or False,
+                    'qty': line.bag_qty if line.bag_qty > 0 else ((line.quantity * line.product_uom_id.factor) / 1000) / (line.uom_bag_id.factor / 1000),
+                    'product_uom_id': line.uom_bag_id.id or False,
+                    'location_id': line.location_id.id or False, 
+                    'lot_id': line.lot_id.id or False, 
+                    'package_id': line.package_id.id or False, 
+                    'production_line_id': line.production_line_id.id or False, 
+                }) for line in lines_to_process],
                 'default_is_quality': True,
             }
         }
@@ -72,7 +82,7 @@ class StockPicking(models.Model):
             'target': 'new',
             'context': {
                 'default_picking_id': self.id,
-                'default_picking_type_id': self.picking_type_id.id,
+                'default_picking_type_id': self.picking_type_id.quantity_type_id.id or False,
                 'default_line_ids': [(0, 0, {
                     'backorder_wizard_id': 0,
                     'product_id': line.product_id.id,
@@ -161,14 +171,29 @@ class StockPicking(models.Model):
 
                 # missing = lines.filtered(lambda l: not l.sloc_id)
                 # if missing:
-                #     raise ValidationError(
-                #         f"SLOC belum lengkap untuk picking {picking.name}.\n\n"
-                #         f"Masukkan SLOC Packaging pada : {', '.join(missing.mapped('packaging_desc'))}"
-                #     )
+                    # raise ValidationError(
+                    #     f"SLOC belum lengkap untuk picking {picking.name}.\n\n"
+                    #     f"Masukkan SLOC Packaging pada : {', '.join(missing.mapped('packaging_desc'))}"
+                    # )
+    
+    def _check_all_result_package_id(self):
+        for picking in self:
+            if picking.picking_type_id.mandatory_destination:
+                lines = picking.move_line_ids
+                if not lines:
+                    continue
+                
+                no_package = lines.filtered(lambda l: not l.result_package_id)
+                if no_package:
+                    raise ValidationError(
+                        f"Destination Package belum diisi untuk picking {picking.name}.\n\n"
+                        f"Silahkan isi dahulu Destination Package pada : {', '.join(no_package.mapped('product_reference_code') or '-')}"
+                    )
     
     def button_validate(self):
         self._sync_packaging_lines()
         self._check_all_sloc_filled()
+        self._check_all_result_package_id()
         res = super().button_validate()
         next_pickings = self.mapped('move_ids.move_dest_ids.picking_id').filtered(lambda p: p)
         if next_pickings:

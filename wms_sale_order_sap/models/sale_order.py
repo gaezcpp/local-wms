@@ -845,3 +845,25 @@ class InheritSaleOrderSAP(models.Model):
                 _logger.error(f"cron_run_all_query_update: {cron.__name__} FAILED — {e}")
         
         return True
+    
+    @api.model
+    def cron_update_do_sap(self):
+        data_list = self._fetch_sap_data(
+            config_key='query_update_do_sap',
+            cron_name='cron_update_do_sap',
+        )
+        if not data_list:
+            return True
+        _logger.info(f"TOTAL DATA cron_update_do_sap: {len(data_list)}")
+        
+        so_model = self.env['sale.order'].sudo()
+        
+        for data in data_list:
+            vbelv = data.get('VBELV').strip()
+            vbeln = data.get('VBELN').strip()
+            
+            need_update = so_model.search([('so_sap', '=', vbelv)], limit=1)
+            if need_update:
+                if need_update.do_sap != vbeln:
+                    need_update.write({'do_sap': vbeln})
+                    need_update.message_post(body=f"DO SAP Updated from cron_update_do_sap")

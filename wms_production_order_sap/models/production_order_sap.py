@@ -250,16 +250,19 @@ class ProductionOrderSAP(models.Model):
     def action_picking_po_sap(self):
         prod_in_move_type = self.env['ir.config_parameter'].sudo().get_param('prod_in_move_type')
         operation_type = self.env['stock.picking.type'].sudo().search([('company_id', '=', self.company_id.id),('move_type_sap', '=', str(prod_in_move_type))], limit=1)
+        if not operation_type:
+            raise ValidationError(f"Operation Type tidak ditemukan untuk Company {self.company_id.company_registry} dan move type {prod_in_move_type or ''}")
         right_now = self.now_jakarta()
         now_hour = right_now.strftime('%H%M')
         prod_shift = self.env['production.shift'].sudo().search([('date_start', '<=', now_hour),('date_end', '>=', now_hour),], limit=1)
         uom_kg = self.env['uom.uom'].sudo().search([('name', '=', 'kg')], limit=1) or self.env['uom.uom'].sudo().search([('name', '=', 'KG')], limit=1)
+        last_picking_id = False
         
         if operation_type:
             for rec in self:
                 if rec.state in ('open', 'in_progress'):
                     move_vals = []
-                    bag_qty = ((self.order_qty * self.uom_id.factor) / 1000)
+                    bag_qty = ((rec.order_qty * rec.uom_id.factor) / 1000)
                     picking = self.env['stock.picking'].sudo().create({
                         'picking_type_id': operation_type.id,
                         'location_dest_id': operation_type.default_location_dest_id.id,
@@ -272,6 +275,7 @@ class ProductionOrderSAP(models.Model):
                         'note': f"Created From Production Order {rec.po_number}",
                     })
                     if picking:
+                        last_picking_id = picking.id
                         move_vals.append({
                             'picking_id': picking.id,
                             'product_id': rec.product_id.id,
@@ -288,23 +292,71 @@ class ProductionOrderSAP(models.Model):
         else:
             raise ValidationError(f"Operation Type tidak ditemukan pada Company {self.company_id.company_registry} dan Move Type {prod_in_move_type or '-'}")
         
-        # return {
-        #     "type": "ir.actions.client",
-        #     "tag": "display_notification",
-        #     "params": {
-        #         "title": "Creat GR Success",
-        #         "message": "Create GR finished successfully.",
-        #         "type": "success",
-        #         "sticky": False,
-        #     },
-        # }
-        return {
-            "type": "ir.actions.client",
-            "tag": "reload",
-            "params": {
-                "title": "Creat GR Success",
-                "message": "Create GR finished successfully.",
-                "type": "success",
-                "sticky": False,
-            },
-        }
+        if last_picking_id:
+            return {
+                'name': 'Transfer',
+                'type': 'ir.actions.act_window',
+                'res_model': 'stock.picking',
+                'view_mode': 'form',
+                'res_id': last_picking_id,
+                'target': 'current',
+            }
+            
+        return {'type': 'ir.actions.act_window_close'}
+        
+    def action_picking_wip_po(self):
+        move_type_wip = self.env['ir.config_parameter'].sudo().get_param('move_type_wip')
+        operation_type = self.env['stock.picking.type'].sudo().search([('company_id', '=', self.company_id.id),('move_type_sap', '=', str(move_type_wip))], limit=1)
+        if not operation_type:
+            raise ValidationError(f"Operation Type tidak ditemukan untuk Company {self.company_id.company_registry} dan move type {move_type_wip or ''}")
+        right_now = self.now_jakarta()
+        now_hour = right_now.strftime('%H%M')
+        prod_shift = self.env['production.shift'].sudo().search([('date_start', '<=', now_hour),('date_end', '>=', now_hour),], limit=1)
+        uom_kg = self.env['uom.uom'].sudo().search([('name', '=', 'kg')], limit=1) or self.env['uom.uom'].sudo().search([('name', '=', 'KG')], limit=1)
+        last_picking_id = False
+        
+        if operation_type:
+            for rec in self:
+                if rec.state in ('open', 'in_progress'):
+                    move_vals = []
+                    bag_qty = ((rec.order_qty * rec.uom_id.factor) / 1000)
+                    picking = self.env['stock.picking'].sudo().create({
+                        'picking_type_id': operation_type.id,
+                        'location_dest_id': operation_type.default_location_dest_id.id,
+                        'production_shift_id': prod_shift.id or False,
+                        'scheduled_date': rec.finish_date,
+                        'date_deadline': rec.finish_date,
+                        'po_sap_id': rec.id,
+                        'company_id': rec.company_id.id,
+                        'origin': rec.po_number,
+                        'note': f"Created From Production Order {rec.po_number}",
+                    })
+                    if picking:
+                        last_picking_id = picking.id
+                        move_vals.append({
+                            'picking_id': picking.id,
+                            'product_id': rec.product_id.id,
+                            'product_uom_qty': bag_qty,
+                            'product_uom': uom_kg.id,
+                            'company_id': rec.company_id.id,
+                        })
+                        self.env['stock.move'].sudo().create(move_vals)
+                        picking.message_post(body=f"Created From Production Order {rec.po_number}")
+                        picking.action_confirm()
+                        rec.sudo().write({'state': 'in_progress'})
+                else:
+                    raise ValidationError("Hanya bisa dilakukan pada status Open dan In Progress")
+        else:
+            raise ValidationError(f"Operation Type tidak ditemukan pada Company {self.company_id.company_registry} dan Move Type {prod_in_move_type or '-'}")
+        
+        if last_picking_id:
+            return {
+                'name': 'Transfer',
+                'type': 'ir.actions.act_window',
+                'res_model': 'stock.picking',
+                'view_mode': 'form',
+                'res_id': last_picking_id,
+                'target': 'current',
+            }
+            
+        return {'type': 'ir.actions.act_window_close'}

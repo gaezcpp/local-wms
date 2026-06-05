@@ -1,5 +1,6 @@
 from odoo import http
 from odoo.http import request
+from odoo.exceptions import ValidationError
 from urllib.parse import quote
 import base64
 import logging
@@ -184,13 +185,12 @@ class TaggingController(http.Controller):
             return request.redirect(
                 f"/tagging?error={quote('Foto wajib diupload minimal 1 (Format JPG/PNG).')}&barcode_code={quote(barcode_code)}"
             )
-
         rec_vals = {
             "user_id": request.env.user.id,
             "tagger_name": tagger_name,
             "tagger_email": tagger_email,
             "barcode_id": barcode.id,
-            "department_id": department.id or False,
+            "department_id": dept.id or False,
             "category_problem_id": cp.id,
             "company_id": barcode.plant_id.id,
             "plant_code": barcode.plant_code or "",

@@ -21,6 +21,10 @@
             <field name="key">query_done_so_sloc_to_sloc_sap</field>
             <field name="value">select b.ebeln, a.mblnr from zmm_ts_sto_nch a left join zmm_ts_sto_ncd b on b.werks = a.werks and b.seqnr = a.seqnr and b.trucknr = a.trucknr and b.arrdate = a.arrdate where a.mblnr != ' '</field>
         </record>
+        <record id="query_update_do_sap" model="ir.config_parameter">
+            <field name="key">query_update_do_sap</field>
+            <field name="value">select distinct a.vbelv, a.vbeln from vbfa a where a.vbelv = '1601000148' and a.VBTYP_N = 'J'</field>
+        </record>
         <!-- SALE ORDER -->
         <record id="query_update_flag_do_sap" model="ir.config_parameter">
             <field name="key">query_update_flag_do_sap</field>

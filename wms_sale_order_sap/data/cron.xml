@@ -41,5 +41,13 @@
             <field name="interval_number">1</field>
             <field name="interval_type">days</field>
         </record>
+        <record id="ir_cron_update_do_sap" model="ir.cron">
+            <field name="name">Cron Update DO SAP</field>
+            <field name="model_id" ref="model_sale_order"/>
+            <field name="state">code</field>
+            <field name="code">model.cron_update_do_sap()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+        </record>
     </data>
 </odoo>

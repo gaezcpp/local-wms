@@ -6,11 +6,12 @@
                     class="btn btn-secondary">
                 Quality Backorder
             </button>
-            <button t-if="env.model.isCheckerOnly()"
+            <!--QUANTITY PINDAH KE VALIDATE-->
+            <!-- <button t-if="env.model.isCheckerOnly()"
                     t-on-click="env.model.openQuantityBackorder"
                     class="btn btn-secondary">
                 Quantity Backorder
-            </button>
+            </button> -->
         </xpath>
     </t>
 </templates>

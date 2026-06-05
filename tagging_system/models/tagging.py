@@ -570,8 +570,9 @@ class TaggingRecord(models.Model):
     def get_dashboard_stats(self, payload=None):
         payload = payload or {}
         Model = self.sudo()
-        domain = []
-
+        # domain = [('company_id', '=', self.env.company.id)]
+        domain = [('company_id', 'in', self.env.companies.ids)]
+        
         plant = payload.get("plant_code")
         if plant:
             domain.append(("plant_code", "=", plant))
@@ -599,28 +600,23 @@ class TaggingRecord(models.Model):
             start = start_of_day(now)
             end = end_of_day(now)
             domain += [("create_date", ">=", dt_str(start)), ("create_date", "<=", dt_str(end))]
-
         elif dr == "yesterday":
             d = now - timedelta(days=1)
             start = start_of_day(d)
             end = end_of_day(d)
             domain += [("create_date", ">=", dt_str(start)), ("create_date", "<=", dt_str(end))]
-
         elif dr in ("last_7", "7d"):
             start = start_of_day(now - timedelta(days=6))
             end = end_of_day(now)
             domain += [("create_date", ">=", dt_str(start)), ("create_date", "<=", dt_str(end))]
-
         elif dr in ("last_30", "30d"):
             start = start_of_day(now - timedelta(days=29))
             end = end_of_day(now)
             domain += [("create_date", ">=", dt_str(start)), ("create_date", "<=", dt_str(end))]
-
         elif dr == "this_month":
             start = fields.Datetime.start_of(now, "month")
             end = fields.Datetime.end_of(now, "month")
             domain += [("create_date", ">=", dt_str(start)), ("create_date", "<=", dt_str(end))]
-
         else:
             if date_from:
                 domain.append(("create_date", ">=", f"{date_from} 00:00:00"))
@@ -631,12 +627,6 @@ class TaggingRecord(models.Model):
             s = (v or "").strip()
             return s if s else "Others"
 
-        def m2o_name(v, default="Others"):
-            # read_group M2O result = (id, name) atau False
-            if isinstance(v, (list, tuple)) and len(v) >= 2:
-                return v[1] or default
-            return default
-
         open_count = Model.search_count(domain + [("status", "=", "rejected")])
         closed_count = Model.search_count(domain + [("status", "=", "closed")])
         total_count = Model.search_count(domain)
@@ -644,23 +634,21 @@ class TaggingRecord(models.Model):
         pct_closed = (closed_count / total_count * 100.0) if total_count else 0.0
         pct_not_valid = (open_count / total_count * 100.0) if total_count else 0.0
 
+        # FIX 2: Implementasi _read_group menggantikan read_group
         status_map = {k: 0 for k in ["open", "validated", "open_wo", "closed"]}
         try:
-            grouped_status = Model.read_group(domain, ["id"], ["status"], lazy=False)
-            for g in grouped_status:
-                st_val = g.get("status")
+            for st_val, count in Model._read_group(domain, ["status"], ["__count"]):
                 if st_val in status_map:
-                    status_map[st_val] = g.get("__count", 0)
+                    status_map[st_val] = count
         except Exception:
             pass
 
         by_abc = {"labels": [], "values": []}
         try:
-            grouped_abc = Model.read_group(domain, ["id"], ["abc_indic"], lazy=False)
             counter = defaultdict(int)
-            for g in grouped_abc:
-                key = norm(g.get("abc_indic"))
-                counter[key] += g.get("__count", 0)
+            for abc_val, count in Model._read_group(domain, ["abc_indic"], ["__count"]):
+                key = norm(abc_val)
+                counter[key] += count
 
             pairs = sorted(counter.items(), key=lambda x: x[1], reverse=True)
             by_abc = {"labels": [p[0] for p in pairs], "values": [p[1] for p in pairs]}
@@ -669,11 +657,11 @@ class TaggingRecord(models.Model):
 
         by_system = {"labels": [], "values": []}
         try:
-            grouped_sys = Model.read_group(domain, ["id"], ["system_id"], lazy=False)
             counter = defaultdict(int)
-            for g in grouped_sys:
-                key = m2o_name(g.get("system_id"))
-                counter[key] += g.get("__count", 0)
+            # Pada _read_group, field M2O (system_id) mengembalikan objek record, bukan tuple
+            for sys_rec, count in Model._read_group(domain, ["system_id"], ["__count"]):
+                key = sys_rec.name if sys_rec else "Others"
+                counter[key] += count
 
             pairs = sorted(counter.items(), key=lambda x: x[1], reverse=True)
             by_system = {"labels": [p[0] for p in pairs], "values": [p[1] for p in pairs]}
@@ -683,11 +671,10 @@ class TaggingRecord(models.Model):
         by_problem = {"labels": [], "values": []}
         if "category_problem_id" in Model._fields:
             try:
-                grouped_prob = Model.read_group(domain, ["id"], ["category_problem_id"], lazy=False)
                 p_counter = defaultdict(int)
-                for g in grouped_prob:
-                    key = m2o_name(g.get("category_problem_id"))
-                    p_counter[key] += g.get("__count", 0)
+                for prob_rec, count in Model._read_group(domain, ["category_problem_id"], ["__count"]):
+                    key = prob_rec.name if prob_rec else "Others"
+                    p_counter[key] += count
 
                 p_pairs = sorted(p_counter.items(), key=lambda x: x[1], reverse=True)
                 by_problem = {
@@ -695,23 +682,24 @@ class TaggingRecord(models.Model):
                     "values": [p[1] for p in p_pairs],
                 }
             except Exception:
-                _logger.exception("Dashboard by_problem error")
+                pass
+
         treemap_nodes = []
         try:
-            grouped_tree = Model.read_group(domain, ["id"], ["abc_indic", "system_id"], lazy=False)
             t_counter = defaultdict(int)
-            for g in grouped_tree:
-                abc_val = norm(g.get("abc_indic"))      # A/B/C/None -> Others
-                sys_name = m2o_name(g.get("system_id")) # INTAKE, WEIGHING, ...
-                t_counter[(abc_val, sys_name)] += g.get("__count", 0)
+            # Grouping dengan 2 parameter
+            for abc_val, sys_rec, count in Model._read_group(domain, ["abc_indic", "system_id"], ["__count"]):
+                abc_key = norm(abc_val)
+                sys_name = sys_rec.name if sys_rec else "Others"
+                t_counter[(abc_key, sys_name)] += count
 
             treemap_nodes = [
                 {
-                    "group": abc_val,     # level 1
+                    "group": abc_key,     # level 1
                     "system": sys_name,   # level 2 (leaf)
                     "value": cnt,
                 }
-                for (abc_val, sys_name), cnt in t_counter.items()
+                for (abc_key, sys_name), cnt in t_counter.items()
             ]
             treemap_nodes.sort(key=lambda x: (x["group"], -x["value"], x["system"]))
         except Exception:
@@ -719,15 +707,12 @@ class TaggingRecord(models.Model):
 
         abc_table = []
         try:
-            grouped_abc_status = Model.read_group(domain, ["id"], ["abc_indic", "status"], lazy=False)
             agg = defaultdict(lambda: {"total": 0, "closed": 0})
-            for g in grouped_abc_status:
-                abc_val = norm(g.get("abc_indic"))
-                st_val = g.get("status")
-                cnt = g.get("__count", 0)
-                agg[abc_val]["total"] += cnt
+            for abc_val, st_val, count in Model._read_group(domain, ["abc_indic", "status"], ["__count"]):
+                abc_key = norm(abc_val)
+                agg[abc_key]["total"] += count
                 if st_val == "closed":
-                    agg[abc_val]["closed"] += cnt
+                    agg[abc_key]["closed"] += count
 
             for abc_val, d in agg.items():
                 total_in_abc = d["total"]
@@ -747,13 +732,11 @@ class TaggingRecord(models.Model):
 
         abc_system_grouping = {}
         try:
-            grouped_abcsys = Model.read_group(domain, ["id"], ["abc_indic", "system_id"], lazy=False)
-
             tmp = defaultdict(lambda: defaultdict(int))
-            for g in grouped_abcsys:
-                abc_key = norm(g.get("abc_indic"))
-                sys_name = m2o_name(g.get("system_id"))
-                tmp[abc_key][sys_name] += g.get("__count", 0)
+            for abc_val, sys_rec, count in Model._read_group(domain, ["abc_indic", "system_id"], ["__count"]):
+                abc_key = norm(abc_val)
+                sys_name = sys_rec.name if sys_rec else "Others"
+                tmp[abc_key][sys_name] += count
 
             for abc_key, sys_map in tmp.items():
                 rows = [{"system": s, "count": c} for s, c in sys_map.items()]

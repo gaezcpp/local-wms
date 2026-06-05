@@ -43,7 +43,6 @@ class StockQuant(models.Model):
             strict=strict,
             qty=qty
         )
-
         if self.env.context.get('uu_only'):
             quants = quants.filtered(
                 lambda q: q.lot_id and any(

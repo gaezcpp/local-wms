@@ -28,10 +28,27 @@ class CategoryProblem(models.Model):
     problem_id = fields.Many2one(comodel_name='tagging.problem', string="Problem", required=True)
     active = fields.Boolean(default=True)
     
-    @api.onchange('problem_id')
-    def _onchange_problem(self):
-        for rec in self:
-            if rec.problem_id:
-                rec.cat_masalah = rec.problem_id.name
-            else:
-                rec.cat_masalah = "-"
+    
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            if vals.get('problem_id'):
+                problem = self.env['tagging.problem'].browse(vals['problem_id'])
+                vals['cat_masalah'] = problem.name
+        res = super(CategoryProblem, self).create(vals_list)
+        return res
+    
+    def write(self, vals):
+        if vals.get('problem_id'):
+            problem = self.env['tagging.problem'].browse(vals['problem_id'])
+            vals['cat_masalah'] = problem.name
+            
+        return super(CategoryProblem, self).write(vals)
+    
+    # @api.onchange('problem_id')
+    # def _onchange_problem(self):
+    #     for rec in self:
+    #         if rec.problem_id:
+    #             rec.cat_masalah = rec.problem_id.name
+    #         else:
+    #             rec.cat_masalah = "-"

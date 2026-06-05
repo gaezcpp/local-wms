@@ -1,4 +1,6 @@
 from odoo import models, fields, api
+import logging
+_logger = logging.getLogger(__name__)
 
 
 class StockMove(models.Model):
@@ -33,10 +35,11 @@ class StockMove(models.Model):
 
             picking.over_delivery = over
 
-    def _action_assign(self):
+    def _action_assign(self, **kwargs):
         moves_uu = self.filtered(lambda m: m.picking_id.picking_type_id.uu_only)
         moves_normal = self - moves_uu
         res = True
+        _logger.info(f"MOVES NORMAL ATAU UU\nUU: {moves_uu}\nNormal: {moves_normal}")
         if moves_normal:
             res = super(StockMove, moves_normal)._action_assign()
         if moves_uu:
