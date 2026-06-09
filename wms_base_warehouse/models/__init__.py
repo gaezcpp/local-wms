@@ -19,3 +19,4 @@ from . import storage_location
 from . import stock_rule
 from . import stock_lot
 from . import stock_lot_aft
+from . import product_wip

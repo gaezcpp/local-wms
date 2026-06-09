@@ -12,6 +12,21 @@
                 <field name="bag_qty" string="Quantity" readonly="1"/>
                 <field name="uom_bag_id" string="Unit" readonly="1" options="{'no_open': True, 'no_create': True}"/>
             </xpath>
+            <xpath expr="//field[@name='contained_quant_ids']/kanban/templates/t/field[@name='lot_id']" position="after">
+                <div class="d-flex">
+                    <field name="bag_qty"/>
+                    <field name="uom_bag_id" class="mx-2" groups="uom.group_uom"/>
+                </div>
+            </xpath>
         </field>
     </record>
+
+    <menuitem 
+        id="stock.menu_package" 
+        name="Pallet (Packages)" 
+        parent="stock.menu_stock_inventory_control" 
+        action="stock.action_package_view" 
+        groups="stock.group_tracking_lot" 
+        sequence="102"
+    />
 </odoo>

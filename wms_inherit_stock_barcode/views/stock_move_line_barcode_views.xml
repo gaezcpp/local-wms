@@ -21,6 +21,26 @@
             </xpath>
             <xpath expr="//field[@name='outermost_result_package_id']" position="attributes">
                 <attribute name="options">{'no_open': True, 'no_create': True}</attribute>
+                <attribute name="invisible">production_only</attribute> <!--PRODUCTION ONLY-->
+            </xpath>
+            <xpath expr="//field[@name='product_id']" position="attributes">
+                <attribute name="options">{'no_open': True, 'no_create': True}</attribute>
+            </xpath>
+            <!--PRODUCTION ONLY-->
+            <xpath expr="//div[@name='location_dest']" position="attributes">
+                <attribute name="invisible">production_only</attribute>
+            </xpath>
+            <xpath expr="//div[@name='package']" position="attributes">
+                <attribute name="invisible">production_only</attribute>
+            </xpath>
+            <xpath expr="//div[@name='outermost_package']" position="attributes">
+                <attribute name="invisible">production_only</attribute>
+            </xpath>
+            <xpath expr="//div[@name='tracking_number']" position="attributes">
+                <attribute name="invisible">production_only</attribute>
+            </xpath>
+            <xpath expr="//field[@name='expiration_date']/parent::div/parent::div" position="attributes">
+                <attribute name="invisible">not use_expiration_date or production_only</attribute>
             </xpath>
             <xpath expr="//field[@name='result_package_id']" position="attributes">
                 <attribute name="required">mandatory_destination</attribute>
@@ -29,31 +49,17 @@
                     (company_id and [('company_id', 'in', [company_id] + [False])] or [('company_id', '=', False)]) + ['|', '|', ('location_id', '=', False), ('location_id', '=', location_dest_id), ('id', '=', package_id)] + [('can_be_use', '=', True)]
                 </attribute>
             </xpath>
-            <!-- <xpath expr="//div[@name='quantity']" position="before">
-                <div name="bag_quantity" class="row my-2">
-                    <div class="col">
-                        <field name="bag_qty" class="text-end" options="{'type': 'number'}" force_save="1" placeholder="Bag Qty"/>
-                    </div>
-                    <div class="col-3 ps-0" groups="uom.group_uom">
-                        <field name="uom_bag_id" options="{'no_open': True}" groups="uom.group_uom" widget="many2one_uom" force_save="1" readonly="1"/>
-                    </div>
-                </div>
-                <div name="pallet_quantity" class="row my-2">
-                    <div class="col">
-                        <field name="pallet_qty" class="text-end" options="{'type': 'number'}" placeholder="Pallet Qty" force_save="1" readonly="1"/>
-                    </div>
-                    <div class="col-3 ps-0" groups="uom.group_uom">
-                        <field name="uom_pallet_id" options="{'no_open': True}" groups="uom.group_uom" widget="many2one_uom" force_save="1" readonly="1"/>
-                    </div>
-                </div>
-            </xpath> -->
+            <xpath expr="//field[@name='product_uom_id']" position="attributes">
+                <attribute name="readonly">1</attribute>
+                <attribute name="class">fs-6</attribute>
+            </xpath>
             <xpath expr="//div[@name='quantity']" position="before">
                 <div name="bag_quantity" class="row my-2">
                     <div class="col">
                         <field name="bag_qty" class="text-end" options="{'type': 'number'}" force_save="1" placeholder="Bag Qty"/>
                     </div>
                     <div class="col-3 ps-0" groups="uom.group_uom">
-                        <field name="uom_bag_id" options="{'no_open': True}" groups="uom.group_uom" widget="many2one_uom" force_save="1"/>
+                        <field name="uom_bag_id" class="fs-6" options="{'no_open': True, 'no_create': True}" groups="uom.group_uom" widget="many2one_uom" force_save="1"/>
                     </div>
                 </div>
                 <div name="pallet_quantity" class="row my-2">
@@ -61,9 +67,12 @@
                         <field name="pallet_qty" class="text-end" options="{'type': 'number'}" placeholder="Pallet Qty" force_save="1" readonly="1"/>
                     </div>
                     <div class="col-3 ps-0" groups="uom.group_uom">
-                        <field name="uom_pallet_id" options="{'no_open': True}" groups="uom.group_uom" widget="many2one_uom" force_save="1"/>
+                        <field name="uom_pallet_id" class="fs-6" options="{'no_open': True, 'no_create': True}" groups="uom.group_uom" widget="many2one_uom" force_save="1"/>
                     </div>
                 </div>
+            </xpath>
+            <xpath expr="//div[@name='digipad']" position="attributes">
+                <attribute name="invisible">1</attribute>
             </xpath>
             <xpath expr="//div[@name='location_src']" position="before">
                 <div name="production_text" class="row my-2" invisible="not production_only">

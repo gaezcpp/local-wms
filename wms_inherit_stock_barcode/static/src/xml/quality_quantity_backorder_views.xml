@@ -7,11 +7,19 @@
                 Quality Backorder
             </button>
             <!--QUANTITY PINDAH KE VALIDATE-->
-            <!-- <button t-if="env.model.isCheckerOnly()"
+            <button t-if="env.model.isCheckerOnly()"
                     t-on-click="env.model.openQuantityBackorder"
-                    class="btn btn-secondary">
-                Quantity Backorder
-            </button> -->
+                    class="btn btn-danger" confirm="Yakin ingin melakukan Check Quantity?">
+                Check Quantity
+            </button>
+        </xpath>
+        <!--PEMBATASAN USER-->
+        <!--HIDE BUTTON SCANNER-->
+        <xpath expr="//button[hasclass('o_add_line')]" position="attributes">
+            <attribute name="t-if">env.model.displayAddProductButton and !env.model.isProductionOnly()</attribute>
+        </xpath>
+        <xpath expr="//button[hasclass('o_put_in_pack')]" position="attributes">
+            <attribute name="t-if">false</attribute>
         </xpath>
     </t>
 </templates>

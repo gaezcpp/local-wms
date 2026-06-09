@@ -48,7 +48,7 @@ class ProductionOrderSAP(models.Model):
             po.gr_kg_qty = sum(done_moves.mapped('quantity'))
     
     def _compute_picking_count(self):
-        domain = [('po_sap_id', 'in', self.ids)]
+        domain = [('po_sap_id', 'in', self.ids),('state', 'not in', ('done', 'cancel'))]
         groups = self.env['stock.picking']._read_group(
             domain=domain,
             groupby=['po_sap_id'],
@@ -63,9 +63,9 @@ class ProductionOrderSAP(models.Model):
         return {
             'type': 'ir.actions.act_window',
             'name': 'Picking',
-            'view_mode': 'list,form',
+            'view_mode': 'kanban,list,form',
             'res_model': 'stock.picking',
-            'domain': [('po_sap_id', '=', self.id)],
+            'domain': [('po_sap_id', '=', self.id),('state', 'not in', ('done', 'cancel'))],
             'context': {
                 'create': 0,
                 'edit': 0,
@@ -243,13 +243,18 @@ class ProductionOrderSAP(models.Model):
                 if self._needs_update(existing_po_sap, vals):
                     existing_po_sap.write(vals)
                     _logger.info(f"PO {existing_po_sap.po_number} Updated")
-                    
-                if teco_status == 'TECO' and existing_po_sap.state not in ('teco', 'closed'):
-                    existing_po_sap.write({'state': 'teco'})
+                
+                # Pindah ke onchange aja  
+                if teco_status == 'TECO':
+                    if existing_po_sap.state not in ('teco', 'closed'):
+                        existing_po_sap.write({'state': 'teco', 'status_teco': 'TECO'})
+                else:
+                    if existing_po_sap.state not in ('teco', 'open'):
+                        existing_po_sap.write({'state': 'in_progress', 'status_teco': 'NOT TECO'})
                 
     def action_picking_po_sap(self):
         prod_in_move_type = self.env['ir.config_parameter'].sudo().get_param('prod_in_move_type')
-        operation_type = self.env['stock.picking.type'].sudo().search([('company_id', '=', self.company_id.id),('move_type_sap', '=', str(prod_in_move_type))], limit=1)
+        operation_type = self.env['stock.picking.type'].sudo().search([('company_id', '=', self.company_id.id),('barcode', '=', str(prod_in_move_type))], limit=1)
         if not operation_type:
             raise ValidationError(f"Operation Type tidak ditemukan untuk Company {self.company_id.company_registry} dan move type {prod_in_move_type or ''}")
         right_now = self.now_jakarta()
@@ -306,49 +311,75 @@ class ProductionOrderSAP(models.Model):
         
     def action_picking_wip_po(self):
         move_type_wip = self.env['ir.config_parameter'].sudo().get_param('move_type_wip')
-        operation_type = self.env['stock.picking.type'].sudo().search([('company_id', '=', self.company_id.id),('move_type_sap', '=', str(move_type_wip))], limit=1)
+        operation_type = self.env['stock.picking.type'].sudo().search([
+            ('company_id', '=', self.company_id.id),
+            ('barcode', '=', str(move_type_wip))
+        ], limit=1)
+        
         if not operation_type:
             raise ValidationError(f"Operation Type tidak ditemukan untuk Company {self.company_id.company_registry} dan move type {move_type_wip or ''}")
+
         right_now = self.now_jakarta()
         now_hour = right_now.strftime('%H%M')
-        prod_shift = self.env['production.shift'].sudo().search([('date_start', '<=', now_hour),('date_end', '>=', now_hour),], limit=1)
-        uom_kg = self.env['uom.uom'].sudo().search([('name', '=', 'kg')], limit=1) or self.env['uom.uom'].sudo().search([('name', '=', 'KG')], limit=1)
-        last_picking_id = False
+        prod_shift = self.env['production.shift'].sudo().search([
+            ('date_start', '<=', now_hour),
+            ('date_end', '>=', now_hour)
+        ], limit=1)
         
-        if operation_type:
-            for rec in self:
-                if rec.state in ('open', 'in_progress'):
-                    move_vals = []
-                    bag_qty = ((rec.order_qty * rec.uom_id.factor) / 1000)
-                    picking = self.env['stock.picking'].sudo().create({
-                        'picking_type_id': operation_type.id,
-                        'location_dest_id': operation_type.default_location_dest_id.id,
-                        'production_shift_id': prod_shift.id or False,
-                        'scheduled_date': rec.finish_date,
-                        'date_deadline': rec.finish_date,
-                        'po_sap_id': rec.id,
-                        'company_id': rec.company_id.id,
-                        'origin': rec.po_number,
-                        'note': f"Created From Production Order {rec.po_number}",
-                    })
-                    if picking:
-                        last_picking_id = picking.id
+        uom_kg = self.env['uom.uom'].sudo().search([('name', '=', 'kg')], limit=1)
+        if not uom_kg:
+            raise ValidationError("UoM 'kg' tidak ditemukan di sistem.")
+
+        last_picking_id = False
+        for rec in self:
+            if rec.state not in ('open', 'in_progress'):
+                raise ValidationError(f"Hanya bisa dilakukan pada status Open dan In Progress (PO: {rec.po_number})")
+                
+            bag_qty = ((rec.order_qty * rec.uom_id.factor) / 1000)
+            
+            picking = self.env['stock.picking'].sudo().create({
+                'picking_type_id': operation_type.id,
+                'location_id': operation_type.default_location_src_id.id,
+                'location_dest_id': operation_type.default_location_dest_id.id,
+                'production_shift_id': prod_shift.id or False,
+                'scheduled_date': rec.finish_date,
+                'date_deadline': rec.finish_date,
+                'po_sap_id': rec.id,
+                'company_id': rec.company_id.id,
+                'origin': rec.po_number,
+            })
+            
+            move_vals = []
+            if picking:
+                move_vals.append({
+                    'picking_id': picking.id,
+                    'product_id': rec.product_id.id,
+                    'product_uom_qty': rec.order_qty,
+                    'product_uom': rec.uom_id.id,
+                    'company_id': rec.company_id.id,
+                    'location_id': operation_type.default_location_src_id.id,
+                    'location_dest_id': operation_type.default_location_dest_id.id,
+                })
+                for wip in rec.product_id.product_wip_line_ids:
+                    if wip.product_id:
                         move_vals.append({
                             'picking_id': picking.id,
-                            'product_id': rec.product_id.id,
-                            'product_uom_qty': bag_qty,
+                            'product_id': wip.product_id.id,
+                            'product_uom_qty': 1,
                             'product_uom': uom_kg.id,
                             'company_id': rec.company_id.id,
+                            'location_id': operation_type.default_location_src_id.id,
+                            'location_dest_id': operation_type.default_location_dest_id.id,
                         })
-                        self.env['stock.move'].sudo().create(move_vals)
-                        picking.message_post(body=f"Created From Production Order {rec.po_number}")
-                        picking.action_confirm()
-                        rec.sudo().write({'state': 'in_progress'})
-                else:
-                    raise ValidationError("Hanya bisa dilakukan pada status Open dan In Progress")
-        else:
-            raise ValidationError(f"Operation Type tidak ditemukan pada Company {self.company_id.company_registry} dan Move Type {prod_in_move_type or '-'}")
-        
+                
+                if move_vals:
+                    self.env['stock.move'].sudo().create(move_vals)
+                    
+                picking.message_post(body=f"Created From Production Order {rec.po_number}")
+                picking.action_confirm()
+                rec.sudo().write({'state': 'in_progress'})
+                last_picking_id = picking.id
+
         if last_picking_id:
             return {
                 'name': 'Transfer',
@@ -358,5 +389,3 @@ class ProductionOrderSAP(models.Model):
                 'res_id': last_picking_id,
                 'target': 'current',
             }
-            
-        return {'type': 'ir.actions.act_window_close'}

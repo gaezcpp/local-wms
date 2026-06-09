@@ -9,5 +9,9 @@
             <field name="key">move_type_wip</field>
             <field name="value">888</field>
         </record>
+        <record id="production_order_tolerance_sap" model="ir.config_parameter">
+            <field name="key">production_order_tolerance_sap</field>
+            <field name="value">10</field>
+        </record>
     </data>
 </odoo>

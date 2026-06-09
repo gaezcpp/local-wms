@@ -6,11 +6,38 @@
             <field name="model">stock.picking</field>
             <field name="inherit_id" ref="stock.view_picking_form"/>
             <field name="arch" type="xml">
+                <!--PEMBATASAN USER-->
+                <xpath expr="//form" position="attributes">
+                    <attribute name="create">0</attribute>
+                    <attribute name="edit">0</attribute>
+                    <attribute name="delete">0</attribute>
+                </xpath>
+                <xpath expr="//list" position="attributes">
+                    <attribute name="create">0</attribute>
+                    <attribute name="edit">0</attribute>
+                    <attribute name="delete">0</attribute>
+                </xpath>
+                <xpath expr="//field[@name='partner_id']" position="attributes">
+                    <attribute name="force_save">1</attribute>
+                    <attribute name="readonly">1</attribute>
+                </xpath>
+                <xpath expr="//field[@name='picking_type_id']" position="attributes">
+                    <attribute name="force_save">1</attribute>
+                    <attribute name="readonly">1</attribute>
+                </xpath>
+                <xpath expr="//field[@name='scheduled_date']" position="attributes">
+                    <attribute name="force_save">1</attribute>
+                    <attribute name="readonly">1</attribute>
+                </xpath>
+                <xpath expr="//field[@name='origin']" position="attributes">
+                    <attribute name="force_save">1</attribute>
+                    <attribute name="readonly">1</attribute>
+                </xpath>
                 <xpath expr="//field[@name='origin']" position="after">
                     <field name="over_delivery" force_save="1" readonly="1" string="Qty Difference"/>
                 </xpath>
                 <xpath expr="//field[@name='use_create_lots']" position="after">
-                    <field name="production_shift_id" options="{'no_open': True, 'no_create': True}" readonly="state in ('done', 'cancel')"/>
+                    <field name="production_shift_id" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1"/> <!--readonly="state in ('done', 'cancel')"-->
                     <field name="synchronize_sap" readonly="1"/>
                     <field name="production_only" invisible="1"/>
                 </xpath>
@@ -20,6 +47,48 @@
                 </xpath>
                 <xpath expr="//field[@name='move_type']" position="before">
                     <field name="sloc_to" readonly="1"/>
+                </xpath>
+                <xpath expr="//field[@name='location_id'][@groups='stock.group_stock_multi_locations']" position="attributes">
+                    <attribute name="options">{'no_open': True, 'no_create': True}</attribute>
+                </xpath>
+                <xpath expr="//field[@name='location_id'][@groups='!stock.group_stock_multi_locations']" position="attributes">
+                    <attribute name="options">{'no_open': True, 'no_create': True}</attribute>
+                </xpath>
+                <xpath expr="//field[@name='location_dest_id'][@groups='stock.group_stock_multi_locations']" position="attributes">
+                    <attribute name="options">{'no_open': True, 'no_create': True}</attribute>
+                    <attribute name="force_save">1</attribute>
+                    <attribute name="readonly">1</attribute>
+                </xpath>
+                <xpath expr="//field[@name='location_dest_id'][@groups='!stock.group_stock_multi_locations']" position="attributes">
+                    <attribute name="options">{'no_open': True, 'no_create': True}</attribute>
+                    <attribute name="force_save">1</attribute>
+                    <attribute name="readonly">1</attribute>
+                </xpath>
+                <xpath expr="//field[@name='user_id']" position="attributes">
+                    <attribute name="options">{'no_open': True, 'no_create': True}</attribute>
+                </xpath>
+                <xpath expr="//field[@name='company_id']" position="attributes">
+                    <attribute name="options">{'no_open': True, 'no_create': True}</attribute>
+                </xpath>
+                <xpath expr="//field[@name='company_id'][@groups='base.group_multi_company']" position="attributes">
+                    <attribute name="options">{'no_open': True, 'no_create': True}</attribute>
+                </xpath>
+                <xpath expr="//button[@name='action_put_in_pack']" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </xpath>
+                <xpath expr="//field[@name='move_ids']" position="attributes">
+                    <attribute name="force_save">1</attribute>
+                    <attribute name="readonly">1</attribute>
+                </xpath>
+                <xpath expr="//field[@name='move_ids']/list" position="attributes">
+                    <attribute name="create">0</attribute>
+                    <attribute name="edit">0</attribute>
+                    <attribute name="delete">0</attribute>
+                </xpath>
+                <xpath expr="//field[@name='move_ids']/list/field[@name='product_id']" position="attributes">
+                    <attribute name="options">{'no_open': True, 'no_create': True, 'no_create_edit': True}</attribute>
+                </xpath>
+                <xpath expr="//field[@name='move_ids']/list/control" position="replace">
                 </xpath>
                 <xpath expr="//page[@name='extra']" position="before">
                     <page name="product_packaging_sap" string="Packaging Details" invisible="1"> <!--invisible="not production_only"-->
@@ -56,5 +125,16 @@
                 </xpath>
             </field>
         </record>
+
+        <!-- <record model="ir.ui.view" id="inherit_base_stock_delivery_form">
+            <field name="name">base.inherit.stock.delivery.picking.form</field>
+            <field name="model">stock.picking</field>
+            <field name="inherit_id" ref="stock_delivery.view_picking_withcarrier_out_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='carrier_id']" position="attributes">
+                    <attribute name="options">{'no_open': True, 'no_create': True, 'no_create_edit': True}</attribute>
+                </xpath>
+            </field>
+        </record> -->
     </data>
 </odoo>

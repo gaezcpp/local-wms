@@ -37,11 +37,13 @@ Long description of module's purpose
         'views/stock_move_line_barcode_views.xml',
         'views/stock_move_line_views.xml',
         'views/stock_inventory_adjustment_views.xml',
+        'views/stock_move_views.xml',
         'views/menuitem.xml',
     ],
     
     "assets": {
         "web.assets_backend": [
+            "wms_inherit_stock_barcode/static/src/css/global_smart_button.css",
             "wms_inherit_stock_barcode/static/src/js/bypass_scan_lot.js",
             "wms_inherit_stock_barcode/static/src/js/digipad_patch.js",
             "wms_inherit_stock_barcode/static/src/js/barcode_auto_fill.js",

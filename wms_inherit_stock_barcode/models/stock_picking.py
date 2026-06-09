@@ -1,5 +1,7 @@
 from odoo import models, fields, api
-from odoo.exceptions import ValidationError
+from odoo.exceptions import ValidationError, UserError
+import logging
+_logger = logging.getLogger(__name__)
 
 class StockPicking(models.Model):
     _inherit = 'stock.picking'
@@ -58,9 +60,12 @@ class StockPicking(models.Model):
                 'default_picking_type_id': self.picking_type_id.quality_type_id.id or False,
                 'default_line_ids': [(0, 0, {
                     'backorder_wizard_id': 0,
+                    'move_line_id': line.id or False,
                     'product_id': line.product_id.id or False,
-                    'qty': line.bag_qty if line.bag_qty > 0 else ((line.quantity * line.product_uom_id.factor) / 1000) / (line.uom_bag_id.factor / 1000),
-                    'product_uom_id': line.uom_bag_id.id or False,
+                    'qty': line.quantity,
+                    'product_uom_id': line.product_uom_id.id or False,
+                    'qty_pack': line.bag_qty if line.bag_qty > 0 else ((line.quantity * line.product_uom_id.factor) / 1000) / (line.uom_bag_id.factor / 1000),
+                    'pack_uom_id': line.uom_bag_id.id or False,
                     'location_id': line.location_id.id or False, 
                     'lot_id': line.lot_id.id or False, 
                     'package_id': line.package_id.id or False, 
@@ -194,12 +199,292 @@ class StockPicking(models.Model):
         self._sync_packaging_lines()
         self._check_all_sloc_filled()
         self._check_all_result_package_id()
+        if self.checker_only:
+            if self._has_missing_qty():
+                _logger.info(f"Missing qty detected for {self.name}. Triggering auto-backorder.")
+                raise ValidationError(f"Ada Missing Quantity pada {self.name} silahkan lakukan Check Quantity untuk melanjutkan proses Validate")
         res = super().button_validate()
         next_pickings = self.mapped('move_ids.move_dest_ids.picking_id').filtered(lambda p: p)
         if next_pickings:
             next_pickings._sync_packaging_lines()
         return res
+    
+    def _has_missing_qty(self):
+        root_picking = self
+        while root_picking.backorder_id:
+            root_picking = root_picking.backorder_id
 
+        def get_all_pickings_in_chain(root):
+            result = root
+            children = self.env['stock.picking'].search([('backorder_id', '=', root.id)])
+            for child in children:
+                result |= get_all_pickings_in_chain(child)
+            return result
+
+        all_related_pickings = get_all_pickings_in_chain(root_picking)
+        
+        for move in self.move_ids:
+            product = move.product_id
+            root_moves = root_picking.move_ids.filtered(lambda m: m.product_id == product)
+            total_demand = sum(root_moves.mapped('product_uom_qty'))
+            all_moves_in_chain = all_related_pickings.mapped('move_ids').filtered(lambda m: m.product_id == product)
+            total_processed = sum(all_moves_in_chain.mapped('move_line_ids.quantity'))
+            _logger.info(f"APAKAH HAS MISSING DEMAND {total_demand} | PROCESSED {total_processed}")
+            if total_demand > total_processed:
+                return True
+        return False
+    
+    # Quantity Backorder
+    def action_create_quantity_backorder(self):
+        self.ensure_one()
+        _logger.info(f"=== START action_create_quantity_backorder for {self.name} ===")
+
+        if not self.checker_only:
+            return
+
+        # 1. Root picking
+        root_picking = self
+        while root_picking.backorder_id:
+            root_picking = root_picking.backorder_id
+        _logger.info(f"Root picking: {root_picking.name}")
+
+        # 2. Semua picking dalam chain (rekursif)
+        def get_all_pickings_in_chain(root):
+            result = root
+            children = self.env['stock.picking'].search([('backorder_id', '=', root.id)])
+            for child in children:
+                result |= get_all_pickings_in_chain(child)
+            return result
+
+        all_related_pickings = get_all_pickings_in_chain(root_picking)
+        _logger.info(f"All pickings in chain: {[(p.name, p.state) for p in all_related_pickings]}")
+
+        for move in self.move_ids:
+            product = move.product_id
+            _logger.info(f"--- Processing product: {product.name} ---")
+
+            # Demand
+            root_moves = root_picking.move_ids.filtered(lambda m: m.product_id == product)
+            demand = sum(root_moves.mapped('product_uom_qty'))
+            _logger.info(f"  Demand: {demand}")
+
+            # Hitung total processed
+            all_moves_in_chain = all_related_pickings.mapped('move_ids').filtered(lambda m: m.product_id == product)
+            total_done = 0.0
+            total_in_progress = 0.0
+            for m in all_moves_in_chain:
+                ml_qty_sum = sum(m.move_line_ids.mapped('quantity'))
+                if m.state == 'done':
+                    total_done += m.quantity
+                    _logger.info(f"    [DONE] Move {m.id} | {m.picking_id.name} | qty: {m.quantity}")
+                elif m.state not in ('cancel',):
+                    total_in_progress += ml_qty_sum
+                    _logger.info(
+                        f"    [IN-PROGRESS] Move {m.id} | {m.picking_id.name} "
+                        f"| state: {m.state} | ml_qty: {ml_qty_sum}"
+                    )
+
+            missing_qty = demand - (total_done + total_in_progress)
+            _logger.info(
+                f"  SUMMARY → demand: {demand} | done: {total_done} "
+                f"| in_progress: {total_in_progress} | missing: {missing_qty}"
+            )
+
+            if missing_qty <= 0:
+                _logger.info("  No missing qty, skipping.")
+                continue
+
+            qty_type = self.picking_type_id.quantity_type_id
+            if not qty_type:
+                raise UserError(f"Operation type tidak memiliki Quantity Type.")
+
+            # =====================================================================
+            # CARI QUANT TERSEDIA YANG BENAR
+            #
+            # FIX dari iterasi sebelumnya:
+            # - Jangan filter berdasarkan "apakah package ada di move_line aktif"
+            #   karena package bisa ada di move_line aktif TAPI masih punya sisa
+            #   available (quantity - reserved_quantity > 0)
+            # - Filter yang benar: available_qty = quantity - reserved_quantity > 0
+            # - Package conflict TIDAK terjadi jika kita mengambil dari available qty
+            #   yang memang belum direservasi oleh siapapun
+            # =====================================================================
+            lot_id_for_search = move.move_line_ids[:1].lot_id.id if move.move_line_ids else False
+
+            all_quants = self.env['stock.quant'].search([
+                ('location_id', '=', move.location_id.id),
+                ('product_id', '=', product.id),
+                ('lot_id', '=', lot_id_for_search),
+                ('quantity', '>', 0),
+            ])
+            _logger.info(f"  Semua quant di source location {move.location_id.name}:")
+            for q in all_quants:
+                avail = q.quantity - q.reserved_quantity
+                _logger.info(
+                    f"    Quant {q.id} | pkg: {q.package_id.name if q.package_id else 'None'} "
+                    f"(id:{q.package_id.id if q.package_id else '-'}) "
+                    f"| qty: {q.quantity} | reserved: {q.reserved_quantity} "
+                    f"| available: {avail}"
+                )
+
+            # Filter: hanya yang benar-benar available (belum penuh direservasi)
+            usable_quants = sorted(
+                [q for q in all_quants if (q.quantity - q.reserved_quantity) > 0],
+                key=lambda q: (q.quantity - q.reserved_quantity),
+                reverse=True,
+            )
+
+            _logger.info(
+                f"  Quant yang available (qty-reserved > 0): "
+                f"{[(q.id, q.package_id.id if q.package_id else None, round(q.quantity - q.reserved_quantity, 2)) for q in usable_quants]}"
+            )
+
+            # Buat picking baru
+            new_picking = self.env['stock.picking'].create({
+                'picking_type_id': qty_type.id,
+                'location_id': move.location_id.id,
+                'location_dest_id': qty_type.default_location_dest_id.id,
+                'company_id': self.company_id.id,
+                'backorder_id': root_picking.id,
+                'origin': f"{root_picking.name} - Qty Remaining",
+                'po_sap_id': self.po_sap_id.id if self.po_sap_id else False,
+            })
+            _logger.info(f"  Created new picking: {new_picking.name}")
+
+            new_move = self.env['stock.move'].create({
+                'picking_id': new_picking.id,
+                'product_id': product.id,
+                'product_uom_qty': missing_qty,
+                'product_uom': move.product_uom.id,
+                'location_id': move.location_id.id,
+                'location_dest_id': new_picking.location_dest_id.id,
+                'company_id': self.company_id.id,
+            })
+            new_move._action_confirm()
+            _logger.info(f"  Move {new_move.id} confirmed. State: {new_move.state}")
+
+            # Hapus auto-generated move_line
+            if new_move.move_line_ids:
+                _logger.info(f"  Unlinking {len(new_move.move_line_ids)} auto move_line(s)")
+                new_move.move_line_ids.unlink()
+
+            # =====================================================================
+            # BUAT MOVE_LINE DARI QUANT YANG AVAILABLE
+            # Pakai package_id asli dari quant agar Odoo bisa track dengan benar
+            # dan tidak membuat quant negatif
+            # =====================================================================
+            remaining = missing_qty
+            created_lines = []
+
+            for q in usable_quants:
+                if remaining <= 0:
+                    break
+
+                avail = q.quantity - q.reserved_quantity
+                take_qty = min(avail, remaining)
+
+                ml_vals = {
+                    'move_id': new_move.id,
+                    'picking_id': new_picking.id,
+                    'product_id': product.id,
+                    'product_uom_id': move.product_uom.id,
+                    'quantity': take_qty,
+                    'lot_id': q.lot_id.id if q.lot_id else False,
+                    'location_id': move.location_id.id,
+                    'location_dest_id': new_picking.location_dest_id.id,
+                    'package_id': q.package_id.id if q.package_id else False,
+                    'result_package_id': False,
+                    'stock_type': 'QI',
+                }
+                ml = self.env['stock.move.line'].create(ml_vals)
+                created_lines.append({
+                    'ml_id': ml.id,
+                    'quant_id': q.id,
+                    'package_id': q.package_id.id if q.package_id else None,
+                    'take_qty': take_qty,
+                    'avail_was': avail,
+                })
+                _logger.info(
+                    f"  Created move_line {ml.id}: ambil {take_qty} dari quant {q.id} "
+                    f"(pkg: {q.package_id.name if q.package_id else 'None'}, "
+                    f"avail was: {avail})"
+                )
+                remaining -= take_qty
+
+            _logger.info(f"  Move lines created: {created_lines}")
+            _logger.info(f"  Remaining unassigned after quant loop: {remaining}")
+
+            if remaining > 0:
+                # Ini kondisi KRITIS: tidak ada quant available sama sekali
+                # Jangan buat move_line tanpa package — akan pasti bikin quant negatif
+                # Raise error yang informatif
+                _logger.error(
+                    f"  KRITIS: Tidak ada quant tersedia untuk {remaining} qty! "
+                    f"Total available dari semua quant: "
+                    f"{sum(q.quantity - q.reserved_quantity for q in all_quants)}"
+                )
+                raise UserError(
+                    f"Tidak cukup stok tersedia untuk membuat Qty Backorder.\n"
+                    f"Produk: {product.display_name}\n"
+                    f"Dibutuhkan: {missing_qty} | Tersedia: {missing_qty - remaining}\n"
+                    f"Periksa stock quant di lokasi {move.location_id.name}."
+                )
+
+            # Validasi
+            _logger.info(f"  Attempting button_validate() on {new_picking.name}...")
+            try:
+                result = new_picking.with_context(
+                    skip_backorder=True,
+                    skip_immediate=True,
+                    skip_sms=True,
+                ).button_validate()
+                _logger.info(
+                    f"  button_validate() returned: {result} | State: {new_picking.state}"
+                )
+            except Exception as e:
+                _logger.error(f"  button_validate() FAILED: {e}")
+                raise
+
+            if new_picking.state != 'done':
+                _logger.warning(
+                    f"  {new_picking.name} masih {new_picking.state}. "
+                    f"Fallback: move._action_done()..."
+                )
+                try:
+                    new_move.with_context(
+                        skip_backorder=True,
+                        skip_immediate=True,
+                    )._action_done()
+                    _logger.info(
+                        f"  move._action_done() selesai. "
+                        f"Move: {new_move.state} | Picking: {new_picking.state}"
+                    )
+                except Exception as e2:
+                    _logger.error(f"  move._action_done() FAILED: {e2}")
+                    raise
+
+            _logger.info(
+                f"  FINAL: {new_picking.name} state={new_picking.state} | "
+                f"move state={new_move.state}"
+            )
+
+            if new_picking.state != 'done':
+                raise UserError(f"Picking {new_picking.name} gagal divalidasi otomatis.")
+
+        _logger.info(f"=== END action_create_quantity_backorder for {self.name} ===")
+
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": "Success",
+                "message": "Qty Backorder telah diproses.",
+                "type": "success",
+                "sticky": False,
+                "next": {"type": "ir.actions.act_window_close"},
+            },
+        }
+                
     # SEBELOM SLOC PINDAH KE SCANNER
     # def _sync_packaging_lines(self):
     #     Packaging = self.env['product.packaging.sap']

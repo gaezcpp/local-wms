@@ -15,6 +15,7 @@ class StockMoveLine(models.Model):
         ('eceran', 'Eceran'),
     ], string="Pallet Status", default=False)
     mandatory_destination = fields.Boolean(related='picking_id.picking_type_id.mandatory_destination', readonly=False)
+    checker_only = fields.Boolean(related='picking_id.checker_only', store=True)
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -123,6 +124,7 @@ class StockMoveLine(models.Model):
             'uom_bag_id',
             'uom_pallet_id',
             'qty_packaging_sap',
+            'checker_only',
         ]
     
     def _update_package_can_be_use(self):

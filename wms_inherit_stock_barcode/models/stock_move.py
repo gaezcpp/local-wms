@@ -13,15 +13,15 @@ class InheritStockMove(models.Model):
     product_packaging_id = fields.Many2one(comodel_name='product.packaging.sap', string="Product Packaging")
     qty_packaging_sap = fields.Float(string="Qty Packaging", compute='_compute_qty_packaging_sap')
     
-    @api.model_create_multi
-    def create(self, vals_list):
-        moves = super().create(vals_list)
-        moves.create_packaging_line()
-        return moves
+    # @api.model_create_multi
+    # def create(self, vals_list):
+    #     moves = super().create(vals_list)
+    #     moves.create_packaging_line()
+    #     return moves
 
-    def write(self, vals):
-        res = super().write(vals)
-        return res
+    # def write(self, vals):
+    #     res = super().write(vals)
+    #     return res
 
     def _get_fields_stock_barcode(self):
         res = super()._get_fields_stock_barcode()

@@ -23,5 +23,20 @@
                 </xpath>
             </field>
         </record>
+
+        <record model="ir.ui.view" id="inherit_view_move_line_form">
+            <field name="name">inherit.view.move.line.form</field>
+            <field name="model">stock.move.line</field>
+            <field name="inherit_id" ref="stock.view_move_line_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//label[@for='quantity']" position="after">
+                    <label for="bag_qty" string="Pack Qty"/>
+                    <div class="o_row">
+                        <field name="bag_qty"/>
+                        <field name="uom_bag_id" options="{'no_open': True, 'no_create': True}" widget="many2one_uom" groups="uom.group_uom"/>
+                    </div>
+                </xpath>
+            </field>
+        </record>
     </data>
 </odoo>

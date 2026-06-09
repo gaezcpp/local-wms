@@ -40,7 +40,7 @@ patch(BarcodePickingModel.prototype, {
 
         const result = await this.orm.call(
             this.resModel,
-            "action_open_quantity_backorder",
+            "action_create_quantity_backorder",
             [[this.resId]],
             { context }
         );

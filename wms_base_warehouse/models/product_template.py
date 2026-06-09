@@ -13,6 +13,7 @@ class InheritProductTemplate(models.Model):
     _inherit = 'product.template'
 
     sap_mm = fields.Boolean(string="SAP MM", tracking=True)
+    product_wip_line_ids = fields.One2many(comodel_name='product.wip', inverse_name='parent_product_id')
     
     @api.model
     def _fetch_sap_data(self, config_key, cron_name):

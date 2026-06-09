@@ -10,3 +10,4 @@ access_user_product_packaging_sap,user_product_packaging_sap,model_product_packa
 access_user_picking_packaging_line,user_picking_packaging_line,model_picking_packaging_line,base.group_user,1,1,1,1
 access_user_storage_location,user_storage_location,model_storage_location,base.group_user,1,1,1,1
 access_user_stock_lot_aft,user_stock_lot_aft,model_stock_lot_aft,base.group_user,1,1,1,1
+access_user_product_wip,user_product_wip,model_product_wip,base.group_user,1,1,1,1

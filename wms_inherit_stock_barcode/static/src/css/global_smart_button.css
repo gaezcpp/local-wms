@@ -1,0 +1,30 @@
+@media (max-width: 767px) {
+    /* 1. Reset wrapper agar tidak lagi berbentuk kotak kecil */
+    .oe_stat_button:has(.fa-bolt) {
+        flex: 1 !important; /* Memaksa tombol mengambil sisa ruang */
+        width: 100% !important;
+        margin: 0 5px !important;
+        padding: 0 !important;
+    }
+
+    /* 2. Mengubah tombol menjadi gaya "New" (btn-secondary) */
+    .oe_button_box .oe_stat_button:has(.fa-bolt) .btn {
+        width: 100% !important;
+        height: 38px !important; /* Samakan dengan tinggi tombol "New" */
+        border: 1px solid #ced4da !important;
+        border-radius: 4px !important;
+        background-color: #ffffff !important;
+        color: #495057 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        font-weight: 500 !important;
+        font-size: 13px !important;
+    }
+
+    /* 3. Memberikan teks "Process" di samping icon */
+    .oe_stat_button:has(.fa-bolt) .btn::after {
+        content: " Process"; /* Menambahkan teks label */
+        margin-left: 8px;
+    }
+}
