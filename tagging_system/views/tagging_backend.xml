@@ -116,17 +116,48 @@
             </field>
           </group>
           <group>
-              <group name="tag_desc" string="Description">
+              <!-- <group name="tag_desc" string="Description">
                 <field name="attachment_ids" widget="many2many_binary" options="{'no_create': False, 'no_open': True}" class="tagging_gallery" readonly="1" create="0" edit="0" delete="0"/>
                 <field name="description" readonly="1"/>
-              </group>
-              <!-- <group string="Close Evidence" invisible="status not in ('validated','open_wo','closed')">
-                <field name="close_start_date" string="Work Start Date" readonly="status == 'closed'"/>
-                <field name="close_end_date" string="Work End Date" readonly="status == 'closed'"/>
-                <field name="close_description" readonly="status == 'closed'"/>
-                <field name="close_photo" widget="image" filename="close_photo_filename" readonly="status == 'closed'"/>
-                <field name="close_photo_filename" invisible="1"/>
               </group> -->
+              <!--PREVIEW IMAGE-->
+              <group name="tag_desc" string="Description">
+                  <field name="attachment_ids" class="tagging_gallery" readonly="1" mode="kanban">
+                      <kanban>
+                          <field name="id"/>
+                          <field name="name"/>
+                          <field name="mimetype"/>
+                          <templates>
+                              <t t-name="card">
+                                  <div class="oe_kanban_global_click d-flex flex-column align-items-center justify-content-center" style="width: 120px; height: 140px; margin: 5px; border: 1px solid #ddd; border-radius: 5px;">
+                                      
+                                      <t t-if="record.mimetype.value.match('image.*')">
+                                          <a t-attf-href="/web/image/ir.attachment/#{record.id.raw_value}/datas" target="_blank" title="Click to Preview">
+                                              <img t-att-src="'/web/image/ir.attachment/' + record.id.raw_value + '/datas'" 
+                                                  style="max-width: 100px; max-height: 100px; object-fit: contain; border-radius: 4px;" alt="Preview"/>
+                                          </a>
+                                      </t>
+                                      
+                                      <t t-else="">
+                                          <a t-attf-href="/web/content/ir.attachment/#{record.id.raw_value}/datas?download=true" title="Download File">
+                                              <span class="fa fa-4x fa-file-o text-muted"/>
+                                          </a>
+                                      </t>
+                                      
+                                      <div class="text-truncate w-100 text-center mt-2" t-att-title="record.name.value" style="font-size: 11px;">
+                                          <field name="name"/>
+                                      </div>
+                                  </div>
+                              </t>
+                          </templates>
+                      </kanban>
+                      <form>
+                        <field name="name" readonly="1"/>
+                      </form>
+                  </field>
+                  
+                  <field name="description" readonly="1"/>
+              </group>
               <group string="Close Evidence" invisible="status not in ('validated','open_wo','closed')">
                   <field name="close_start_date" string="Work Start Date" readonly="status == 'closed'" />
                   <field name="close_end_date" string="Work End Date" readonly="status == 'closed'" />

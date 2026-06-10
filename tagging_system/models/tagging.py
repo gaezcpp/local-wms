@@ -640,8 +640,8 @@ class TaggingRecord(models.Model):
             for st_val, count in Model._read_group(domain, ["status"], ["__count"]):
                 if st_val in status_map:
                     status_map[st_val] = count
-        except Exception:
-            pass
+        except Exception as e:
+            _logger.error("TAGGING DASHBOARD Error generating status_map: %s", e)
 
         by_abc = {"labels": [], "values": []}
         try:
@@ -652,8 +652,8 @@ class TaggingRecord(models.Model):
 
             pairs = sorted(counter.items(), key=lambda x: x[1], reverse=True)
             by_abc = {"labels": [p[0] for p in pairs], "values": [p[1] for p in pairs]}
-        except Exception:
-            pass
+        except Exception as e:
+            _logger.error("TAGGING DASHBOARD Error generating by_abc: %s", e)
 
         by_system = {"labels": [], "values": []}
         try:
@@ -665,15 +665,15 @@ class TaggingRecord(models.Model):
 
             pairs = sorted(counter.items(), key=lambda x: x[1], reverse=True)
             by_system = {"labels": [p[0] for p in pairs], "values": [p[1] for p in pairs]}
-        except Exception:
-            pass
+        except Exception as e:
+            _logger.error("TAGGING DASHBOARD Error generating by_system: %s", e)
 
         by_problem = {"labels": [], "values": []}
         if "category_problem_id" in Model._fields:
             try:
                 p_counter = defaultdict(int)
                 for prob_rec, count in Model._read_group(domain, ["category_problem_id"], ["__count"]):
-                    key = prob_rec.name if prob_rec else "Others"
+                    key = prob_rec.cat_masalah if prob_rec else "Others"
                     p_counter[key] += count
 
                 p_pairs = sorted(p_counter.items(), key=lambda x: x[1], reverse=True)
@@ -681,8 +681,8 @@ class TaggingRecord(models.Model):
                     "labels": [p[0] for p in p_pairs],
                     "values": [p[1] for p in p_pairs],
                 }
-            except Exception:
-                pass
+            except Exception as e:
+                _logger.error("TAGGING DASHBOARD Error generating by_problem stats: %s", e)
 
         treemap_nodes = []
         try:
@@ -702,8 +702,8 @@ class TaggingRecord(models.Model):
                 for (abc_key, sys_name), cnt in t_counter.items()
             ]
             treemap_nodes.sort(key=lambda x: (x["group"], -x["value"], x["system"]))
-        except Exception:
-            pass
+        except Exception as e:
+            _logger.error("TAGGING DASHBOARD Error generating treemap_: %s", e)
 
         abc_table = []
         try:
@@ -727,8 +727,8 @@ class TaggingRecord(models.Model):
                 })
 
             abc_table.sort(key=lambda x: x["total"], reverse=True)
-        except Exception:
-            pass
+        except Exception as e:
+            _logger.error("TAGGING DASHBOARD Error generating abc_table: %s", e)
 
         abc_system_grouping = {}
         try:
@@ -752,8 +752,8 @@ class TaggingRecord(models.Model):
 
             abc_system_grouping = dict(sorted(abc_system_grouping.items(), key=lambda kv: key_order(kv[0])))
 
-        except Exception:
-            pass
+        except Exception as e:
+            _logger.error("TAGGING DASHBOARD Error generating abc_system_group: %s", e)
         
         abc_system_grouping_items = [
             {"abc": k, "rows": v}

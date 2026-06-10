@@ -19,6 +19,7 @@
         <field name="arch" type="xml">
             <list string="Tagging Problem">
                 <field name="code"/>
+                <field name="code_group"/>
                 <field name="name"/>
                 <field name="sap_synchronize"/>
             </list>
@@ -34,6 +35,7 @@
                     <group>
                         <group>
                             <field name="code"/>
+                            <field name="code_group"/>
                             <field name="name"/>
                             <field name="sap_synchronize"/>
                         </group>

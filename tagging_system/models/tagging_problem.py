@@ -15,6 +15,7 @@ class TaggingProblem(models.Model):
     
     name = fields.Char(string="Name")
     code = fields.Char(string="Code")
+    code_group = fields.Char(string="Code Group")
     sap_synchronize = fields.Boolean(string="SAP Synchronize", default=False)
     
     
@@ -55,12 +56,14 @@ class TaggingProblem(models.Model):
         for data in data_list:
             code = data.get('CODE') or ''
             kurztext = data.get('KURZTEXT') or ''
+            code_group = data.get('CODEGROUP') or ''
             if not code:
                 continue
             
             vals = {
                 'code': code,
                 'name': kurztext,
+                'code_group': code_group,
                 'sap_synchronize': True,
             }
             
