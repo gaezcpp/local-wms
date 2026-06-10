@@ -253,10 +253,10 @@ class ProductionOrderSAP(models.Model):
                         existing_po_sap.write({'state': 'in_progress', 'status_teco': 'NOT TECO'})
                 
     def action_picking_po_sap(self):
-        prod_in_move_type = self.env['ir.config_parameter'].sudo().get_param('prod_in_move_type')
-        operation_type = self.env['stock.picking.type'].sudo().search([('company_id', '=', self.company_id.id),('barcode', '=', str(prod_in_move_type))], limit=1)
+        operation_type_barcode_fg = self.env['ir.config_parameter'].sudo().get_param('operation_type_barcode_fg')
+        operation_type = self.env['stock.picking.type'].sudo().search([('company_id', '=', self.company_id.id),('barcode', '=', str(operation_type_barcode_fg))], limit=1)
         if not operation_type:
-            raise ValidationError(f"Operation Type tidak ditemukan untuk Company {self.company_id.company_registry} dan move type {prod_in_move_type or ''}")
+            raise ValidationError(f"Operation Type tidak ditemukan untuk Company {self.company_id.company_registry} dan move type {operation_type_barcode_fg or ''}")
         right_now = self.now_jakarta()
         now_hour = right_now.strftime('%H%M')
         prod_shift = self.env['production.shift'].sudo().search([('date_start', '<=', now_hour),('date_end', '>=', now_hour),], limit=1)
@@ -295,7 +295,7 @@ class ProductionOrderSAP(models.Model):
                 else:
                     raise ValidationError("Hanya bisa dilakukan pada status Open dan In Progress")
         else:
-            raise ValidationError(f"Operation Type tidak ditemukan pada Company {self.company_id.company_registry} dan Move Type {prod_in_move_type or '-'}")
+            raise ValidationError(f"Operation Type tidak ditemukan pada Company {self.company_id.company_registry} dan Move Type {operation_type_barcode_fg or '-'}")
         
         if last_picking_id:
             return {
@@ -310,14 +310,14 @@ class ProductionOrderSAP(models.Model):
         return {'type': 'ir.actions.act_window_close'}
         
     def action_picking_wip_po(self):
-        move_type_wip = self.env['ir.config_parameter'].sudo().get_param('move_type_wip')
+        operation_type_barcode_wip = self.env['ir.config_parameter'].sudo().get_param('operation_type_barcode_wip')
         operation_type = self.env['stock.picking.type'].sudo().search([
             ('company_id', '=', self.company_id.id),
-            ('barcode', '=', str(move_type_wip))
+            ('barcode', '=', str(operation_type_barcode_wip))
         ], limit=1)
         
         if not operation_type:
-            raise ValidationError(f"Operation Type tidak ditemukan untuk Company {self.company_id.company_registry} dan move type {move_type_wip or ''}")
+            raise ValidationError(f"Operation Type tidak ditemukan untuk Company {self.company_id.company_registry} dan move type {operation_type_barcode_wip or ''}")
 
         right_now = self.now_jakarta()
         now_hour = right_now.strftime('%H%M')

@@ -202,7 +202,13 @@ class StockPicking(models.Model):
         if self.checker_only:
             if self._has_missing_qty():
                 _logger.info(f"Missing qty detected for {self.name}. Triggering auto-backorder.")
-                raise ValidationError(f"Ada Missing Quantity pada {self.name} silahkan lakukan Check Quantity untuk melanjutkan proses Validate")
+                raise ValidationError(f"Silahkan lakukan Check Quantity untuk melanjutkan proses Validate")
+            for move in self.move_ids:
+                if move.state in ('cancel', 'done'):
+                    continue
+                total_bag_qty = sum(move.move_line_ids.mapped('bag_qty'))
+                if total_bag_qty <= 0.0:
+                    raise ValidationError(f"Tidak bisa melakukan Validate: Pack Quantity untuk produk {move.product_id.name} karena masih 0. ")
         res = super().button_validate()
         next_pickings = self.mapped('move_ids.move_dest_ids.picking_id').filtered(lambda p: p)
         if next_pickings:

@@ -103,12 +103,8 @@ class TaggingWOSparePart(models.Model):
     def _onchange_spare_part_id(self):
         for rec in self:
             if rec.spare_part_id:
-                rec.sku = rec.spare_part_id.default_code or ""
-                rec.specification = (
-                    rec.spare_part_id.description_sale
-                    or rec.spare_part_id.description
-                    or ""
-                )
+                rec.sku = rec.spare_part_id.sku or "-"
+                rec.specification = rec.spare_part_id.name or "-"
             else:
                 rec.specification = False
                 rec.sku = False
@@ -123,10 +119,10 @@ class TaggingWOSparePart(models.Model):
                 rec.part_id = rec.machine_bom_id.part_id
                 prod = rec._bom_to_product(rec.machine_bom_id.spare_part_id)
                 rec.spare_part_id = prod
-                rec.specification = rec.machine_bom_id.specification or (
-                    prod.description_sale or prod.description or ""
-                )
-                rec.sku = rec.machine_bom_id.sku or (prod.default_code or "")
+                # rec.specification = rec.machine_bom_id.specification or (
+                #     prod.description_sale or prod.description or ""
+                # )
+                # rec.sku = rec.machine_bom_id.sku or (prod.default_code or "")
             else:
                 rec.part_id = False
                 rec.spare_part_id = False

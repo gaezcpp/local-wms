@@ -5,8 +5,12 @@
             <field name="key">query_production_order_sap</field>
             <field name="value">SELECT a.aufnr, a.auart, p.matnr, a.werks, k.gamng, p.meins, k.gmein, k.gstrp, k.gltrp, a.ernam, a.erdat, marm.umrez, marm.umren, 'TECO' AS teco_status, a.loekz FROM aufk a JOIN afko k ON a.aufnr = k.aufnr JOIN afpo p ON a.aufnr = p.aufnr LEFT JOIN marm ON marm.matnr = p.matnr AND marm.meinh = k.gmein WHERE a.autyp = '10' AND TO_DATE(a.erdat,'YYYYMMDD') BETWEEN CURRENT_DATE-30 AND CURRENT_DATE AND EXISTS ( SELECT 1 FROM jest j WHERE j.objnr = a.objnr AND j.stat = 'I0045' AND j.inact = ' ' ) UNION ALL SELECT a.aufnr, a.auart, p.matnr, a.werks, k.gamng, p.meins, k.gmein, k.gstrp, k.gltrp, a.ernam, a.erdat, marm.umrez, marm.umren, 'NOT TECO' AS teco_status, a.loekz FROM aufk a JOIN afko k ON a.aufnr = k.aufnr JOIN afpo p ON a.aufnr = p.aufnr LEFT JOIN marm ON marm.matnr = p.matnr AND marm.meinh = k.gmein WHERE a.autyp = '10'  AND TO_DATE(a.erdat,'YYYYMMDD') BETWEEN CURRENT_DATE-30 AND CURRENT_DATE AND NOT EXISTS ( SELECT 1 FROM jest j WHERE j.objnr = a.objnr AND j.stat = 'I0045' AND j.inact = ' ' )</field>
         </record>
-        <record id="move_type_wip" model="ir.config_parameter">
-            <field name="key">move_type_wip</field>
+        <record id="operation_type_barcode_wip" model="ir.config_parameter">
+            <field name="key">operation_type_barcode_wip</field>
+            <field name="value">888</field>
+        </record>
+        <record id="operation_type_barcode_fg" model="ir.config_parameter">
+            <field name="key">operation_type_barcode_fg</field>
             <field name="value">888</field>
         </record>
         <record id="production_order_tolerance_sap" model="ir.config_parameter">

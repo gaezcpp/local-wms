@@ -6,7 +6,7 @@
         <field name="arch" type="xml">
             <form string="QQ">
                 <group>
-                    <field name="picking_type_id" options="{'no_open': True, 'no_create': True}"/>
+                    <field name="picking_type_id" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1"/>
                 </group>
                 <separator string="Lines"/>
                 <field name="line_ids">
@@ -14,8 +14,8 @@
                         <field name="backorder_wizard_id" options="{'no_open': True, 'no_create': True}" column_invisible="1" readonly="1"/>
                         <field name="move_line_id" options="{'no_open': True, 'no_create': True}" column_invisible="1" force_save="1" readonly="1"/>
                         <field name="product_id" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1"/>
-                        <field name="qty" force_save="1" readonly="1"/>
-                        <field name="product_uom_id" options="{'no_open': True, 'no_create': True}" widget="many2one_uom" force_save="1" readonly="1"/>
+                        <field name="qty" force_save="1" readonly="1" column_invisible="1"/>
+                        <field name="product_uom_id" options="{'no_open': True, 'no_create': True}" widget="many2one_uom" force_save="1" readonly="1" column_invisible="1"/>
                         <field name="qty_pack"/>
                         <field name="pack_uom_id" options="{'no_open': True, 'no_create': True}" widget="many2one_uom" force_save="1" readonly="1"/>
                         <field name="result_package_id" options="{'no_open': True, 'no_create': True}" domain="[('can_be_use', '=', True)]"/>

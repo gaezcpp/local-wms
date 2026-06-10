@@ -14,6 +14,7 @@
                 <filter name="fl_open" string="Open" domain="[('state','=', 'open')]"/>
                 <filter name="fl_ip" string="In Progress" domain="[('state','=', 'in_progress')]"/>
                 <filter name="fl_teco" string="Teco" domain="[('state','=', 'teco')]"/>
+                <filter name="fl_not_teco" string="Archived" domain="[('state','!=', 'teco')]"/>
                 <filter name="fl_archived" string="Archived" domain="[('active','=', False)]"/>
                 <group>
                     <filter name="gr_state" string="By State" context="{'group_by':'state'}"/>
@@ -130,6 +131,6 @@
         <field name="name">Production Order SAP</field>
         <field name="res_model">production.order.sap</field>
         <field name="view_mode">kanban,list,form</field>
-        <field name="context">{'search_default_fl_teco': 1}</field>
+        <field name="context">{'search_default_fl_not_teco': 1}</field>
     </record>
 </odoo>
