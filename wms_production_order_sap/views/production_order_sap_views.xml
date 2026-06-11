@@ -14,7 +14,7 @@
                 <filter name="fl_open" string="Open" domain="[('state','=', 'open')]"/>
                 <filter name="fl_ip" string="In Progress" domain="[('state','=', 'in_progress')]"/>
                 <filter name="fl_teco" string="Teco" domain="[('state','=', 'teco')]"/>
-                <filter name="fl_not_teco" string="Archived" domain="[('state','!=', 'teco')]"/>
+                <filter name="fl_not_teco" string="NOT TECO" domain="[('state','!=', 'teco')]"/>
                 <filter name="fl_archived" string="Archived" domain="[('active','=', False)]"/>
                 <group>
                     <filter name="gr_state" string="By State" context="{'group_by':'state'}"/>
@@ -27,7 +27,7 @@
         <field name="name">production.order.sap.kanban</field>
         <field name="model">production.order.sap</field>
         <field name="arch" type="xml">
-            <kanban class="o_kanban_mobile" create="0" edit="0" delete="0">
+            <kanban records_draggable="0" class="o_kanban_mobile" create="0" edit="0" delete="0" quick_create="0" quick_edit="0">
                 <field name="po_number"/>
                 <field name="product_id"/>
                 <field name="state"/>

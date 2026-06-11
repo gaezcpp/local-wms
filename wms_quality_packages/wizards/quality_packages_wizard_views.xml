@@ -1,0 +1,22 @@
+<?xml version='1.0' encoding='utf-8'?>
+<odoo>
+    <record id="quality_packages_wizard_form_views" model="ir.ui.view">
+        <field name="name">quality.packages.wizard.form.wizard</field>
+        <field name="model">quality.packages.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Quality Packages Wizard">
+                <group>
+                    <field name="quality_packages_id" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1" required="1"/>
+                    <field name="is_to_block" force_save="1" readonly="1"/>
+                    <field name="category_aft_id" options="{'no_open': True, 'no_create': True}" required="not is_to_block"/>
+                </group>
+                <separator string="Reason"/>
+                <field name="other_reason" placeholder="e.g Barang tidak sesuai"/>
+                <footer>
+                    <button name="action_aft_wizard" type="object" string="OK" class="oe_highlight" confirm="Yakin semua data sudah sesuai?"/>
+                    <button string="Cancel" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

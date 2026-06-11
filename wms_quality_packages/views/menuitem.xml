@@ -4,8 +4,7 @@
     <menuitem
         id="quality_packages_aft_menu_root"
         name="Quality Packages AFT"
-        parent="stock.menu_stock_inventory_control"
-        sequence="300"
+        web_icon="wms_quality_packages,static/description/icon.png"
     />
 
     <menuitem
@@ -17,10 +16,24 @@
     />
 
     <menuitem
+        id="quality_packages_configuration_menu"
+        name="Configuration"
+        parent="wms_quality_packages.quality_packages_aft_menu_root"
+    />
+
+    <menuitem
         id="sap_aft_configuration_menu"
         name="SAP AFT Configuration"
-        parent="wms_quality_packages.quality_packages_aft_menu_root"
+        parent="wms_quality_packages.quality_packages_configuration_menu"
         action="wms_quality_packages.sap_aft_action"
-        sequence="90"
+        sequence="10"
+    />
+
+    <menuitem
+        id="category_quality_packages_configuration_menu"
+        name="Category AFT"
+        parent="wms_quality_packages.quality_packages_configuration_menu"
+        action="wms_quality_packages.category_quality_packages_action"
+        sequence="20"
     />
 </odoo>

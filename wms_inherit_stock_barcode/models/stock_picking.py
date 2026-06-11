@@ -194,11 +194,39 @@ class StockPicking(models.Model):
                         f"Destination Package belum diisi untuk picking {picking.name}.\n\n"
                         f"Silahkan isi dahulu Destination Package pada : {', '.join(no_package.mapped('product_reference_code') or '-')}"
                     )
+                    
+    def _sync_post_validate_quantities(self):
+        for picking in self:
+            if picking.state == 'done':
+                for line in picking.move_line_ids:
+                    qty = line.qty_done if hasattr(line, 'qty_done') else line.quantity
+                    if qty > 0 and line.bag_qty <= 0 and line.pallet_qty <= 0:
+                        new_bag_qty = 0.0
+                        new_pallet_qty = 0.0
+                        if line.product_uom_id and line.product_uom_id.factor and line.uom_bag_id and line.uom_bag_id.factor:
+                            new_bag_qty = ((qty * line.product_uom_id.factor) / 1000) / (line.uom_bag_id.factor / 1000)
+                        if line.uom_pallet_id and line.uom_pallet_id.factor:
+                            new_pallet_qty = qty / (line.uom_pallet_id.factor / 1000)
+                        line.write({
+                            'bag_qty': round(new_bag_qty),
+                            'pallet_qty': new_pallet_qty
+                        })
+                
+                picking.message_post(body=f"Bag dan Pallet Move Line otomatis terisi karena match kondisi")
+    
+    def _check_production_order_sap(self):
+        for picking in self:
+            if picking.po_sap_id:
+                if picking.po_sap_id.active == False:
+                    raise ValidationError(f"Tidak bisa melakukan Validate karena PO SAP {picking.po_sap_id.po_number} sudah tidak Active!")
+                if picking.po_sap_id.state == 'teco':
+                    raise ValidationError(f"Tidak bisa melakukan Validate karena PO SAP {picking.po_sap_id.po_number} sudah TECO!")
     
     def button_validate(self):
         self._sync_packaging_lines()
         self._check_all_sloc_filled()
         self._check_all_result_package_id()
+        self._check_production_order_sap()
         if self.checker_only:
             if self._has_missing_qty():
                 _logger.info(f"Missing qty detected for {self.name}. Triggering auto-backorder.")
@@ -210,6 +238,7 @@ class StockPicking(models.Model):
                 if total_bag_qty <= 0.0:
                     raise ValidationError(f"Tidak bisa melakukan Validate: Pack Quantity untuk produk {move.product_id.name} karena masih 0. ")
         res = super().button_validate()
+        self._sync_post_validate_quantities()
         next_pickings = self.mapped('move_ids.move_dest_ids.picking_id').filtered(lambda p: p)
         if next_pickings:
             next_pickings._sync_packaging_lines()

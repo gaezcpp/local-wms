@@ -16,8 +16,8 @@
         <!--PEMBATASAN USER-->
         <!--HIDE BUTTON SCANNER-->
         <xpath expr="//button[hasclass('o_add_line')]" position="attributes">
-            <!-- <attribute name="t-if">env.model.displayAddProductButton and !env.model.isProductionOnly()</attribute> -->
-            <attribute name="t-if">false</attribute>
+            <attribute name="t-if">env.model.displayAddProductButton and !env.model.isProductionOnly()</attribute>
+            <!-- <attribute name="t-if">false</attribute> -->
         </xpath>
         <xpath expr="//button[hasclass('o_put_in_pack')]" position="attributes">
             <attribute name="t-if">false</attribute>

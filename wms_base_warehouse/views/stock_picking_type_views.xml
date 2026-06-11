@@ -15,6 +15,9 @@
                     <field name="checker_only"/>
                     <field name="quality_type_id" required="checker_only" invisible="not checker_only"/>
                     <field name="quantity_type_id" required="checker_only" invisible="not checker_only"/>
+                    <field name="checker_out"/>
+                    <field name="quality_out_type_id" required="checker_out" invisible="not checker_out"/>
+                    <field name="quantity_out_type_id" required="checker_out" invisible="not checker_out"/>
                     <field name="mandatory_destination"/>
                 </xpath>
                 <xpath expr="//field[@name='return_picking_type_id']" position="after">

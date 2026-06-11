@@ -10,6 +10,11 @@
                 <field name="mandatory_destination" invisible="1"/>
             </xpath>
             <xpath expr="//field[@name='qty_done']" position="attributes">
+                <attribute name="options">{'no_open': True, 'no_create': True}</attribute>
+                <attribute name="force_save">1</attribute>
+                <attribute name="readonly">1</attribute>
+            </xpath>
+            <xpath expr="//field[@name='qty_done']" position="attributes">
                 <attribute name="force_save">1</attribute>
                 <attribute name="readonly">1</attribute>
             </xpath>
@@ -21,7 +26,7 @@
             </xpath>
             <xpath expr="//field[@name='outermost_result_package_id']" position="attributes">
                 <attribute name="options">{'no_open': True, 'no_create': True}</attribute>
-                <attribute name="invisible">production_only</attribute> <!--PRODUCTION ONLY-->
+                <attribute name="invisible">production_only or checker_only</attribute> <!--PRODUCTION ONLY-->
             </xpath>
             <xpath expr="//field[@name='product_id']" position="attributes">
                 <attribute name="options">{'no_open': True, 'no_create': True}</attribute>
@@ -34,7 +39,7 @@
                 <attribute name="invisible">production_only</attribute>
             </xpath>
             <xpath expr="//div[@name='outermost_package']" position="attributes">
-                <attribute name="invisible">production_only</attribute>
+                <attribute name="invisible">production_only or checker_only</attribute>
             </xpath>
             <xpath expr="//div[@name='tracking_number']" position="attributes">
                 <attribute name="invisible">production_only</attribute>
@@ -95,7 +100,7 @@
                         <field name="detail_text" placeholder="Detail Text" class="w-100"/>
                     </div>
                 </div>
-                <div name="first_last_count" class="row my-2" invisible="not production_only">
+                <!-- <div name="first_last_count" class="row my-2" invisible="not production_only">
                     <div class="col-6">
                         <div class="text-black-50 mt-2 fs-5">
                             <span class="fa fa-map-marker me-1"/>
@@ -110,7 +115,7 @@
                         </div>
                         <field name="last_count" placeholder="Last Count"/>
                     </div>
-                </div>
+                </div> -->
                 <div name="qty_packaging_sap" class="row" invisible="1">
                     <div  class="text-black-50 mt-2 fs-5">
                         <span class="fa fa-archive me-1"/>

@@ -19,12 +19,15 @@ class QualityPackages(models.Model):
         ('draft', 'Draft'),
         ('in_progress', 'In Progress'),
         ('done', 'Done'),
-        ('reject', 'Reject'),
+        ('cancel', 'Cancel'),
     ], string="State", default="draft", tracking=True)
     notes = fields.Text(string="Notes", tracking=True)
     quality_line_ids = fields.One2many('quality.packages.line', 'quality_packages_id')
     quality_summary_line_ids = fields.One2many('quality.packages.summary.line', 'quality_packages_id')
     is_checked = fields.Boolean(string="Is Checked", default=False, tracking=True)
+    category_aft_id = fields.Many2one(comodel_name='category.quality.packages', string="Category", tracking=True)
+    other_reason = fields.Text(string="Other Reason", tracking=True)
+    select_all = fields.Boolean(string="Select All", default=False)
     
     @api.model_create_multi
     def create(self, vals_list):
@@ -37,6 +40,15 @@ class QualityPackages(models.Model):
     def _onchange_reset_checked(self):
         if self.is_checked:
             self.is_checked = False
+            
+    @api.onchange('select_all')
+    def _onchange_select_all(self):
+        self.ensure_one()
+        for rec in self.quality_line_ids:
+            if self.select_all:
+                rec.is_selected = True
+            else:
+                rec.is_selected = False
     
     def check_availability(self):
         quant_model = self.env['stock.quant'].sudo()
@@ -101,90 +113,24 @@ class QualityPackages(models.Model):
             else:
                 raise ValidationError("Hanya bisa ke In Progress jika Status Draft dan sudah Check Availability")
     
-    # def action_done(self):
-    #     for rec in self:
-    #         if not rec.action_aft_id:
-    #             raise ValidationError("Action belum dipilih!")
-
-    #         selected_lines = rec.quality_line_ids.filtered(lambda l: l.is_selected and l.lot_id)
-    #         if not selected_lines:
-    #             raise ValidationError("Tidak ada Packages yang dipilih atau Packages yang dipilih Lotnya kosong!")
-
-    #         stock_type_from = rec.action_aft_id.stock_type_from
-    #         stock_type_to = rec.action_aft_id.stock_type_to
-
-    #         for line in selected_lines:
-    #             lot = line.lot_id
-    #             aft_from = lot.lot_aft_ids.filtered(lambda la: la.stock_type == stock_type_from)
-    #             aft_to = lot.lot_aft_ids.filtered(lambda la: la.stock_type == stock_type_to)
-
-    #             if not aft_from:
-    #                 aft_from = self.env['stock.lot.aft'].sudo().create({
-    #                     'lot_id': lot.id,
-    #                     'stock_type': stock_type_from,
-    #                     'quantity': 0,
-    #                     'bag_qty': 0,
-    #                     'uom_id': line.uom_id.id or False,
-    #                     'uom_bag_id': line.uom_bag_id.id or False,
-    #                 })
-
-    #             if not aft_to:
-    #                 aft_to = self.env['stock.lot.aft'].sudo().create({
-    #                     'lot_id': lot.id,
-    #                     'stock_type': stock_type_to,
-    #                     'quantity': 0,
-    #                     'bag_qty': 0,
-    #                     'uom_id': line.uom_id.id or False,
-    #                     'uom_bag_id': line.uom_bag_id.id or False,
-    #                 })
-
-    #             total_quantity = aft_from.quantity
-    #             total_bag_qty = aft_from.bag_qty
-
-    #             aft_from.write({
-    #                 'quantity': 0,
-    #                 'bag_qty': 0,
-    #             })
-
-    #             aft_to.write({
-    #                 'quantity': aft_to.quantity + total_quantity,
-    #                 'bag_qty': aft_to.bag_qty + total_bag_qty,
-    #             })
-
-    #             quant_domain = [
-    #                 ('lot_id', '=', lot.id),
-    #                 ('stock_type', '=', stock_type_from),
-    #             ]
-    #             if line.package_id:
-    #                 quant_domain.append(('package_id', '=', line.package_id.id))
-    #             if line.location_id:
-    #                 quant_domain.append(('location_id', '=', line.location_id.id))
-
-    #             matching_quants = self.env['stock.quant'].sudo().search(quant_domain)
-    #             if matching_quants:
-    #                 matching_quants.write({'stock_type': stock_type_to})
-
-    #             lot.message_post(
-    #                 body=f"Stock Lot AFT Updated from {rec.name}: "
-    #                     f"{stock_type_from} -{total_quantity} → {stock_type_to} +{total_quantity}"
-    #             )
-
-    #         rec.state = 'done'
-    #     self._create_summary_line()
-    
     def action_done(self):
         for rec in self:
             if rec.state != 'in_progress':
                 raise ValidationError("Hanya bisa Done dari status In Progress!")
-            if not rec.action_aft_id:
-                raise ValidationError("Action belum dipilih!")
 
             selected_lines = rec.quality_line_ids.filtered(lambda l: l.is_selected and l.lot_id)
             if not selected_lines:
                 raise ValidationError("Tidak ada Packages yang dipilih atau Packages yang dipilih Lotnya kosong!")
 
+            is_to_block = False
             stock_type_from = rec.action_aft_id.stock_type_from
             stock_type_to = rec.action_aft_id.stock_type_to
+            if stock_type_to and stock_type_to.strip().upper() == 'BLOCKED':
+                is_to_block = True
+                
+            if is_to_block:
+                if not rec.category_aft_id and not rec.other_reason:
+                    return self.action_open_aft_wizard()
 
             for line in selected_lines:
                 lot = line.lot_id
@@ -297,12 +243,30 @@ class QualityPackages(models.Model):
         for rec in self:
             if rec.state == 'in_progress':
                 rec.state = 'draft'
-            
+    
     def action_reject(self):
         for rec in self:
             if rec.state == 'done':
-                raise ValidationError("Tidak bisa me-reject record yang sudah Done!")
+                raise ValidationError("Tidak bisa melakukan Cancel pada record yang sudah Done!")
             rec.quality_line_ids.sudo().unlink()
             rec.quality_summary_line_ids.sudo().unlink()
-            rec.message_post(body="Details dan Summary dihapus!")
-            rec.state = 'reject'
+            rec.state = 'cancel'
+            rec.message_post(body="Details dan Summary dihapus karena Cancel!")
+    
+    def action_open_aft_wizard(self):
+        self.ensure_one()
+        view = self.env.ref('wms_quality_packages.quality_packages_wizard_form_views')
+        is_to_block = False
+        if self.action_aft_id.stock_type_to.strip().upper() == 'BLOCKED':
+            is_to_block = True
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'Quality Packages AFT',
+            'res_model': 'quality.packages.wizard',
+            'views': [(view.id, 'form')],
+            'target': 'new',
+            'context': {
+                'default_quality_packages_id': self.id,
+                'default_is_to_block': is_to_block,
+            }
+        }

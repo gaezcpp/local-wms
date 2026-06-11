@@ -9,20 +9,19 @@
                 <xpath expr="//button[@name='unpack']" position="attributes">
                     <attribute name="invisible">1</attribute>
                 </xpath>
-                <!-- <xpath expr="//button[@name='unpack']" position="after">
-                    <button name="action_unpack_wizard" type="object" string="Unpack" class="oe_highlight"/>
-                    <button name="action_qi" string="Set QI" type="object" class="btn-warning" invisible="state == 'QI'"/>
-                    <button name="action_blocked" string="Set Blocked" type="object" class="btn-danger" invisible="state == 'Blocked'"/>
-                    <button name="action_uu" string="Set UU" type="object" class="oe_highlight" invisible="state == 'UU'"/>
-                    <field name="state" widget="statusbar"/>
-                </xpath>-->
+                <xpath expr="//button[@name='unpack']" position="after">
+                    <button name="action_ready" string="Set Ready" type="object" class="oe_highlight" invisible="yellow_tag == 'ready'"/>
+                    <button name="action_hold" string="Set Hold" type="object" class="btn-danger" invisible="yellow_tag == 'hold'"/>
+                    <field name="yellow_tag" force_save="1" readonly="1" widget="statusbar"/>
+                </xpath>
                 <xpath expr="//field[@name='pack_date']" position="after">
                     <field name="pallet_status" force_save="1" readonly="1"/>
                 </xpath> 
                 <xpath expr="//field[@name='contained_quant_ids']/list/field[@name='lot_id']" position="after">
                     <field name="stock_type"/>
-                    <!-- <field name="exp_group"/> -->
-                    <!-- <field name="inbound_date"/> -->
+                </xpath>
+                <xpath expr="//sheet" position="after">
+                    <chatter reload_on_follower="True"/>
                 </xpath>
                 <!--PEMBATASAN USER-->
                 <xpath expr="//form" position="attributes">

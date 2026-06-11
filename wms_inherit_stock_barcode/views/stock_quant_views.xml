@@ -23,6 +23,25 @@
                     <field name="bag_qty" readonly="1"/>
                     <field name="uom_bag_id" string="Unit" readonly="1" options="{'no_open': True, 'no_create': True}"/>
                 </xpath>
+                <!--PEMBATASAN USER-->
+                <xpath expr="//list" position="attributes">
+                    <attribute name="create">0</attribute>
+                    <attribute name="edit">0</attribute>
+                    <attribute name="delete">0</attribute>
+                    <attribute name="duplicate">0</attribute>
+                </xpath>
+                <xpath expr="//button[@name='action_apply_all']" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </xpath>
+                <xpath expr="//button[@name='stock.action_stock_inventory_adjustement_name']" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </xpath>
+                <xpath expr="//button[@name='action_reset']" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </xpath>
+                <xpath expr="//button[@name='stock.action_stock_request_count']" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </xpath>
             </field>
         </record>
 

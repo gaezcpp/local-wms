@@ -5,3 +5,5 @@ access_user_quality_packages_summary_line,access_user_quality_packages_summary_l
 access_package_wizards,access_package_wizards,model_package_wizards,base.group_user,1,1,1,1
 access_package_wizards_line,access_package_wizards_line,model_package_wizards_line,base.group_user,1,1,1,1
 access_user_sap_aft,access_user_sap_aft,model_sap_aft,base.group_user,1,1,1,1
+access_user_category_quality_packages,access_user_category_quality_packages,model_category_quality_packages,base.group_user,1,1,1,1
+access_user_quality_packages_wizard,access_user_quality_packages_wizard,model_quality_packages_wizard,base.group_user,1,1,1,1
