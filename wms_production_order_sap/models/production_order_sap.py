@@ -293,6 +293,8 @@ class ProductionOrderSAP(models.Model):
                     self.env['stock.move'].sudo().create(move_vals)
                     picking.message_post(body=f"Created From Production Order {rec.po_number}")
                     picking.action_confirm()
+                    if picking.move_line_ids:
+                        picking.move_line_ids.sudo().write({'stock_type': 'QI'})
                     rec.sudo().write({'state': 'in_progress'})
         
         if last_picking_id:
@@ -360,8 +362,10 @@ class ProductionOrderSAP(models.Model):
                     
                 picking.message_post(body=f"Created From Production Order {rec.po_number}")
                 picking.action_confirm()
-                rec.sudo().write({'state': 'in_progress'})
                 last_picking_id = picking.id
+                if picking.move_line_ids:
+                    picking.move_line_ids.sudo().write({'stock_type': 'QI'})
+                rec.sudo().write({'state': 'in_progress'})
 
         if last_picking_id:
             last_picking_record = self.env['stock.picking'].browse(last_picking_id)

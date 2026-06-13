@@ -9,6 +9,7 @@ class StockPicking(models.Model):
     sloc_filled = fields.Boolean(string="SLOC Filled", compute='_compute_sloc_filled', store=True)
     checker_only = fields.Boolean(related='picking_type_id.checker_only', readonly=True)
     production_only = fields.Boolean(related='picking_type_id.production_only', readonly=True)
+    detail_operation_scan = fields.Char(string="Detail Scan", store=True, compute='_compute_operation_scan')
 
     def _get_fields_stock_barcode(self):
         res = super()._get_fields_stock_barcode()
@@ -23,6 +24,16 @@ class StockPicking(models.Model):
         for rec in self:
             lines = rec.product_packaging_ids
             rec.sloc_filled = bool(lines) and all(l.sloc_id for l in lines)
+            
+    @api.depends('move_line_ids.package_id')
+    def _compute_operation_scan(self):
+        for rec in self:
+            detail_scan = []
+            for line in rec.move_line_ids:
+                source_package = line.package_id.name or '-'
+                product = line.product_id.default_code or '-'
+                detail_scan.append(f"{source_package} - {product}")
+            rec.detail_operation_scan = "\n".join(detail_scan)
     
     def action_open_sloc_packaging_wizard(self):
         self.ensure_one()

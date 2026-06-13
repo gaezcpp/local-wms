@@ -1,4 +1,5 @@
 from odoo import models, fields, api
+from odoo.exceptions import ValidationError
 import logging
 _logger = logging.getLogger(__name__)
 
@@ -89,62 +90,52 @@ class StockMove(models.Model):
             
         return values
     
-    # def _prepare_move_line_vals(self, quantity=None, reserved_quant=None):
-    #     res = super()._prepare_move_line_vals(quantity=quantity, reserved_quant=reserved_quant)
-    #     if not self.move_orig_ids:
-    #         return res
-
-    #     origin_lines = self.move_orig_ids.mapped('move_line_ids').sorted('id')
-    #     matched_line = False
-
-    #     if reserved_quant:
-    #         if reserved_quant.package_id:
-    #             matched_line = origin_lines.filtered(
-    #                 lambda l:
-    #                     l.package_history_id.id == reserved_quant.package_id.id and
-    #                     l.product_id == self.product_id
-    #             )[:1]
-
-    #         if not matched_line and reserved_quant.package_id:
-    #             matched_line = origin_lines.filtered(
-    #                 lambda l:
-    #                     l.result_package_id.id == reserved_quant.package_id.id and
-    #                     l.product_id == self.product_id
-    #             )[:1]
-
-    #         if not matched_line and reserved_quant.lot_id:
-    #             matched_line = origin_lines.filtered(
-    #                 lambda l:
-    #                     l.lot_id.id == reserved_quant.lot_id.id and
-    #                     l.product_id == self.product_id
-    #             )[:1]
-
-    #     if not matched_line:
-    #         matched_line = origin_lines.filtered(
-    #             lambda l: l.product_id == self.product_id
-    #         )[:1]
-
-    #     if not matched_line and origin_lines:
-    #         matched_line = origin_lines[:1]
-
-    #     if matched_line:
-    #         res.update({
-    #             'production_line_id': matched_line.production_line_id.id,
-    #             'first_count': matched_line.first_count,
-    #             'last_count': matched_line.last_count,
-    #             'detail_text': matched_line.detail_text,
-    #             'qty_packaging_sap': matched_line.qty_packaging_sap,
-    #             'stock_type': matched_line.stock_type,
-    #         })
-
-    #     return res
+    def _is_gr_prod(self, vals=None):
+        picking = False
+        prod_in_move_type = self.env['ir.config_parameter'].sudo().get_param('prod_in_move_type')
+        
+        if not prod_in_move_type:
+            raise ValidationError("prod_in_move_type pada Operation Type belum disetting!")
+            
+        if vals and vals.get('picking_id'):
+            picking = self.env['stock.picking'].browse(vals['picking_id'])
+        elif self.picking_id:
+            picking = self.picking_id
+            
+        return picking and picking.picking_type_id.move_type_sap == str(prod_in_move_type)
+    
+    def _action_done(self, **kwargs):
+        res = super()._action_done(**kwargs)
+        for move in res:
+            for line in move.move_line_ids:
+                if line.state == 'done' and line.stock_type:
+                    domain = [
+                        ('product_id', '=', line.product_id.id),
+                        ('location_id', '=', line.location_dest_id.id),
+                    ]
+                    if line.lot_id:
+                        domain.append(('lot_id', '=', line.lot_id.id))
+                    if line.result_package_id:
+                        domain.append(('package_id', '=', line.result_package_id.id))
+                    
+                    quants = self.env['stock.quant'].search(domain)
+                    if quants:
+                        quants.sudo().write({'stock_type': line.stock_type})
+                        
+        return res
     
     def _prepare_move_line_vals(self, quantity=None, reserved_quant=None):
         res = super()._prepare_move_line_vals(quantity=quantity, reserved_quant=reserved_quant)
         
-        if reserved_quant and reserved_quant.stock_type:
+        is_production_only = self._is_gr_prod()
+        
+        # 1. Pengecekan IF-ELSE yang lebih rapi dan bersih
+        if is_production_only:
+            res['stock_type'] = 'QI'
+        elif reserved_quant and reserved_quant.stock_type:
             res['stock_type'] = reserved_quant.stock_type
 
+        # 2. Lanjut ke pengecekan origin (dokumen hulu)
         if not self.move_orig_ids:
             return res
 
@@ -154,23 +145,17 @@ class StockMove(models.Model):
         if reserved_quant:
             if reserved_quant.package_id:
                 matched_line = origin_lines.filtered(
-                    lambda l:
-                        l.package_history_id.id == reserved_quant.package_id.id and
-                        l.product_id == self.product_id
+                    lambda l: l.package_history_id.id == reserved_quant.package_id.id and l.product_id == self.product_id
                 )[:1]
 
             if not matched_line and reserved_quant.package_id:
                 matched_line = origin_lines.filtered(
-                    lambda l:
-                        l.result_package_id.id == reserved_quant.package_id.id and
-                        l.product_id == self.product_id
+                    lambda l: l.result_package_id.id == reserved_quant.package_id.id and l.product_id == self.product_id
                 )[:1]
 
             if not matched_line and reserved_quant.lot_id:
                 matched_line = origin_lines.filtered(
-                    lambda l:
-                        l.lot_id.id == reserved_quant.lot_id.id and
-                        l.product_id == self.product_id
+                    lambda l: l.lot_id.id == reserved_quant.lot_id.id and l.product_id == self.product_id
                 )[:1]
 
         if not matched_line:
@@ -188,12 +173,9 @@ class StockMove(models.Model):
                 'last_count': matched_line.last_count,
                 'detail_text': matched_line.detail_text,
                 'qty_packaging_sap': matched_line.qty_packaging_sap,
-                'stock_type': matched_line.stock_type,
             }
             
-            # (Opsional) Jika stock_type gagal didapat dari reserved_quant, 
-            # jadikan matched_line sebagai cadangan (fallback).
-            if not res.get('stock_type') and matched_line.stock_type:
+            if not is_production_only and not res.get('stock_type') and matched_line.stock_type:
                 update_vals['stock_type'] = matched_line.stock_type
                 
             res.update(update_vals)

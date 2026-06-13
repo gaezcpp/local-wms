@@ -39,30 +39,22 @@ patch(BarcodePickingModel.prototype, {
         return info;
     },
 
-    // Bypass saat result_package_id terisi maka scan berikutnya tidak akan mengisi outermost
+    // Bypass saat result_package_id terisi maka scan berikutnya tidak akan mengisi outermost container
     async _processPackage(barcodeData) {
-        // Ambil line yang sedang aktif / terpilih di layar scanner
+        // Ambil baris yang aktif atau terakhir diproses
         const currentLine = this.selectedLine || this.lastScannedLine;
-        console.log("Bypass _processPackage Current", currentLine)
+
+        // Jika baris ditemukan dan result_package_id sudah ada (sudah pernah discan),
+        // maka kita hentikan proses scan package di sini.
         if (currentLine && currentLine.result_package_id) {
-            const warningMsg = "Result Package sudah terisi. Scan outermost package diabaikan.";
+            console.log("ProcessPackage dibatalkan: Result Package sudah terkunci.");
             
-            // Penyesuaian pemanggilan notifikasi untuk Odoo versi terbaru
-            // Odoo biasanya menempelkan service langsung ke object (this) di level Model
-            if (this.notificationService) {
-                this.notificationService.add(warningMsg, { type: "warning" });
-            } else if (typeof this.notification === 'function') {
-                this.notification(warningMsg, { type: "warning" });
-            } else {
-                // Fallback aman jika UI service benar-benar tidak terdeteksi agar tidak crash
-                console.warn(warningMsg); 
-            }
-            
-            // Return false untuk menghentikan proses baca barcode package
+            // Opsi: Anda bisa memberikan notifikasi atau diamkan saja (silent block)
+            // Cukup return false atau return hasil tanpa memanggil super.
             return false; 
         }
-        
-        // Lanjutkan ke fungsi bawaan Odoo jika kondisi aman
+
+        // Jika result_package_id belum terisi, biarkan Odoo memproses scan package pertama kali
         return super._processPackage(...arguments);
     }
 });

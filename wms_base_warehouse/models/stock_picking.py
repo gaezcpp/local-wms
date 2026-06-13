@@ -88,8 +88,8 @@ class InheritBaseStockPicking(models.Model):
                 if not lot:
                     continue
 
-                # stype = move_line.stock_type or 'QI'
-                stype = move_line.stock_type
+                stype = move_line.stock_type or 'QI' # INI BIAR OTOMATIS QI SAAT GR
+                # stype = move_line.stock_type
                 if not stype:
                     picking.message_post(body=f"Move Line StockType Kosong")
                 

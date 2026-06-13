@@ -26,5 +26,25 @@
                 </xpath>
             </field>
         </record>
+
+        <record model="ir.ui.view" id="inherit_stock_barcode_picking_view_kanban">
+            <field name="name">inherit.stock.barcode.picking.kanban</field>
+            <field name="model">stock.picking</field>
+            <field name="inherit_id" ref="stock_barcode.stock_picking_view_kanban"/>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='name']" position="after">
+                    <div class="mt-2" t-if="record.detail_operation_scan.raw_value" style="flex-basis: 100%; text-align: left;">
+                        <div>
+                            <div class="fw-bold text-muted mb-1" style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px;">
+                                <i class="fa fa-barcode me-1"/> Package Details
+                            </div>
+                            <div style="white-space: pre-wrap; font-size: 12px; line-height: 1.4;">
+                                <field name="detail_operation_scan"/>
+                            </div>
+                        </div>
+                    </div>
+                </xpath>
+            </field>
+        </record>
     </data>
 </odoo>
