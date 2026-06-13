@@ -85,7 +85,7 @@ class QualityQuantityBackorder(models.TransientModel):
                 'package_id': line.package_id.id if line.package_id else False, 
                 'result_package_id': line.result_package_id.id if line.result_package_id else False,
                 'production_line_id': line.production_line_id.id,
-                'stock_type': 'QI',
+                'stock_type': line.move_line_id.stock_type,
             })
 
         # 3. Finalisasi Picking

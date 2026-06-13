@@ -1,7 +1,8 @@
 from odoo import models, fields, api
 from datetime import datetime
 import pytz
-
+import logging
+_logger = logging.getLogger(__name__)
 class InheritBaseStockPicking(models.Model):
     _inherit = 'stock.picking'
     
@@ -14,16 +15,23 @@ class InheritBaseStockPicking(models.Model):
     def _prepare_backorder_picking_vals(self):
         self.ensure_one()
         vals = super()._prepare_backorder_picking_vals()
-
+        Shift = self.env['production.shift'].sudo()
         prod_shift = self.production_shift_id
-
+        right_now = self.now_jakarta()
+        now_hour = right_now.strftime('%H%M')
         if not prod_shift:
-            now = self.now_jakarta().time()
-            print(f"NOW PROD SHIFT {now}")
-            prod_shift = self.env['production.shift'].sudo().search([
-                ('date_start', '<=', now),
-                ('date_end', '>=', now),
-            ], limit=1)
+            all_shifts = Shift.search([])
+            for shift in all_shifts:
+                start = shift.date_start
+                end = shift.date_end
+                if start <= end:
+                    if start <= now_hour <= end:
+                        prod_shift = shift
+                        break
+                else: 
+                    if now_hour >= start or now_hour <= end:
+                        prod_shift = shift
+                        break
 
         vals.update({
             'production_shift_id': prod_shift.id if prod_shift else False,
@@ -38,14 +46,21 @@ class InheritBaseStockPicking(models.Model):
         for picking in self:
             right_now = self.now_jakarta()
             now_hour = right_now.strftime('%H%M')
-            print(f"NOW HOUR {now_hour}")
+            _logger.info(f"NOW HOUR {now_hour}")
             prod_shift = picking.production_shift_id
             if not prod_shift:
-                prod_shift = Shift.search([
-                    ('date_start', '<=', now_hour),
-                    ('date_end', '>=', now_hour),
-                ], limit=1)
-
+                all_shifts = Shift.search([])
+                for shift in all_shifts:
+                    start = shift.date_start
+                    end = shift.date_end
+                    if start <= end:
+                        if start <= now_hour <= end:
+                            prod_shift = shift
+                            break
+                    else: 
+                        if now_hour >= start or now_hour <= end:
+                            prod_shift = shift
+                            break
             if prod_shift:
                 picking.production_shift_id = prod_shift.id
         return res
@@ -59,11 +74,18 @@ class InheritBaseStockPicking(models.Model):
             now_hour = right_now.strftime('%H%M')
             prod_shift = picking.production_shift_id
             if not prod_shift:
-                prod_shift = Shift.search([
-                    ('date_start', '<=', now_hour),
-                    ('date_end', '>=', now_hour),
-                ], limit=1)
-
+                all_shifts = Shift.search([])
+                for shift in all_shifts:
+                    start = shift.date_start
+                    end = shift.date_end
+                    if start <= end:
+                        if start <= now_hour <= end:
+                            prod_shift = shift
+                            break
+                    else: 
+                        if now_hour >= start or now_hour <= end:
+                            prod_shift = shift
+                            break
             if prod_shift:
                 picking.production_shift_id = prod_shift.id
 

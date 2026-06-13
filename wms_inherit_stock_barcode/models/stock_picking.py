@@ -429,7 +429,7 @@ class StockPicking(models.Model):
                     'location_dest_id': new_picking.location_dest_id.id,
                     'package_id': q.package_id.id if q.package_id else False,
                     'result_package_id': False,
-                    'stock_type': 'QI',
+                    'stock_type': q.stock_type or 'QI',
                 }
                 ml = self.env['stock.move.line'].create(ml_vals)
                 created_lines.append({

@@ -44,6 +44,11 @@ class StockMove(models.Model):
             res = super(StockMove, moves_normal)._action_assign()
         if moves_uu:
             res = super(StockMove, moves_uu.with_context(uu_only=True))._action_assign()
+            # Untuk Picking UU Only otomatis terisi package/pallet
+            for line in moves_uu.mapped('move_line_ids'):
+                if line.package_id and not line.result_package_id:
+                    _logger.info("MASUK PICKING ECERAN OTOMATIS ISI PACKAGE")
+                    line.write({'result_package_id': line.package_id.id})
         return res
                     
     # ini untuk next transfer

@@ -88,7 +88,10 @@ class InheritBaseStockPicking(models.Model):
                 if not lot:
                     continue
 
-                stype = move_line.stock_type or 'QI'
+                # stype = move_line.stock_type or 'QI'
+                stype = move_line.stock_type
+                if not stype:
+                    picking.message_post(body=f"Move Line StockType Kosong")
                 
                 bag = move_line.bag_qty
                 if bag <= 0 and move_line.uom_bag_id.factor:

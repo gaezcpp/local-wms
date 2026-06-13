@@ -16,6 +16,7 @@ class InhStockPackage(models.Model):
         ('ready', 'Ready'),
         ('hold', 'Hold'),
     ], string="Yellow Tag", default='ready', tracking=True)
+    is_reserved = fields.Boolean(string="Is Reserved", compute='_compute_is_reserved')
     
     def action_ready(self):
         for rec in self:
@@ -26,3 +27,15 @@ class InhStockPackage(models.Model):
         for rec in self:
             if rec.yellow_tag != 'hold':
                 rec.yellow_tag = 'hold'
+                
+    def _compute_is_reserved(self):
+        for rec in self:
+            domain = [
+                '|',
+                ('package_id', '=', rec.id),
+                ('result_package_id', '=', rec.id),
+                ('picking_id.picking_type_id.uu_only', '=', True),
+                ('state', 'not in', ['done', 'cancel'])
+            ]
+            move_line_count = self.env['stock.move.line'].sudo().search_count(domain)
+            rec.is_reserved = move_line_count > 0
