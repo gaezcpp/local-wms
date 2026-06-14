@@ -1,13 +1,13 @@
 <templates xml:space="preserve">
     <t t-inherit="stock_barcode.MainComponent" t-inherit-mode="extension">
         <xpath expr="//footer" position="inside">
-            <button t-if="env.model.isCheckerOnly()"
+            <button t-if="env.model.isCheckerOnly() or env.model.isCheckerOut()"
                     t-on-click="env.model.openQualityBackorder"
                     class="btn btn-secondary">
                 Quality Backorder
             </button>
             <!--QUANTITY PINDAH KE VALIDATE-->
-            <button t-if="env.model.isCheckerOnly()"
+            <button t-if="env.model.isCheckerOnly() or env.model.isCheckerOut()"
                     t-on-click="env.model.openQuantityBackorder"
                     class="btn btn-danger" confirm="Yakin ingin melakukan Check Quantity?">
                 Check Quantity

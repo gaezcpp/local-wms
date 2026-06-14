@@ -13,6 +13,7 @@ class InheritStockPickingType(models.Model):
     quality_type_id = fields.Many2one(comodel_name='stock.picking.type', string="Quality Type")
     quantity_type_id = fields.Many2one(comodel_name='stock.picking.type', string="Quantity Type")
     checker_out = fields.Boolean(string="Checker Out", default=False)
+    book_full_pallet = fields.Boolean(string="Book Full Pallet", default=False)
     quality_out_type_id = fields.Many2one(comodel_name='stock.picking.type', string="Quality Type")
     quantity_out_type_id = fields.Many2one(comodel_name='stock.picking.type', string="Quantity Type")
     mandatory_destination = fields.Boolean(string="Mandatory Destination", default=False)

@@ -8,7 +8,7 @@
                 </span>
                 <br/>
                 
-                <t t-if="!line.checker_only">
+                <t t-if="!line.checker_only or !line.checker_out">
                     <span t-attf-class="o_barcode_scanner_qty font-monospace fs-1">
                         <span class="qty-done"
                             t-attf-class="{{nextExpected === 'quantity' &amp;&amp; qtyDone ? 'o_flash' : ''}} {{qtyDemand &amp;&amp; qtyDone == 0 ? env.model.zeroQtyClass(line) : ''}} {{qtyDemand &amp;&amp; qtyDone &amp;&amp; qtyDone == qtyDemand ? 'text-success' : ''}}"
@@ -19,7 +19,7 @@
                 </t>
 
                 <t t-if="line.uom_bag_id">
-                    <span t-if="!line.checker_only" class="text-muted mx-2 fs-3 align-baseline">|</span>
+                    <span t-if="!line.checker_only or !line.checker_out" class="text-muted mx-2 fs-3 align-baseline">|</span>
                     <span class="o_barcode_scanner_qty font-monospace fs-1">
                         <span class="qty-done text-dark" t-esc="line.bag_qty ? Math.round(line.bag_qty * 100) / 100 : 0"/>
                     </span>

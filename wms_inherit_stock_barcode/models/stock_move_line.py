@@ -16,25 +16,33 @@ class StockMoveLine(models.Model):
     ], string="Pallet Status", default=False)
     mandatory_destination = fields.Boolean(related='picking_id.picking_type_id.mandatory_destination', readonly=False)
     checker_only = fields.Boolean(related='picking_id.checker_only', store=True)
+    checker_out = fields.Boolean(related='picking_id.checker_out', store=True)
 
     @api.model_create_multi
     def create(self, vals_list):
         for vals in vals_list:
-            self._validate_bag_qty(vals) # belum dinaikin karna takut error mau show user
+            self._validate_bag_qty(vals)
             self._sync_qty_from_bag(vals)
-            self._validate_pallet(vals)
+            
+            # Bypass pengisian outermost_result_package_id
+            if 'outermost_result_package_id' in vals:
+                vals.pop('outermost_result_package_id')
+            
         records = super().create(vals_list)
         records._update_package_can_be_use()
         return records
 
     def write(self, vals):
-        self._validate_bag_qty(vals, records=self) # belum dinaikin karna takut error mau show user
+        self._validate_bag_qty(vals, records=self)
         self._sync_qty_from_bag(vals, records=self)
-        self._validate_pallet(vals)
         self._validate_qty_packaging_sap(vals)
         res = super().write(vals)
         if 'qty_done' in vals or 'bag_qty' in vals or 'result_package_id' in vals:
             self._update_package_can_be_use()
+        
+        # Bypass saat update/write data
+        if 'outermost_result_package_id' in vals:
+            vals.pop('outermost_result_package_id')
         return res
     
     def unlink(self):
@@ -64,9 +72,12 @@ class StockMoveLine(models.Model):
 
             vals['qty_done'] = bag_qty * (uom_bag.factor / 1000)
 
-    def _validate_pallet(self, vals):
-        if vals.get('pallet_qty', 0) > 1:
-            raise ValidationError("Quantity Pallet tidak boleh lebih dari 1!")
+    @api.constrains('pallet_qty', 'picking_id')
+    def _check_pallet_qty_limit(self):
+        for record in self:
+            if record.picking_id and record.picking_id.picking_type_id.code != 'outgoing':
+                if record.pallet_qty > 1:
+                    raise ValidationError("Quantity Pallet tidak boleh lebih dari 1!")
     
     def _validate_qty_packaging_sap(self, vals):
         if 'qty_packaging_sap' not in vals:
@@ -125,6 +136,7 @@ class StockMoveLine(models.Model):
             'uom_pallet_id',
             'qty_packaging_sap',
             'checker_only',
+            'checker_out',
         ]
     
     def _update_package_can_be_use(self):

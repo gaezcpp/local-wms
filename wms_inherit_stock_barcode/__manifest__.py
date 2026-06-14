@@ -44,7 +44,7 @@ Long description of module's purpose
     "assets": {
         "web.assets_backend": [
             "wms_inherit_stock_barcode/static/src/css/global_smart_button.css",
-            "wms_inherit_stock_barcode/static/src/js/bypass_scan_lot.js",
+            # "wms_inherit_stock_barcode/static/src/js/bypass_scan_lot.js",
             "wms_inherit_stock_barcode/static/src/js/digipad_patch.js",
             "wms_inherit_stock_barcode/static/src/js/barcode_auto_fill.js",
             "wms_inherit_stock_barcode/static/src/js/main_patch.js",

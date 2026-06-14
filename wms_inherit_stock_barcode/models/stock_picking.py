@@ -7,14 +7,17 @@ class StockPicking(models.Model):
     _inherit = 'stock.picking'
     
     sloc_filled = fields.Boolean(string="SLOC Filled", compute='_compute_sloc_filled', store=True)
-    checker_only = fields.Boolean(related='picking_type_id.checker_only', readonly=True)
-    production_only = fields.Boolean(related='picking_type_id.production_only', readonly=True)
+    checker_only = fields.Boolean(related='picking_type_id.checker_only', store=True)
+    checker_out = fields.Boolean(related='picking_type_id.checker_out', store=True)
+    production_only = fields.Boolean(related='picking_type_id.production_only', store=True)
     detail_operation_scan = fields.Char(string="Detail Scan", store=True, compute='_compute_operation_scan')
 
     def _get_fields_stock_barcode(self):
         res = super()._get_fields_stock_barcode()
         if 'checker_only' not in res:
             res.append('checker_only')
+        if 'checker_out' not in res:
+            res.append('checker_out')
         if 'production_only' not in res:
             res.append('production_only')
         return res
@@ -60,6 +63,12 @@ class StockPicking(models.Model):
             lines_to_process = self.move_line_ids
             
         view = self.env.ref('wms_inherit_stock_barcode.view_quality_quantity_backorder_wizard_form')
+        default_picking = False
+        if self.checker_only:
+            default_picking = self.picking_type_id.quality_type_id.id
+        if self.checker_out:
+            default_picking = self.picking_type_id.quality_out_type_id.id
+            
         return {
             'type': 'ir.actions.act_window',
             'name': 'Set QQ Backorder',
@@ -68,7 +77,7 @@ class StockPicking(models.Model):
             'target': 'new',
             'context': {
                 'default_picking_id': self.id,
-                'default_picking_type_id': self.picking_type_id.quality_type_id.id or False,
+                'default_picking_type_id': default_picking or False,
                 'default_line_ids': [(0, 0, {
                     'backorder_wizard_id': 0,
                     'move_line_id': line.id or False,
@@ -90,6 +99,11 @@ class StockPicking(models.Model):
         self.ensure_one()
 
         view = self.env.ref('wms_inherit_stock_barcode.view_quality_quantity_backorder_wizard_form')
+        default_picking = False
+        if self.checker_only:
+            default_picking = self.picking_type_id.quantity_type_id.id
+        if self.checker_out:
+            default_picking = self.picking_type_id.quantity_out_type_id.id
         return {
             'type': 'ir.actions.act_window',
             'name': 'Set QQ Backorder',
@@ -98,7 +112,7 @@ class StockPicking(models.Model):
             'target': 'new',
             'context': {
                 'default_picking_id': self.id,
-                'default_picking_type_id': self.picking_type_id.quantity_type_id.id or False,
+                'default_picking_type_id': default_picking or False,
                 'default_line_ids': [(0, 0, {
                     'backorder_wizard_id': 0,
                     'product_id': line.product_id.id,
@@ -238,7 +252,7 @@ class StockPicking(models.Model):
         self._check_all_sloc_filled()
         self._check_all_result_package_id()
         self._check_production_order_sap()
-        if self.checker_only:
+        if self.checker_only or self.checker_out:
             if self._has_missing_qty():
                 _logger.info(f"Missing qty detected for {self.name}. Triggering auto-backorder.")
                 raise ValidationError(f"Silahkan lakukan Check Quantity untuk melanjutkan proses Validate")
@@ -285,7 +299,7 @@ class StockPicking(models.Model):
         self.ensure_one()
         _logger.info(f"=== START action_create_quantity_backorder for {self.name} ===")
 
-        if not self.checker_only:
+        if not self.checker_only or not self.checker_out:
             return
 
         # 1. Root picking
@@ -340,7 +354,12 @@ class StockPicking(models.Model):
                 _logger.info("  No missing qty, skipping.")
                 continue
 
-            qty_type = self.picking_type_id.quantity_type_id
+            qty_type = False
+            if self.checker_only:
+                qty_type = self.picking_type_id.quantity_type_id
+            if self.checker_out:
+                qty_type = self.picking_type_id.quantity_out_type_id
+            
             if not qty_type:
                 raise UserError(f"Operation type tidak memiliki Quantity Type.")
 

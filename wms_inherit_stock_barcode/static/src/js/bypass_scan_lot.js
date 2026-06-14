@@ -5,7 +5,7 @@ import BarcodePickingModel from "@stock_barcode/models/barcode_picking_model";
 import { _t } from "@web/core/l10n/translation";
 
 patch(BarcodePickingModel.prototype, {
-    
+
     /**
      * Override getter barcodeInfo untuk memanipulasi pesan UI.
      */
@@ -29,7 +29,7 @@ patch(BarcodePickingModel.prototype, {
         if (info.message) {
             // Gunakan String() untuk menghindari error jika message berupa objek Markup (Lazy translation)
             const msgStr = String(info.message).toLowerCase();
-            
+
             if (msgStr.includes("lot number") || msgStr.includes("serial number")) {
                 info.message = _t("Scan a product, enter quantity, or scan the destination location");
                 info.class = "scan_product_or_dest";
@@ -40,21 +40,21 @@ patch(BarcodePickingModel.prototype, {
     },
 
     // Bypass saat result_package_id terisi maka scan berikutnya tidak akan mengisi outermost container
+    // Gunakan pendekatan "Check & Bypass" bukan "Hard Block"
     async _processPackage(barcodeData) {
-        // Ambil baris yang aktif atau terakhir diproses
         const currentLine = this.selectedLine || this.lastScannedLine;
+        console.log("_processPackage Bypass Container", barcodeData);
+        // 1. Cek apakah sudah terisi
+        if (currentLine?.result_package_id) {
+            // 2. Daripada return false (yang bisa mematikan flow),
+            // log dan kembalikan hasil 'super' jika itu memang package yang sama 
+            // atau hentikan dengan return hasil yang konsisten dengan tipe data Odoo
+            console.info("ProcessPackage: Result package sudah terkunci, skip.");
 
-        // Jika baris ditemukan dan result_package_id sudah ada (sudah pernah discan),
-        // maka kita hentikan proses scan package di sini.
-        if (currentLine && currentLine.result_package_id) {
-            console.log("ProcessPackage dibatalkan: Result Package sudah terkunci.");
-            
-            // Opsi: Anda bisa memberikan notifikasi atau diamkan saja (silent block)
-            // Cukup return false atau return hasil tanpa memanggil super.
-            return false; 
+            // Return objek standar Odoo agar sistem tidak menganggap terjadi error
+            return { success: true };
         }
 
-        // Jika result_package_id belum terisi, biarkan Odoo memproses scan package pertama kali
         return super._processPackage(...arguments);
     }
 });

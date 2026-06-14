@@ -37,6 +37,13 @@ patch(MainComponent.prototype, {
             };
         }
 
+        if (!this.env.model.isCheckerOut) {
+            this.env.model.isCheckerOut = () => {
+                // Gunakan opsional chaining (?) untuk menghindari error jika record sedang kosong
+                return Boolean(this.env.model.record?.checker_out);
+            };
+        }
+
         // existing
         if (!this.env.model.openQualityBackorder) {
             this.env.model.openQualityBackorder = () => {
