@@ -299,7 +299,8 @@ class StockPicking(models.Model):
         self.ensure_one()
         _logger.info(f"=== START action_create_quantity_backorder for {self.name} ===")
 
-        if not self.checker_only or not self.checker_out:
+        if not (self.checker_only or self.checker_out):
+            _logger.info(f"NOT CHECKER ONLY {self.checker_only} atau CHECKER OUT {self.checker_out} SKIPPED")
             return
 
         # 1. Root picking
