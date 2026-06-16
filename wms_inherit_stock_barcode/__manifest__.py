@@ -38,6 +38,7 @@ Long description of module's purpose
         'views/stock_move_line_views.xml',
         'views/stock_inventory_adjustment_views.xml',
         'views/stock_move_views.xml',
+        'views/daily_cycle_count_views.xml',
         'views/menuitem.xml',
     ],
     
@@ -51,6 +52,7 @@ Long description of module's purpose
             "wms_inherit_stock_barcode/static/src/js/sloc_packaging.js",
             "wms_inherit_stock_barcode/static/src/js/quality_quantity_backorder.js",
             "wms_inherit_stock_barcode/static/src/js/duplicate_product.js",
+            "wms_inherit_stock_barcode/static/src/js/daily_cycle_count.js",
             'wms_inherit_stock_barcode/static/src/xml/stock_barcode_menu.xml',
             'wms_inherit_stock_barcode/static/src/xml/sloc_packaging_views.xml',
             'wms_inherit_stock_barcode/static/src/xml/barcode_line_component_views.xml',

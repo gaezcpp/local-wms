@@ -1,0 +1,202 @@
+<?xml version='1.0' encoding='utf-8'?>
+<odoo>
+    <!-- Search View -->
+    <record model="ir.ui.view" id="daily_cycle_count_search">
+        <field name="name">daily.cycle.count.search</field>
+        <field name="model">daily.cycle.count</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="user_id"/>
+                <field name="company_id"/>
+                <field name="location_id"/>
+                <field name="product_id"/>
+                <field name="lot_id"/>
+                <field name="package_id"/>
+                <field name="stock_type"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="daily_cycle_count_view_kanban" model="ir.ui.view">
+        <field name="name">daily.cycle.count.kanban</field>
+        <field name="model">daily.cycle.count</field>
+        <field name="arch" type="xml">
+            <kanban records_draggable="0" class="o_kanban_mobile" create="0" edit="0" delete="0" quick_create="0" quick_edit="0">
+                <field name="user_id"/>
+                <field name="location_id"/>
+                <field name="product_id"/>
+                <field name="lot_id"/>
+                <field name="package_id"/>
+                <templates>
+                    <t t-name="card">
+                        <div class="oe_kanban_card oe_kanban_global_click">
+                            <div class="row mb-2">
+                                <div class="col-8">
+                                    <strong><field name="user_id"/></strong>
+                                </div>
+                                <div class="col-4 text-right">
+                                    <field name="stock_type" widget="badge" decoration-muted="stock_type == 'QI'" decoration-success="stock_type == 'UU'" decoration-warning="stock_type == 'BLOCKED'"/>
+                                </div>
+                            </div>
+                            <div class="row mb-1">
+                                <div class="col-12 text-muted">
+                                    <field name="product_id"/>
+                                    <field name="lot_id"/>
+                                    <field name="package_id"/>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-6">
+                                    Qty: <strong><field name="pack_qty"/><field name="pack_unit_id"/></strong>
+                                </div>
+                                <div class="col-6 text-right text-muted">
+                                    <field name="inventory_date"/>
+                                </div>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="daily_cycle_count_view_list" model="ir.ui.view">
+        <field name="name">daily.cycle.count.view.list</field>
+        <field name="model">daily.cycle.count</field>
+        <field name="arch" type="xml">
+            <list string="Daily Cycle Count" 
+                create="0" 
+                edit="0" 
+                delete="0" 
+                duplicate="0" 
+                default_order="location_id, inventory_date, product_id, package_id, lot_id, user_id">
+                <field name="user_id" column_invisible="1"/>
+                <field name="location_id"/>
+                <field name="product_id"/>
+                <field name="lot_id"/>
+                <field name="package_id"/>
+                <field name="inventory_date" optional="show"/>
+                <field name="quantity" optional="show"/>
+                <field name="inventory_quantity" optional="show"/>
+                <field name="inventory_diff_quantity" optional="show"/>
+                <field name="product_uom_id" optional="show"/>
+                <field name="pack_qty" optional="show"/>
+                <field name="pack_unit_id" optional="show"/>
+                <field name="stock_type" optional="show"/>
+                <field name="company_id" optional="hidden"/>
+                <field name="state" optional="hidden"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="daily_cycle_count_view_form" model="ir.ui.view">
+        <field name="name">daily.cycle.count.view.form</field>
+        <field name="model">daily.cycle.count</field>
+        <field name="arch" type="xml">
+            <form string="Daily Cycle Count" create="0" edit="0" delete="0" duplicate="0">
+                <sheet>
+                    <!-- <div class="oe_button_box" name="button_box">
+                        <button name="action_open_menu_barcode" type="object" class="oe_stat_button" icon="fa-barcode" string="Barcode"/>
+                    </div> -->
+                    <group>
+                        <group name="dcc_left">
+                            <field name="user_id" options="{'no_open': True, 'no_create': True}"/>
+                            <field name="company_id" options="{'no_open': True, 'no_create': True}"/>
+                            <field name="location_id" options="{'no_open': True, 'no_create': True}"/>
+                            <field name="lot_id" options="{'no_open': True, 'no_create': True}"/>
+                            <field name="package_id" options="{'no_open': True, 'no_create': True}"/>
+                            <field name="inventory_date"/>
+                            <field name="state"/>
+                        </group>
+                        <group name="dcc_right">
+                            <field name="stock_type"/>
+                            <field name="product_id" options="{'no_open': True, 'no_create': True}"/>
+                            <field name="quantity"/>
+                            <field name="product_uom_id" options="{'no_open': True, 'no_create': True}"/>
+                            <field name="pack_qty"/>
+                            <field name="pack_unit_id" options="{'no_open': True, 'no_create': True}"/>
+                            <field name="inventory_quantity"/>
+                            <field name="inventory_diff_quantity"/>
+                        </group>
+                    </group>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="daily_cycle_count_barcode" model="ir.ui.view">
+        <field name="name">daily.cycle.count.barcode</field>
+        <field name="model">daily.cycle.count</field>
+        <field name="priority">1000</field>
+        <field name="arch" type="xml">
+            <form class="o_barcode_line_form flex-column">
+                <field name="inventory_date" invisible="1"/>
+                <field name="location_id" invisible="1"/>
+                <field name="quantity" invisible="1"/>
+                <field name="user_id" invisible="1"/>
+                <field name="company_id" invisible="1"/>
+                <field name="state" invisible="1"/>
+                <div name="product" class="row my-2">
+                    <div class="col d-flex align-items-baseline">
+                        <div class="flex-column lh-1">
+                            <div invisible="not product_reference_code">
+                                <i class="fa fs-4 fa-tags me-1" title="Product"/>
+                                <field name="product_reference_code"/>
+                            </div>
+                            <div class="fs-5">
+                                <field name="product_id" placeholder="Product"
+                                    context="{'default_is_storable': True}"
+                                    domain="[('is_storable', '=', True), '|', ('company_id', '=', False), ('company_id', 'parent_of', company_id)]"
+                                    required="1"
+                                    readonly="id and product_id" nolabel="1"
+                                    options="{'no_open': True, 'no_create': True}"/>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div name="quantity" class="row my-2">
+                    <div class="col">
+                        <field name="inventory_quantity" class="text-end" options="{'type': 'number'}" placeholder="Counted Quantity"/>
+                    </div>
+                    <div class="col-3 ps-0" invisible="not product_uom_id">
+                        <field name="product_uom_id" options="{'no_open': True, 'no_create': True}" widget="many2one_uom"/>
+                    </div>
+                </div>
+                <div name="location_src" class="row">
+                    <div class="text-black-50 mt-2 fs-5">
+                        <span class="fa fa-map-marker me-1"/>
+                        <label for="location_id" string="Location" class="p-0"/>
+                    </div>
+                    <field name="location_id" placeholder="Location" readonly="id" options="{'no_create': True, 'no_open': True}"/>
+                </div>
+                <div name="package" class="row">
+                    <div  class="text-black-50 mt-2 fs-5">
+                        <span class="fa fa-archive me-1"/>
+                        <label for="package_id" string="Package" class="p-0"/>
+                    </div>
+                    <field name="package_id" placeholder="Package" options="{'no_open': True, 'no_create': True}"/>
+                </div>
+                <div class="fixed-bottom">
+                    <div class="o_barcode_control d-flex justify-content-between p-2 gap-2">
+                        <button string="Discard" class="btn btn-secondary o_discard" special="cancel"/>
+                        <button string="Confirm" class="btn btn-primary o_save" special="save"/>
+                    </div>
+                </div>
+            </form>
+        </field>
+    </record>
+
+    <record id="daily_cycle_count_action" model="ir.actions.act_window">
+        <field name="name">Daily Cycle Count</field>
+        <field name="res_model">daily.cycle.count</field>
+        <field name="view_mode">kanban,list,form</field>
+    </record>
+
+    <record id="stock_barcode_daily_cycle_count_client_action" model="ir.actions.client">
+        <field name="name">Barcode Daily Cycle Count Client Action</field>
+        <field name="tag">stock_barcode_client_action</field>
+        <field name="res_model">daily.cycle.count</field>
+        <field name="target">fullscreen</field>
+    </record>
+</odoo>

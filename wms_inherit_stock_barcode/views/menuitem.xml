@@ -7,4 +7,18 @@
         sequence="0"
         action="wms_inherit_stock_barcode.stock_inventory_adjustment_action"
     />
+
+    <menuitem
+        id="daily_cycle_count_menu_root"
+        name="Daily Cycle Count"
+        web_icon="wms_inherit_stock_barcode,static/description/icon.png"
+    />
+
+    <menuitem
+        id="daily_cycle_count_menu"
+        name="Daily Cycle Count"
+        parent="wms_inherit_stock_barcode.daily_cycle_count_menu_root"
+        action="wms_inherit_stock_barcode.daily_cycle_count_action"
+        sequence="10"
+    />
 </odoo>

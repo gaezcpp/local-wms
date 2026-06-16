@@ -92,10 +92,35 @@
         </field>
     </record>
 
+    <record id="pm_work_order_view_calendar" model="ir.ui.view">
+        <field name="name">pm.work.order.view.calendar</field>
+        <field name="model">pm.work.order</field>
+        <field name="arch" type="xml">
+            <calendar string="WO Calendar" create="0" edit="0" delete="0"
+                    date_start="create_date"
+                    color="wo_sap"
+                    quick_create="0"
+                    mode="month"
+                    event_open_popup="true">
+                <field name="wo_sap"/>
+                <field name="system_id" options="{'no_open': True, 'no_create': True}"/>
+                <field name="sub_system_id" options="{'no_open': True, 'no_create': True}"/>
+                <field name="equipment_id" options="{'no_open': True, 'no_create': True}"/>
+                <field name="sub_equipment_id" options="{'no_open': True, 'no_create': True}"/>
+            </calendar>
+        </field>
+    </record>
+
     <record id="pm_work_order_action" model="ir.actions.act_window">
         <field name="name">Work Order</field>
         <field name="res_model">pm.work.order</field>
-        <field name="view_mode">list,form</field>
+        <field name="view_mode">list,calendar,form</field>
+    </record>
+
+    <record id="pm_work_order_calendar_action" model="ir.actions.act_window">
+        <field name="name">Work Order Calendar</field>
+        <field name="res_model">pm.work.order</field>
+        <field name="view_mode">calendar,form</field>
     </record>
     
 </odoo>

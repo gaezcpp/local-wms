@@ -21,5 +21,5 @@ class StockInventoryAdjustmentSummary(models.Model):
     quantity = fields.Float(string="On Hand")
     inventory_quantity = fields.Float(string="Count")
     bag_qty = fields.Float(string="On Hand Bag")
-    bag_count = fields.Float(string="Bag Count")
+    bag_count = fields.Float(string="Pack Count")
     inventory_diff_quantity = fields.Float(string="Diff")

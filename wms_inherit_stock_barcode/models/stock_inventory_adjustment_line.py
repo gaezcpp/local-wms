@@ -23,7 +23,7 @@ class StockInventoryAdjustmentLine(models.Model):
     quantity = fields.Float(string="On Hand")
     inventory_quantity = fields.Float(string="Count", compute='_compute_from_quant', store=True)
     bag_qty = fields.Float(string="On Hand Bag", compute='_compute_from_quant', store=True)
-    bag_count = fields.Float(string="Bag Count", compute='_compute_from_quant', store=True)
+    bag_count = fields.Float(string="Pack Count", compute='_compute_from_quant', store=True)
     inventory_diff_quantity = fields.Float(string="Diff", compute='_compute_from_quant', store=True)
     
     @api.depends('quant_id', 'quant_id.inventory_quantity', 'quant_id.inventory_diff_quantity')

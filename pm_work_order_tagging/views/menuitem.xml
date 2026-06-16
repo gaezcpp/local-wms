@@ -14,6 +14,14 @@
     />
 
     <menuitem
+        id="maintenance_request_work_order_calendar_menu"
+        name="Work Order Calendar"
+        parent="maintenance.menu_m_request"
+        action="pm_work_order_tagging.pm_work_order_calendar_action"
+        sequence="1"
+    />
+
+    <menuitem
         id="tagging_type_notification_menu"
         name="Type Notification"
         parent="tagging_system.g_configuration_menu"

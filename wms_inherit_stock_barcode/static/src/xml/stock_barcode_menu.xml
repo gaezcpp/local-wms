@@ -1,9 +1,13 @@
 <templates xml:space="preserve">
     <t t-inherit="stock_barcode.MainMenu" t-inherit-mode="extension">
         <xpath expr="//footer" position="inside">
-            <button class="btn btn-block btn-warning mb-3 p-3 w-100"
+            <!-- <button class="btn btn-block btn-warning mb-3 p-3 w-100"
                     t-on-click="() => this.actionService.doAction('wms_inherit_stock_barcode.stock_inventory_adjustment_action_kanban_validated')">
                 Stock Opname
+            </button> -->
+            <button class="btn btn-block btn-dark mb-3 p-3 w-100"
+                    t-on-click="() => this.actionService.doAction('wms_inherit_stock_barcode.stock_barcode_daily_cycle_count_client_action')">
+                Daily Cycle Count
             </button>
         </xpath>
     </t>

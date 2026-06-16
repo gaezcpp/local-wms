@@ -3,7 +3,7 @@
     <data noupdate="1">
         <record id="query_master_customer_sap" model="ir.config_parameter">
             <field name="key">query_master_customer_sap</field>
-            <field name="value">select kunnr, name1, stras, ort01, ort02, pstlz, land1, telf1, telf2, loevm, STKZN from kna1 a where a.loevm  != 'X'</field>
+            <field name="value">select a.kunnr, a.name1, a.stras, a.ort01, a.ort02, a.pstlz, a.land1, a.telf1, a.telf2, a.loevm, a.STKZN from kna1 a where a.loevm != 'X' AND EXISTS (select 1 from  likp b where a.mandt = b.mandt and a.kunnr = b.kunnr)</field>
         </record>
         <record id="query_plan_as_partner_sap" model="ir.config_parameter">
             <field name="key">query_plan_as_partner_sap</field>
