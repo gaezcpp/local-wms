@@ -58,6 +58,9 @@
                 <attribute name="readonly">1</attribute>
                 <attribute name="class">fs-6</attribute>
             </xpath>
+            <xpath expr="//label[@for='result_package_id']" position="attributes">
+                <attribute name="string">Pallet</attribute>
+            </xpath>
             <xpath expr="//div[@name='quantity']" position="before">
                 <div name="bag_quantity" class="row my-2">
                     <div class="col">

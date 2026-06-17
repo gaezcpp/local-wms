@@ -271,6 +271,7 @@ class StockMove(models.Model):
                 'last_count': matched_line.last_count,
                 'detail_text': matched_line.detail_text,
                 'qty_packaging_sap': matched_line.qty_packaging_sap,
+                'wh_category_id': matched_line.wh_category_id,
             }
             
             if not is_production_only and not res.get('stock_type') and matched_line.stock_type:

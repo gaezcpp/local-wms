@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <odoo>
     <!-- Search View -->
-    <record model="ir.ui.view" id="cron_logging_search">
+    <!-- <record model="ir.ui.view" id="cron_logging_search">
         <field name="name">cron.logging.search</field>
         <field name="model">cron.logging</field>
         <field name="arch" type="xml">
@@ -64,5 +64,5 @@
         name="Cron Logging (Scheduled Actions Logging)"
         parent="base.menu_automation"
         action="cron_logging_action"
-    />
+    /> -->
 </odoo>

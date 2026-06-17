@@ -17,6 +17,7 @@ class StockMoveLine(models.Model):
     mandatory_destination = fields.Boolean(related='picking_id.picking_type_id.mandatory_destination', readonly=False)
     checker_only = fields.Boolean(related='picking_id.checker_only', store=True)
     checker_out = fields.Boolean(related='picking_id.checker_out', store=True)
+    wh_category_id = fields.Many2one(comodel_name='stock.warehouse.category', string="Category")
 
     @api.model_create_multi
     def create(self, vals_list):

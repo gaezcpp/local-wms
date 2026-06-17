@@ -21,4 +21,12 @@
         action="wms_inherit_stock_barcode.daily_cycle_count_action"
         sequence="10"
     />
+
+    <menuitem
+        id="stock_warehouse_category_menu"
+        name="Warehouse Category"
+        parent="stock.menu_warehouse_config"
+        action="wms_inherit_stock_barcode.stock_warehouse_category_action"
+        sequence="55"
+    />
 </odoo>

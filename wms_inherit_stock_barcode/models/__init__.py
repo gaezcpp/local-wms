@@ -9,3 +9,4 @@ from . import stock_inventory_adjustment_summary
 from . import stock_picking
 from . import stock_package
 from . import daily_cycle_count
+from . import stock_warehouse_category

@@ -22,9 +22,9 @@ Long description of module's purpose
 
     # always loaded
     'data': [
-        'security/ir.model.access.csv',
-        'views/cron_logging_views.xml',
-        'views/templates.xml',
+        # 'security/ir.model.access.csv',
+        # 'views/cron_logging_views.xml',
+        # 'views/templates.xml',
     ],
 }
 

@@ -12,6 +12,7 @@ class QualityQuantityBackorder(models.TransientModel):
     picking_type_id = fields.Many2one(comodel_name='stock.picking.type', string="Operation Type")
     result_package_id = fields.Many2one(comodel_name='stock.package', string="Destination Package")
     is_quality = fields.Boolean(string="Is Quality", default=False)
+    wh_category_id = fields.Many2one(comodel_name='stock.warehouse.category', string="Category")
     line_ids = fields.One2many(comodel_name='quality.quantity.backorder.line',inverse_name='backorder_wizard_id', string="Products")
     
     def action_create_backorder_from_qq(self):
@@ -86,6 +87,7 @@ class QualityQuantityBackorder(models.TransientModel):
                 'result_package_id': line.result_package_id.id if line.result_package_id else False,
                 'production_line_id': line.production_line_id.id,
                 'stock_type': line.move_line_id.stock_type,
+                'wh_category_id': line.wh_category_id.id if line.wh_category_id else False,
             })
 
         # 3. Finalisasi Picking

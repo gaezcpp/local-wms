@@ -32,7 +32,7 @@ class StockInventoryAdjustment(models.Model):
         ('done_counting', 'Done Counting'),
         ('done_sap', 'Done SAP'),
         ('cancelled', 'Cancelled')
-    ], default='draft', string="State")
+    ], default='draft', string="State", tracking=True)
     notes = fields.Text(string="Notes")
     is_checked = fields.Boolean(string="Is Checked?", default=False)
     adjustment_line_ids = fields.One2many('stock.inventory.adjustment.line', 'stock_adjustment_id', ondelete='cascade')
@@ -165,7 +165,7 @@ class StockInventoryAdjustment(models.Model):
                 if not line.product_id:
                     continue
 
-                key = line.product_id.id
+                key = (line.product_id.id, line.package_status)                
                 if key not in summary_map:
                     summary_map[key] = {
                         'stock_adjustment_id': rec.id,
@@ -186,10 +186,10 @@ class StockInventoryAdjustment(models.Model):
                 summary_map[key]['bag_count'] += line.bag_count or 0.0
                 summary_map[key]['inventory_diff_quantity'] += line.inventory_diff_quantity or 0.0
 
-            for product_id, vals in summary_map.items():
+            for key_tuple, vals in summary_map.items():
                 existing = SummaryModel.search([
                     ('stock_adjustment_id', '=', rec.id),
-                    ('product_id', '=', product_id),
+                    ('product_id', '=', vals['product_id']),
                     ('stock_type', '=', vals['stock_type']),
                 ], limit=1)
 
