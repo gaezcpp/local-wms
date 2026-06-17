@@ -29,6 +29,8 @@ class DailyCycleCount(models.Model):
     ], string="Stock Type")
     pack_qty = fields.Float(string="Pack Qty")
     pack_unit_id = fields.Many2one(comodel_name='uom.uom', string="Unit Pack")
+    pallet_qty = fields.Float(string="Pallet Qty")
+    uom_pallet_id = fields.Many2one(comodel_name='uom.uom', string="Unit Pallet")
     dummy_id = fields.Char(compute='_compute_dummy_id', inverse='_inverse_dummy_id')
     product_reference_code = fields.Char(related="product_id.code", string="Product Reference Code")
     state = fields.Selection([
@@ -47,6 +49,24 @@ class DailyCycleCount(models.Model):
 
     def _inverse_dummy_id(self):
         pass
+    
+    @api.onchange('quantity', 'uom_pallet_id')
+    def _onchange_pallet_qty(self):
+        for line in self:
+            if line.quantity and line.uom_pallet_id:
+                line.pallet_qty = line.quantity / (line.uom_pallet_id.factor / 1000)
+            else:
+                line.pallet_qty = 0.0
+    
+    @api.onchange('pack_qty')
+    def _onchange_pack_qty(self):
+        for line in self:
+            if not line.pack_qty:
+                line.quantity = 0.0
+                continue
+            
+            if line.pack_unit_id and line.pack_unit_id.factor:
+                line.quantity = line.pack_qty * (line.pack_unit_id.factor / 1000)
     
     @api.model
     def barcode_write(self, vals):
@@ -180,6 +200,8 @@ class DailyCycleCount(models.Model):
             'stock_type',
             'pack_qty',
             'pack_unit_id',
+            'pallet_qty',
+            'uom_pallet_id',
             'dummy_id',
             'state',
             'company_id',

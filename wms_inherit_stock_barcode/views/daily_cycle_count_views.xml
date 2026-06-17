@@ -155,12 +155,28 @@
                         </div>
                     </div>
                 </div>
+                <div name="pack_quantity" class="row my-2">
+                    <div class="col">
+                        <field name="pack_qty" class="text-end" options="{'type': 'number'}" force_save="1" placeholder="Pack Qty"/>
+                    </div>
+                    <div class="col-3 ps-0" groups="uom.group_uom">
+                        <field name="pack_unit_id" class="fs-6" options="{'no_open': True, 'no_create': True}" widget="many2one_uom" force_save="1" readonly="1"/>
+                    </div>
+                </div>
+                <div name="pallet_quantity" class="row my-2">
+                    <div class="col">
+                        <field name="pallet_qty" class="text-end" options="{'type': 'number'}" placeholder="Pallet Qty" force_save="1" readonly="1"/>
+                    </div>
+                    <div class="col-3 ps-0" groups="uom.group_uom">
+                        <field name="uom_pallet_id" class="fs-6" options="{'no_open': True, 'no_create': True}" widget="many2one_uom" force_save="1" readonly="1"/>
+                    </div>
+                </div>
                 <div name="quantity" class="row my-2">
                     <div class="col">
-                        <field name="inventory_quantity" class="text-end" options="{'type': 'number'}" placeholder="Counted Quantity"/>
+                        <field name="quantity" class="text-end" options="{'type': 'number'}" placeholder="Counted Quantity" force_save="1" readonly="1"/>
                     </div>
                     <div class="col-3 ps-0" invisible="not product_uom_id">
-                        <field name="product_uom_id" options="{'no_open': True, 'no_create': True}" widget="many2one_uom"/>
+                        <field name="product_uom_id" options="{'no_open': True, 'no_create': True}" widget="many2one_uom" force_save="1" readonly="1"/>
                     </div>
                 </div>
                 <div name="location_src" class="row">
@@ -168,14 +184,21 @@
                         <span class="fa fa-map-marker me-1"/>
                         <label for="location_id" string="Location" class="p-0"/>
                     </div>
-                    <field name="location_id" placeholder="Location" readonly="id" options="{'no_create': True, 'no_open': True}"/>
+                    <field name="location_id" placeholder="Location" readonly="1" options="{'no_create': True, 'no_open': True}"/>
+                </div>
+                <div name="stock_type_src" class="row">
+                    <div class="text-black-50 mt-2 fs-5">
+                        <span class="fa fa-tape me-1"/>
+                        <label for="stock_type" string="Stock Type" class="p-0"/>
+                    </div>
+                    <field name="stock_type" placeholder="Stock Type" readonly="1"/>
                 </div>
                 <div name="package" class="row">
                     <div  class="text-black-50 mt-2 fs-5">
                         <span class="fa fa-archive me-1"/>
                         <label for="package_id" string="Package" class="p-0"/>
                     </div>
-                    <field name="package_id" placeholder="Package" options="{'no_open': True, 'no_create': True}"/>
+                    <field name="package_id" placeholder="Package" readonly="1" options="{'no_open': True, 'no_create': True}"/>
                 </div>
                 <div class="fixed-bottom">
                     <div class="o_barcode_control d-flex justify-content-between p-2 gap-2">

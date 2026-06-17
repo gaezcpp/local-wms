@@ -41,10 +41,10 @@ export default class BarcodeDailyCountModel extends BarcodeModel {
                 return this.trigger("refresh");
             }
             this.notification(this.validateMessage, { type: "success" });
-            // this.trigger("history-back");
-            this.action.doAction("wms_inherit_stock_barcode.daily_cycle_count_action", {
-                clearBreadcrumbs: true, // Opsional: Membersihkan jejak "back" agar rapi
-            });
+            this.trigger("history-back");
+            // this.action.doAction("wms_inherit_stock_barcode.daily_cycle_count_action", {
+            //     clearBreadcrumbs: true, // Opsional: Membersihkan jejak "back" agar rapi
+            // });
         };
         if (action && action.res_model) {
             return this.action.doAction(action, { onClose: notifyAndGoAhead });
@@ -218,6 +218,8 @@ export default class BarcodeDailyCountModel extends BarcodeModel {
             user_id: this.userId,
             pack_unit_id: line.uom_bag_id,
             pack_qty: line.bag_qty,
+            uom_pallet_id: line.uom_pallet_id,
+            pallet_qty: line.pallet_qty,
             stock_type: line.stock_type,
             state: line.state || 'draft',
         };
@@ -438,9 +440,6 @@ export default class BarcodeDailyCountModel extends BarcodeModel {
              return;
         }
 
-        // ====================================================================
-        // LOGIKA PENARIKAN DATA CUSTOM DARI STOCK.QUANT
-        // ====================================================================
         const quantRecordsRaw = await this.orm.searchRead(
             "stock.quant",
             [["package_id", "=", recPackage.id]],
@@ -448,7 +447,7 @@ export default class BarcodeDailyCountModel extends BarcodeModel {
                 "product_id", "lot_id", "quantity", "product_uom_id", 
                 "uom_bag_id", "uom_pallet_id", "bag_qty", "pallet_qty", 
                 "bag_dummy_qty", "pallet_dummy_qty", "stock_type", "po_sap_id",
-                "company_id"
+                "company_id", "location_id",
             ]
         );
 
@@ -459,7 +458,6 @@ export default class BarcodeDailyCountModel extends BarcodeModel {
             return;
         }
 
-        // Fungsi pembersih agar [16, "kg"] berubah jadi 16 (mencegah error cache)
         const cleanM2O = (record) => {
             const cleaned = { ...record };
             for (const key in cleaned) {
@@ -472,20 +470,25 @@ export default class BarcodeDailyCountModel extends BarcodeModel {
 
         const quantRecords = quantRecordsRaw.map(cleanM2O);
 
-        // Kumpulkan ID untuk fetch relasi
         const productIds = [];
         const lotIds = [];
+        const locationIds = [];
         const uomIds = new Set();
         
         quantRecords.forEach(q => {
             if (q.product_id) productIds.push(q.product_id);
             if (q.lot_id) lotIds.push(q.lot_id);
+            if (q.location_id) locationIds.push(q.location_id);
             if (q.product_uom_id) uomIds.add(q.product_uom_id);
             if (q.uom_bag_id) uomIds.add(q.uom_bag_id);
             if (q.uom_pallet_id) uomIds.add(q.uom_pallet_id);
         });
 
-        // Fetch Produk, UOM, dan Lot agar masuk ke cache dengan format integer murni
+        if (locationIds.length) {
+            const locations = await this.orm.searchRead("stock.location", [["id", "in", [...new Set(locationIds)]]], []);
+            this.cache.setCache({ "stock.location": locations.map(cleanM2O) });
+        }
+
         if (productIds.length) {
             const products = await this.orm.searchRead("product.product", [["id", "in", [...new Set(productIds)]]], []);
             const cleanedProducts = products.map(cleanM2O);
@@ -528,6 +531,7 @@ export default class BarcodeDailyCountModel extends BarcodeModel {
             
             // Objek data kustom yang ingin disuplai ke model daily.cycle.count
             const customFieldsData = {
+                location_id: quant.location_id || false,
                 product_uom_id: quant.product_uom_id || false,
                 uom_bag_id: quant.uom_bag_id || false,
                 uom_pallet_id: quant.uom_pallet_id || false,

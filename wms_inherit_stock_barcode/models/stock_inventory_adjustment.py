@@ -170,6 +170,7 @@ class StockInventoryAdjustment(models.Model):
                     summary_map[key] = {
                         'stock_adjustment_id': rec.id,
                         'product_id': line.product_id.id,
+                        'stock_type': line.package_status,
                         'uom_id': line.uom_id.id if line.uom_id else False,
                         'uom_bag_id': line.uom_bag_id.id if line.uom_bag_id else False,
                         'quantity': 0.0,
@@ -189,6 +190,7 @@ class StockInventoryAdjustment(models.Model):
                 existing = SummaryModel.search([
                     ('stock_adjustment_id', '=', rec.id),
                     ('product_id', '=', product_id),
+                    ('stock_type', '=', vals['stock_type']),
                 ], limit=1)
 
                 if existing:
@@ -228,29 +230,6 @@ class StockInventoryAdjustment(models.Model):
                 domain.append(('location_id', 'child_of', rec.location_id.id))
             
             rec.quant_count = Quant.search_count(domain)
-    
-    # def action_view_quant(self):
-    #     self.ensure_one()
-    #     domain = [('company_id', '=', self.company_id.id),]
-        
-    #     if self.product_ids:
-    #         domain.append(('product_id', 'in', self.product_ids.ids))
-    #     if self.location_id:
-    #         domain.append(('location_id', 'child_of', self.location_id.id))
-        
-    #     return {
-    #         'type': 'ir.actions.act_window',
-    #         'name': 'Physical Inventory',
-    #         'view_mode': 'list',
-    #         'res_model': 'stock.quant',
-    #         'domain': domain,
-    #         'context': {
-    #             'create': 0,
-    #             'edit': 0,
-    #             'delete': 0,
-    #             'duplicate': 0,
-    #         }
-    #     }
     
     def action_view_quant(self):
         self.ensure_one()
@@ -299,19 +278,6 @@ class StockInventoryAdjustment(models.Model):
         print(f"action_open_barcode_inventory.action {action}")
 
         return action
-
-    # Ini yang ngarah ke kanban dan auto scan | old yang pakai quant
-    # def action_open_kanban_barcode(self):
-    #     self.ensure_one()
-    #     return {
-    #         'type': 'ir.actions.act_window',
-    #         'name': 'Stock Opname',
-    #         'view_mode': 'kanban',
-    #         'res_model': 'stock.inventory.adjustment',
-    #         'domain': [
-    #             ('id', '=', self.id),
-    #         ],
-    #     }
     
     def action_open_kanban_barcode(self):
         self.ensure_one()
@@ -350,6 +316,34 @@ class StockInventoryAdjustment(models.Model):
                     return True
 
         return False
+    
+    def apply_lot_aft_adjustment(self, sia):
+        for line in sia.adjustment_line_ids:
+            if not line.lot_id or not line.package_status:
+                continue
+
+            lot_aft = self.env['stock.lot.aft'].search([
+                ('lot_id', '=', line.lot_id.id),
+                ('stock_type', '=', line.package_status),
+            ], limit=1)
+
+            if not lot_aft:
+                _logger.warning(
+                    "_apply_lot_aft_adjustment: lot_aft tidak ditemukan "
+                    "untuk lot %s stock_type %s",
+                    line.lot_id.name, line.package_status
+                )
+                continue
+
+            lot_aft.write({
+                'quantity': line.inventory_quantity,
+                'bag_qty': line.bag_count,
+            })
+            _logger.info(
+                "_apply_lot_aft_adjustment: lot %s stock_type %s → qty=%.3f bag=%.3f",
+                line.lot_id.name, line.package_status,
+                line.inventory_quantity, line.bag_count
+            )
     
     @api.model
     def cron_synhronize_pid_sap(self):
@@ -533,6 +527,8 @@ class StockInventoryAdjustment(models.Model):
                 else:
                     _logger.warning(f"cron_synchronize_auto_done_pid IBLNR {iblnr}: Tidak ada quant terkait pada SIA {sia.name}")
 
+                self.apply_lot_aft_adjustment(sia) # Update lot qty by stocktype
+                
                 sia.write({
                     'state': 'done_sap',
                     'done_pid_number': mblnr,
