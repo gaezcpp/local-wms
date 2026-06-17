@@ -9,60 +9,73 @@ class TaggingWOSparePartWizard(models.TransientModel):
     record_id = fields.Many2one("tagging.record", required=True, ondelete="cascade")
     equipment_id = fields.Many2one("maintenance.equipment", string="Equipment", required=True,)
     line_ids = fields.One2many("tagging.wo.sparepart.wizard.line", "wizard_id", string="Lines")
-
-    allowed_spare_part_ids = fields.Many2many(
-        "tagging.spare_part",
-        compute="_compute_allowed_spare_part_ids",
-    )
+    allowed_spare_part_ids = fields.Many2many("tagging.spare_part", compute="_compute_allowed_spare_part_ids")
 
     @api.depends("equipment_id")
     def _compute_allowed_spare_part_ids(self):
         SparePart = self.env["tagging.spare_part"].sudo()
-        print(f"XXXXXXXX {SparePart}")
-
         for wiz in self:
-            if not wiz.equipment_id:
-                wiz.allowed_spare_part_ids = SparePart.browse()
-                continue
-
-            plines = wiz._get_equipment_product_lines()
-
+            plines = wiz.equipment_id.product_line_ids if wiz.equipment_id else None
             if not plines:
-                wiz.allowed_spare_part_ids = SparePart.browse()
+                wiz.allowed_spare_part_ids = SparePart
                 continue
 
-            product_ids = wiz._extract_spare_part_ids(plines)
-            wiz.allowed_spare_part_ids = SparePart.browse(product_ids)
-
-    def _get_equipment_product_lines(self):
-        self.ensure_one()
-        eq = self.equipment_id
-
-        if not eq:
-            return self.env["maintenance.equipment.product.line"]
-
-        # langsung target field yang jelas
-        if "product_line_ids" in eq._fields:
-            return eq.product_line_ids
-
-        return self.env["maintenance.equipment.product.line"]
-
-    def _extract_spare_part_ids(self, plines):
-        SparePart = self.env["tagging.spare_part"].sudo()
-
-        if not plines:
-            return []
-
-        # CASE 1: sku adalah Char
-        if "sku" in plines._fields and plines._fields["sku"].type == "char":
             sku_list = list(filter(None, plines.mapped("sku")))
-            return SparePart.search([("sku", "in", sku_list)]).ids
+            company_id = wiz.equipment_id.company_id.id
 
-        # CASE 2: sku adalah Many2one ke spare part
-        if "sku" in plines._fields and plines._fields["sku"].type == "many2one":
-            return plines.mapped("sku").ids
+            wiz.allowed_spare_part_ids = (
+                SparePart.search([("sku", "in", sku_list), ("company_id", "=", company_id)])
+                if sku_list else SparePart
+            )
 
-        return []
+    # @api.depends("equipment_id")
+    # def _compute_allowed_spare_part_ids(self):
+    #     SparePart = self.env["tagging.spare_part"].sudo()
+    #     print(f"XXXXXXXX {SparePart}")
+
+    #     for wiz in self:
+    #         if not wiz.equipment_id:
+    #             wiz.allowed_spare_part_ids = SparePart.browse()
+    #             continue
+
+    #         plines = wiz._get_equipment_product_lines()
+
+    #         if not plines:
+    #             wiz.allowed_spare_part_ids = SparePart.browse()
+    #             continue
+
+    #         product_ids = wiz._extract_spare_part_ids(plines)
+    #         wiz.allowed_spare_part_ids = SparePart.browse(product_ids)
+
+    # def _get_equipment_product_lines(self):
+    #     self.ensure_one()
+    #     eq = self.equipment_id
+
+    #     if not eq:
+    #         return self.env["maintenance.equipment.product.line"]
+
+    #     # langsung target field yang jelas
+    #     if "product_line_ids" in eq._fields:
+    #         return eq.product_line_ids
+
+    #     return self.env["maintenance.equipment.product.line"]
+
+    # def _extract_spare_part_ids(self, plines):
+    #     SparePart = self.env["tagging.spare_part"].sudo()
+
+    #     if not plines:
+    #         return []
+
+    #     # CASE 1: sku adalah Char
+    #     if "sku" in plines._fields and plines._fields["sku"].type == "char":
+    #         sku_list = list(filter(None, plines.mapped("sku")))
+    #         return SparePart.search([("sku", "in", sku_list)]).ids
+
+    #     # CASE 2: sku adalah Many2one ke spare part
+    #     if "sku" in plines._fields and plines._fields["sku"].type == "many2one":
+    #         return plines.mapped("sku").ids
+
+    #     return []
 
     @api.model
     def default_get(self, fields_list):

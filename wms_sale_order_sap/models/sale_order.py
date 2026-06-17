@@ -207,7 +207,7 @@ class InheritSaleOrderSAP(models.Model):
             if not so:
                 so = sale_order_model.create(vals)
                 so.message_post(body=f"SO SAP {nomor_do} Created from Cron")
-                so.action_confirm()
+                so.with_context(sequence_sale_order_id=so.id).action_confirm()
                 _logger.info(f"SO Created {nomor_do}")
             else:
                 if self._needs_update(so, vals):
@@ -344,7 +344,7 @@ class InheritSaleOrderSAP(models.Model):
                 so = so_model.create(vals)
                 so.message_post(body=f"SO SAP {nomor_do} Created from Cron")
                 _logger.info(f"SO Created {nomor_do}")
-                so.action_confirm()
+                so.with_context(sequence_sale_order_id=so.id).action_confirm()
             else:
                 if self._needs_update(so, vals):
                     so.write(vals)
@@ -624,7 +624,7 @@ class InheritSaleOrderSAP(models.Model):
                 so = so_model.create(vals)
                 so.message_post(body=f"SO SAP {po_sap} Created from Cron")
                 _logger.info(f"SO Created {po_sap}")
-                so.action_confirm()
+                so.with_context(sequence_sale_order_id=so.id).action_confirm()
             else:
                 if self._needs_update(so, vals):
                     so.write(vals)

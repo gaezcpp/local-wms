@@ -1,9 +1,12 @@
 from odoo import models, fields, api, _
 from odoo.exceptions import ValidationError
 from collections import defaultdict
+from datetime import datetime, timedelta
+from html import escape
 import requests
 import json
 import logging
+import random
 _logger = logging.getLogger(__name__)
 
 
@@ -14,7 +17,7 @@ class PlanMaintenanceWorkOrder(models.Model):
     _rec_name = 'name'
     
     name = fields.Char(string="Name", default="New")
-    wo_sap = fields.Char(string="Work Order SAP", tracking=True)
+    wo_sap = fields.Char(string="Maintenance Order", tracking=True)
     tagging_id = fields.Many2one(comodel_name='tagging.record', string="Tagging", tracking=True)
     type_mo = fields.Char(string="Type MO", tracking=True)
     company_id = fields.Many2one(comodel_name='res.company', string="Company", tracking=True)
@@ -87,46 +90,57 @@ class PlanMaintenanceWorkOrder(models.Model):
         return False
     
     @api.model
-    def cron_synchronize_sap_work_order_material(self):
+    def _fetch_sap_data(self, config_key, cron_name):
         icp = self.env['ir.config_parameter'].sudo()
-
         x_i_api_key = icp.get_param('x_i_api_key')
         ip_sap_rfc = icp.get_param('ip_sap_rfc')
-        query_work_order_material_sap = icp.get_param('query_work_order_material_sap')
+        query = icp.get_param(config_key)
 
         if not x_i_api_key:
-            x_i_api_key = icp.get_param('x_i_api_key_tagging')
+            raise ValidationError("x_i_api_key belum disetting!")
         if not ip_sap_rfc:
-            ip_sap_rfc = icp.get_param('ip_sap_rfc_tagging')
-        if not query_work_order_material_sap:
-            raise ValidationError("query_work_order_material_sap belum disetting!")
+            raise ValidationError("ip_sap_rfc belum disetting!")
+        if not query:
+            raise ValidationError(f"{config_key} belum disetting!")
 
         headers = {
             "x-i-api-key": str(x_i_api_key),
             "Content-Type": "application/json"
         }
-
-        url = f"{str(ip_sap_rfc)}/api/v1/zfm-query-data"
         body = {
-            "I_QUERY": str(query_work_order_material_sap),
-            "I_MOD": "CRON cron_synchronize_sap_work_order_material"
+            "I_QUERY": str(query),
+            "I_MOD": f"CRON {cron_name}"
         }
-
         try:
-            response = requests.post(url=url, headers=headers, data=json.dumps(body))
-            response.raise_for_status()
+            response = requests.post(
+                url=f"{ip_sap_rfc}/api/v1/zfm-query-data",
+                headers=headers,
+                data=json.dumps(body),
+            )
         except Exception as e:
             raise ValidationError(str(e))
 
         res = response.json()
-
         if res.get('error'):
             raise ValidationError(json.dumps(res.get('error')))
-
         if not res.get('success'):
-            return True
+            _logger.info(f"CRON {cron_name} NOT SUCCESS")
+            return []
 
         data_list = res.get('data', [])
+        _logger.info(f"CRON {cron_name} - TOTAL DATA: {len(data_list)}")
+        return data_list
+    
+    @api.model
+    def cron_synchronize_sap_work_order_material(self):
+        data_list = self._fetch_sap_data(
+            config_key='query_work_order_material_sap',
+            cron_name='cron_synchronize_sap_work_order_material',
+        )
+        if not data_list:
+            return True
+
+        _logger.info(f"TOTAL DATA cron_synchronize_sap_work_order_material {len(data_list)}")
 
         pm_wo_model = self.env['pm.work.order'].sudo()
         spare_part_model = self.env['tagging.spare_part'].sudo()
@@ -254,50 +268,16 @@ class PlanMaintenanceWorkOrder(models.Model):
             
     @api.model
     def cron_synchronize_sap_preventif_work_order(self):
-        icp = self.env['ir.config_parameter'].sudo()
-        x_i_api_key = icp.get_param('x_i_api_key')
-        ip_sap_rfc = icp.get_param('ip_sap_rfc')
-        query_preventif_work_order_material_sap = icp.get_param('query_preventif_work_order_material_sap')
-
-        if not x_i_api_key:
-            x_i_api_key = icp.get_param('x_i_api_key_tagging')
-        if not ip_sap_rfc:
-            ip_sap_rfc = icp.get_param('ip_sap_rfc_tagging')
-        if not query_preventif_work_order_material_sap:
-            raise ValidationError("query_preventif_work_order_material_sap belum disetting!")
-
-        headers = {
-            "x-i-api-key": str(x_i_api_key),
-            "Content-Type": "application/json"
-        }
-
-        url = f"{str(ip_sap_rfc)}/api/v1/zfm-query-data"
-        body = {
-            "I_QUERY": str(query_preventif_work_order_material_sap),
-            "I_MOD": "CRON cron_synchronize_sap_preventif_work_order"
-        }
-
-        try:
-            response = requests.post(url=url, headers=headers, data=json.dumps(body))
-            response.raise_for_status()
-        except Exception as e:
-            raise ValidationError(str(e))
-
-        res = response.json()
-        if res.get('error'):
-            raise ValidationError(json.dumps(res.get('error')))
-        if not res.get('success'):
-            _logger.info(f"cron_synchronize_sap_preventif_work_order Not Success {res}")
-            return True
-        
-        data_list = res.get('data', [])
+        data_list = self._fetch_sap_data(
+            config_key='query_preventif_work_order_material_sap',
+            cron_name='cron_synchronize_sap_preventif_work_order',
+        )
         if not data_list:
             return True
-        
-        _logger.info(f"TOTAL DATA PREVENTIF {len(data_list)}")
+
+        _logger.info(f"TOTAL DATA cron_synchronize_sap_preventif_work_order {len(data_list)}")
         
         pm_wo_model = self.env['pm.work.order'].sudo()
-        pm_wo_line_model = self.env['pm.work.order.material.line'].sudo()
         equip_model = self.env['maintenance.equipment'].sudo()
         company_model = self.env['res.company'].sudo()
         grouped_data = defaultdict(list)
@@ -311,7 +291,6 @@ class PlanMaintenanceWorkOrder(models.Model):
             first = rows[0]
             type_mo = first.get('AUART')
             priority = first.get('PRIOKX')
-            sub_system = first.get('TPLNR')
             sub_equip = (first.get('EQUNR') or "").lstrip('0')
             company_registry = first.get('WERKS')
             
@@ -350,3 +329,95 @@ class PlanMaintenanceWorkOrder(models.Model):
             else:
                 if self._needs_update(wo_preventif, vals):
                     wo_preventif.write(vals)
+                    
+    @api.model
+    def cron_reminder_wo_draft(self):
+        self = self.sudo()
+        draft_wos = self.sudo().search([('state', '=', 'draft')])
+        if not draft_wos:
+            _logger.info("cron_reminder_wo_draft Tidak Ditemukan, skipped!")
+            return True
+
+        base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url')
+        wos_by_dept = defaultdict(list)
+        for wo in draft_wos:
+            if wo.tagging_id and wo.tagging_id.department_id:
+                wos_by_dept[wo.tagging_id.department_id].append(wo)
+
+        mails = []
+        for dept, wos in wos_by_dept.items():
+            emails = []
+            for pic in dept.pic_ids:
+                if pic.email:
+                    emails.append(pic.email)
+            
+            emails = list(set(emails))
+            if not emails:
+                _logger.info(f"cron_reminder_wo_draft Email tidak ada untuk Dept {dept.name}, skipped!")
+                continue
+
+            rows = ""
+            for i, wo in enumerate(wos, start=1):
+                open_url = f"{base_url}/web#id={wo.id}&model=pm.work.order&view_type=form"
+                wo_name = escape(wo.wo_sap or wo.name or '-')
+                status = escape(dict(self._fields['state'].selection).get(wo.state, '-'))
+                type_mo = escape(wo.type_mo or '-')
+                system = escape(wo.system_id.name or '-')
+                sub_system = escape(wo.sub_system_id.name or '-')
+                created_on = str(wo.create_date)[:19] if wo.create_date else '-' 
+                
+                rows += f"""
+                    <tr>
+                        <td style="padding: 8px; text-align: center;">{i}</td>
+                        <td style="padding: 8px;">
+                            <a href="{open_url}" style="color: #007bff; text-decoration: none; font-weight: bold;">
+                                {wo_name}
+                            </a>
+                        </td>
+                        <td style="padding: 8px;">{status}</td>
+                        <td style="padding: 8px;">{type_mo}</td>
+                        <td style="padding: 8px;">{system}</td>
+                        <td style="padding: 8px;">{sub_system}</td>
+                        <td style="padding: 8px;">{created_on}</td>
+                    </tr>
+                """
+                
+            body_html = f"""
+                <div style="font-family: Arial, sans-serif; font-size: 13px; color: #333333;">
+                    <p>Dear Team,</p>
+                    <p>Berikut adalah Maintenance Order yang belum selesai :</p>
+                    
+                    <table border="1" style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+                        <thead>
+                            <tr style="background-color: #f2f2f2; text-align: left;">
+                                <th style="padding: 8px;">No</th>
+                                <th style="padding: 8px;">Maintenance Order</th>
+                                <th style="padding: 8px;">Status</th>
+                                <th style="padding: 8px;">Type MO</th>
+                                <th style="padding: 8px;">System</th>
+                                <th style="padding: 8px;">Sub System</th>
+                                <th style="padding: 8px;">Created On</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {rows}
+                        </tbody>
+                    </table>
+                    <br/>
+                    <p>Terima kasih.</p>
+                </div>
+            """
+            
+            subject = f"[REMINDER] Draft Maintenance Order ({len(wos)} items)"
+            mail_values = {
+                "subject": subject,
+                "body_html": body_html,
+                "email_to": ",".join(emails),
+                "email_from": "noreply-ops@cpp.co.id",
+            }
+            mails.append(mail_values)
+
+        if mails:
+            self.env['mail.mail'].sudo().create(mails)
+
+        return True
