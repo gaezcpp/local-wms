@@ -264,7 +264,7 @@ class StockPicking(models.Model):
                     raise ValidationError(f"Tidak bisa melakukan Validate: Pack Quantity untuk produk {move.product_id.name} karena masih 0. ")
         res = super().button_validate()
         self._sync_post_validate_quantities()
-        next_pickings = self.mapped('move_ids.move_dest_ids.picking_id').filtered(lambda p: p)
+        next_pickings = self.sudo().mapped('move_ids.move_dest_ids.picking_id').filtered(lambda p: p)
         if next_pickings:
             next_pickings._sync_packaging_lines()
         return res

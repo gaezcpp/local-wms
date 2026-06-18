@@ -12,7 +12,6 @@ class QualityQuantityBackorder(models.TransientModel):
     picking_type_id = fields.Many2one(comodel_name='stock.picking.type', string="Operation Type")
     result_package_id = fields.Many2one(comodel_name='stock.package', string="Destination Package")
     is_quality = fields.Boolean(string="Is Quality", default=False)
-    wh_category_id = fields.Many2one(comodel_name='stock.warehouse.category', string="Category")
     line_ids = fields.One2many(comodel_name='quality.quantity.backorder.line',inverse_name='backorder_wizard_id', string="Products")
     
     def action_create_backorder_from_qq(self):
@@ -128,6 +127,7 @@ class QualityQuantityBackorderLine(models.TransientModel):
     location_id = fields.Many2one(comodel_name='stock.location', string="Source Location")
     package_id = fields.Many2one(comodel_name='stock.package', string="Package")
     production_line_id = fields.Many2one(comodel_name='production.line', string="Production Line")
+    wh_category_id = fields.Many2one(comodel_name='stock.warehouse.category', string="Category")
     
     @api.onchange('qty_pack')
     def _onchange_qty_pack(self):

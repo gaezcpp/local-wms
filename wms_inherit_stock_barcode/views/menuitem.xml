@@ -24,7 +24,7 @@
 
     <menuitem
         id="stock_warehouse_category_menu"
-        name="Warehouse Category"
+        name="Quality Category"
         parent="stock.menu_warehouse_config"
         action="wms_inherit_stock_barcode.stock_warehouse_category_action"
         sequence="55"

@@ -114,8 +114,9 @@
                             <field name="product_id" options="{'no_open': True, 'no_create': True}"/>
                             <field name="uom_id" options="{'no_open': True, 'no_create': True}"/>
                             <field name="order_qty"/>
-                            <field name="gr_bag_qty"/>
-                            <field name="gr_kg_qty"/>
+                            <field name="gr_bag_qty" string="GR Pack"/>
+                            <field name="gr_kg_qty" string="GR Qty"/>
+                            <field name="remaining_qty"/>
                             <field name="company_id" options="{'no_open': True, 'no_create': True}"/>
                             <field name="company_registry"/>
                             <field name="sap_pp" force_save="1" readonly="1"/>

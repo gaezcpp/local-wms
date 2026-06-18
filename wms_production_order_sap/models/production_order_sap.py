@@ -32,23 +32,25 @@ class ProductionOrderSAP(models.Model):
     sap_pp = fields.Boolean(string="SAP PP", default=False)
     active = fields.Boolean(string="Active", default=True)
     picking_count = fields.Integer(string="Picking Count", compute='_compute_picking_count')
-    gr_bag_qty = fields.Float(string="GR Bag", compute='_compute_gr_qty', store=True, tracking=True)
-    gr_kg_qty = fields.Float(string="GR Kg", compute='_compute_gr_qty', store=True, tracking=True)
+    gr_bag_qty = fields.Float(string="GR Bag", compute='_compute_gr_qty', store=True)
+    gr_kg_qty = fields.Float(string="GR Kg", compute='_compute_gr_qty', store=True)
     picking_ids = fields.One2many('stock.picking', 'po_sap_id', string="Pickings")
+    remaining_qty = fields.Float(string="Remaining", compute='_compute_gr_qty', store=True)
 
     @api.depends('picking_ids.state', 'picking_ids.move_ids.quantity')
     def _compute_gr_qty(self):
         for po in self:
-            done_moves = po.picking_ids.filtered(
+            done_moves = po.sudo().picking_ids.filtered(
                 lambda p: p.state == 'done' and p.location_dest_id.id == p.picking_type_id.warehouse_id.lot_stock_id.id
             ).mapped('move_ids').filtered(lambda m: m.state == 'done')
 
             po.gr_bag_qty = sum(done_moves.mapped('bag_qty'))
             po.gr_kg_qty = sum(done_moves.mapped('quantity'))
+            po.remaining_qty = po.order_qty - po.gr_kg_qty
     
     def _compute_picking_count(self):
         domain = [('po_sap_id', 'in', self.ids),('state', 'not in', ('done', 'cancel'))]
-        groups = self.env['stock.picking']._read_group(
+        groups = self.env['stock.picking'].sudo()._read_group(
             domain=domain,
             groupby=['po_sap_id'],
             aggregates=['__count'],
@@ -193,9 +195,13 @@ class ProductionOrderSAP(models.Model):
             unit = data.get('GMEIN') or ''
             product_uom = False
             if unit.upper() != "KG":
-                uom_numerator = float(data.get('UMREZ'))
-                uom_denominator = float(data.get('UMREN'))
-                ratio = float(uom_numerator) / float(uom_denominator)
+                raw_umrez = str(data.get('UMREZ') or '').strip()
+                uom_numerator = float(raw_umrez if raw_umrez else 0.0)
+                
+                raw_umren = str(data.get('UMREN') or '').strip()
+                uom_denominator = float(raw_umren if raw_umren else 0.0)
+                
+                ratio = (uom_numerator / uom_denominator) if uom_denominator else 0.0
                 ratio = int(ratio) if ratio.is_integer() else ratio
                 uom_name = f"{unit} {ratio}"
                 product_uom = unit_of_measure.search([('name', '=', uom_name)], limit=1)
@@ -212,7 +218,8 @@ class ProductionOrderSAP(models.Model):
             if raw_finish and len(raw_finish) == 8:
                 finish_date = datetime.strptime(raw_finish, "%Y%m%d").date()
             
-            order_qty = float(data.get('GAMNG')) or 0.0
+            raw_gamng = str(data.get('GAMNG') or '').strip()
+            order_qty = float(raw_gamng if raw_gamng else 0.0)
             created_user = data.get('ERNAM') or ''
             teco_status = (data.get('TECO_STATUS') or '').strip().upper()
             loekz = (data.get('LOEKZ') or '').strip()
@@ -269,7 +276,7 @@ class ProductionOrderSAP(models.Model):
                     raise ValidationError("Tidak bisa melakukan GR FG karena State sudah TECO")
                 
                 move_vals = []
-                bag_qty = ((rec.order_qty * rec.uom_id.factor) / 1000)
+                bag_qty = ((rec.remaining_qty * rec.uom_id.factor) / 1000)
                 picking = self.env['stock.picking'].sudo().create({
                     'picking_type_id': operation_type.id,
                     'location_dest_id': operation_type.default_location_dest_id.id,

@@ -1,4 +1,5 @@
 from odoo import models, fields, api
+from odoo.exceptions import ValidationError
 from datetime import datetime
 import pytz
 import logging
@@ -41,6 +42,10 @@ class InheritBaseStockPicking(models.Model):
         return vals
     
     def action_confirm(self):
+        for picking in self:
+            if picking.po_sap_id and (not picking.po_sap_id.active or picking.po_sap_id.status_teco == 'TECO'):
+                raise ValidationError("Tidak dapat melakukan Confirm. PO SAP tidak aktif atau berstatus TECO!")
+        
         res = super().action_confirm()
         Shift = self.env['production.shift'].sudo()
         for picking in self:
@@ -64,9 +69,12 @@ class InheritBaseStockPicking(models.Model):
             if prod_shift:
                 picking.production_shift_id = prod_shift.id
         return res
-        # return super().action_confirm()
 
     def button_validate(self):
+        for picking in self:
+            if picking.po_sap_id and (not picking.po_sap_id.active or picking.po_sap_id.status_teco == 'TECO'):
+                raise ValidationError("Tidak dapat melakukan Validate. PO SAP tidak aktif atau berstatus TECO!")
+        
         res = super().button_validate()
         Shift = self.env['production.shift'].sudo()
         for picking in self:
@@ -91,12 +99,10 @@ class InheritBaseStockPicking(models.Model):
 
             next_pickings = picking.move_ids.move_dest_ids.picking_id.filtered(lambda p: p.state not in ('done', 'cancel'))
             if next_pickings:
-                next_pickings.write({
+                next_pickings.sudo().write({
                     'production_shift_id': prod_shift.id if prod_shift else False,
-                    # hanya isi jika po_sap_id ada
                     **(({'po_sap_id': picking.po_sap_id.id}) if picking.po_sap_id else {}),
                 })
-        # return super().button_validate()
         return res
     
     def _action_done(self):
