@@ -20,7 +20,7 @@ class InheritBaseStockMoveLine(models.Model):
         ('QI', 'QI'),
         ('BLOCKED', 'BLOCKED'),
         ('UU', 'UU'),
-    ], string="Stock Type", default='QI') # ditambahin default QI biar ga kosong
+    ], string="Stock Type")
     
     # ini dipake kalo odoo.sh salah
     def _skip_custom_logic(self):
@@ -85,69 +85,31 @@ class InheritBaseStockMoveLine(models.Model):
                 })
 
         return lot
-    
-    # CREATE STOCK LOT AFT PINDAH KE VALIDATE
-    # def _create_update_lot_aft(self):
-    #     self.ensure_one()
-    #     if not self.move_id.product_id:
-    #         return False
-
-    #     lot = self._get_or_create_lot()
-    #     if not lot:
-    #         return False
-
-    #     existing_aft = lot.lot_aft_ids.filtered(lambda l: l.stock_type == self.stock_type)
-        
-    #     # coba pake compute bawaan odoo
-    #     bag = self.bag_qty
-    #     if bag <= 0:
-    #         # bag = self.product_uom_id._compute_quantity(self.quantity, self.uom_bag_id)
-    #         bag = ((self.quantity * self.product_uom_id.factor) / 1000) / (self.uom_bag_id.factor / 1000)
-
-    #     if existing_aft:
-    #         aft = existing_aft[0]
-    #         old_qty = aft.quantity
-    #         old_bag = aft.bag_qty
-    #         new_qty = old_qty + self.quantity
-    #         new_bag = old_bag + bag
-
-    #         aft.write({
-    #             'quantity': new_qty,
-    #             'bag_qty': new_bag,
-    #         })
-
-    #         lot.message_post(body=(
-    #             f"Update Stock Type: {self.stock_type} ({self.picking_id.name})"
-    #             f"Quantity: {old_qty} → {new_qty} {self.product_uom_id.name} "
-    #             f"Bag Qty: {old_bag} → {new_bag} {self.uom_bag_id.name} "
-    #         ))
-    #     else:
-    #         self.env['stock.lot.aft'].create({
-    #             'lot_id': lot.id,
-    #             'quantity': self.quantity,
-    #             'uom_id': self.product_uom_id.id,
-    #             'bag_qty': bag,
-    #             'uom_bag_id': self.uom_bag_id.id,
-    #             'stock_type': self.stock_type or 'QI',
-    #         })
-
-    #         lot.message_post(body=(
-    #             f"Create Stock Type: {self.stock_type} ({self.picking_id.name})"
-    #             f"Quantity: {self.quantity} {self.product_uom_id.name} "
-    #             f"Bag Qty: {bag} {self.uom_bag_id.name} "
-    #         ))
-
-    #     return True
 
     @api.model_create_multi
     def create(self, vals_list):
+        for vals in vals_list:
+            if not vals.get('stock_type') and vals.get('location_id') and vals.get('product_id'):
+                domain = [
+                    ('location_id', '=', vals['location_id']), 
+                    ('product_id', '=', vals['product_id'])
+                ]
+                if vals.get('lot_id'):
+                    domain.append(('lot_id', '=', vals['lot_id']))
+                if vals.get('package_id'):
+                    domain.append(('package_id', '=', vals['package_id']))
+                
+                source_quant = self.env['stock.quant'].sudo().search(domain, limit=1)
+                if source_quant and source_quant.stock_type:
+                    vals['stock_type'] = source_quant.stock_type
+                    
         records = super().create(vals_list)
+        
         for rec in records:
             if rec._is_gr_prod():
                 lot = rec._get_or_create_lot()
                 if lot:
                     rec.with_context(skip_lot_aft=True).write({'lot_id': lot.id})
-                    # rec._create_update_lot_aft()
         return records
 
     def write(self, vals):
@@ -157,13 +119,27 @@ class InheritBaseStockMoveLine(models.Model):
         for rec in self:
             if not rec._is_gr_prod():
                 continue
+            
+            if rec.stock_type and rec.state == 'done':
+                domain = [
+                    ('product_id', '=', rec.product_id.id),
+                    ('location_id', '=', rec.location_dest_id.id),
+                ]
+                if rec.lot_id:
+                    domain.append(('lot_id', '=', rec.lot_id.id))
+                if rec.result_package_id or rec.package_id:
+                    domain.append(('package_id', '=', rec.result_package_id.id or rec.package_id.id))
+                
+                dest_quants = self.env['stock.quant'].sudo().search(domain)
+                if dest_quants:
+                    dest_quants.write({'stock_type': rec.stock_type})
+            
             trigger_fields = {'production_line_id', 'expiration_date'}
             if trigger_fields & set(vals.keys()):
                 if rec.production_line_id and rec.expiration_date:
                     lot = rec._get_or_create_lot()
                     if lot:
                         rec.with_context(skip_lot_aft=True).write({'lot_id': lot.id})
-                        # rec._create_update_lot_aft()
         return res
     
     def _is_gr_prod(self, vals=None):

@@ -204,11 +204,12 @@ class InheritSaleOrderSAP(models.Model):
                 'warehouse_id': warehouse.id,
                 'nomor_polisi_desc': trucknr,
             }
+            is_new_so = False
             if not so:
                 so = sale_order_model.create(vals)
                 so.message_post(body=f"SO SAP {nomor_do} Created from Cron")
-                so.with_context(sequence_sale_order_id=so.id).action_confirm()
                 _logger.info(f"SO Created {nomor_do}")
+                is_new_so = True
             else:
                 if self._needs_update(so, vals):
                     so.write(vals)
@@ -258,6 +259,10 @@ class InheritSaleOrderSAP(models.Model):
                     sale_order_line_model.create(vals_line)
 
             _logger.info(f"SO {nomor_do} total line {len(rows)}")
+            
+            if is_new_so:
+                so.with_context(sequence_sale_order_id=so.id).action_confirm()
+                _logger.info(f"SO Confirmed {nomor_do}")
             
                 
     @api.model
@@ -340,11 +345,12 @@ class InheritSaleOrderSAP(models.Model):
                 'company_id': company.id,
                 'po_sap': po_sap,
             }
+            is_new_so = False
             if not so:
                 so = so_model.create(vals)
                 so.message_post(body=f"SO SAP {nomor_do} Created from Cron")
                 _logger.info(f"SO Created {nomor_do}")
-                so.with_context(sequence_sale_order_id=so.id).action_confirm()
+                is_new_so = True
             else:
                 if self._needs_update(so, vals):
                     so.write(vals)
@@ -393,6 +399,11 @@ class InheritSaleOrderSAP(models.Model):
                             'product_uom_qty': qty,
                             'product_uom_id': product_uom.id,
                         })
+                        
+            if is_new_so:
+                so.with_context(sequence_sale_order_id=so.id).action_confirm()
+                _logger.info(f"SO Confirmed {nomor_do}")
+        
         # sekalian jalanin sloc to sloc
         self.cron_synhronize_so_sloc_to_sloc()
       
@@ -620,11 +631,12 @@ class InheritSaleOrderSAP(models.Model):
                 'carrier_id': deliv_carrier.id if deliv_carrier else False,
                 'company_id': company.id,
             }
+            is_new_so = False
             if not so:
                 so = so_model.create(vals)
                 so.message_post(body=f"SO SAP {po_sap} Created from Cron")
                 _logger.info(f"SO Created {po_sap}")
-                so.with_context(sequence_sale_order_id=so.id).action_confirm()
+                is_new_so = True
             else:
                 if self._needs_update(so, vals):
                     so.write(vals)
@@ -688,6 +700,10 @@ class InheritSaleOrderSAP(models.Model):
                             'product_uom_qty': qty,
                             'product_uom_id': product_uom_id,
                         })
+                        
+            if is_new_so:
+                so.with_context(sequence_sale_order_id=so.id).action_confirm()
+                _logger.info(f"SO Confirmed {nomor_do}")
                         
     @api.model
     def _run_query_update_sap(

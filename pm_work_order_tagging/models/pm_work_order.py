@@ -148,7 +148,7 @@ class PlanMaintenanceWorkOrder(models.Model):
 
         grouped = {}
         for data in data_list:
-            no_tagging = (data.get('QMTXT') or "").strip()
+            no_tagging = (data.get('FETXT') or "").strip()
             if not no_tagging:
                 continue
             grouped.setdefault(no_tagging, []).append(data)

@@ -133,7 +133,11 @@ class StockInventoryAdjustment(models.Model):
                     'inventory_diff_quantity': q.inventory_diff_quantity,
                 })
             
-            rec.is_checked = True
+            # rec.is_checked = True
+            rec.write({
+                'is_checked': True,
+                'state': 'in_progress'
+            })
     
     def action_in_progress(self):
         for rec in self:

@@ -61,7 +61,7 @@
                             <field name="location_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" domain="[('company_id', '=', company_id), ('usage', '=', 'internal')]"/>
                             <field name="action_aft_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" required="1"/>
                             <field name="notes" placeholder="e.g Packages sedang rusak" readonly="state != 'draft'"/>
-                            <field name="select_all" readonly="state != 'draft'"/>
+                            <field name="select_all" readonly="state != 'draft'" invisible="not is_checked"/>
                         </group>
                         <group name="aft_right">
                             <field name="company_id" force_save="1" readonly="1" options="{'no_open': True, 'no_create': True}"/>

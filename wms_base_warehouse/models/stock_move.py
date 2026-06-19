@@ -36,119 +36,119 @@ class StockMove(models.Model):
 
             picking.over_delivery = over
     
-    def _action_assign(self, **kwargs):
-        moves_uu = self.filtered(lambda m: m.picking_id.picking_type_id.uu_only)
-        moves_full_pallet = self.filtered(lambda m: m.picking_id.picking_type_id.book_full_pallet)
-        moves_outgoing = self.filtered(lambda m: m.picking_id.picking_type_id.code == 'outgoing')
-        
-        moves_to_check_full = moves_uu | moves_full_pallet
-        moves_normal = self - moves_to_check_full
-        
-        res = True
-        
-        # 1. Jalankan Assign Bawaan Odoo
-        if moves_normal:
-            res = super(StockMove, moves_normal)._action_assign()
-        if moves_uu:
-            res = super(StockMove, moves_uu.with_context(uu_only=True))._action_assign()
-        
-        moves_fp_only = moves_full_pallet - moves_uu
-        if moves_fp_only:
-            res = super(StockMove, moves_fp_only)._action_assign()
-
-        # 2. Logika Full Pallet (Step 1, 2, 3)
-        need_reassign = self.env['stock.move'].sudo()
-        for move in moves_to_check_full:
-            total_actual_pkg_qty = 0
-            has_partial = False
-            
-            for line in move.move_line_ids:
-                if line.package_id:
-                    actual_pkg_qty = sum(line.package_id.quant_ids.filtered(lambda q: q.product_id == line.product_id).mapped('quantity'))
-                    total_actual_pkg_qty += actual_pkg_qty
-                    if line.quantity < actual_pkg_qty:
-                        has_partial = True
-                        
-            if has_partial and move.product_uom_qty < total_actual_pkg_qty:
-                move.product_uom_qty = total_actual_pkg_qty
-                need_reassign |= move
-                dest_moves = move.move_dest_ids
-                while dest_moves:
-                    valid_dest = dest_moves.filtered(
-                        lambda m: m.picking_id.picking_type_id.uu_only or m.picking_id.picking_type_id.book_full_pallet
-                    )
-                    
-                    if valid_dest:
-                        valid_dest.sudo().write({'product_uom_qty': total_actual_pkg_qty})
-                        dest_moves = valid_dest.mapped('move_dest_ids')
-                    else:
-                        break
-                
-        if need_reassign:
-            need_reassign_uu = need_reassign & moves_uu
-            need_reassign_others = need_reassign - moves_uu
-            
-            if need_reassign_others:
-                _logger.info("_action_assign Check Availability need_reassign_others")
-                super(StockMove, need_reassign_others)._action_assign()
-            if need_reassign_uu:
-                _logger.info("_action_assign Check Availability need_reassign_uu")
-                super(StockMove, need_reassign_uu.with_context(uu_only=True))._action_assign()
-
-        # 3. Pengisian Otomatis Result Package KHUSUS Step 1 (uu_only)
-        for line in moves_uu.mapped('move_line_ids'):
-            if line.package_id and not line.result_package_id:
-                _logger.info("Isi Otomatis Destination Package Untuk Scanner")
-                line.write({'result_package_id': line.package_id.id})
-                
-        for move in moves_outgoing:
-            _logger.info("Outgoing otomatis Adjust Demand sama Apus Destination Package")
-            if move.move_orig_ids:
-                orig_qty = sum(move.move_orig_ids.mapped('quantity'))
-                _logger.info(f"Quantity Before OrigQty {orig_qty}\nDemand {move.product_uom_qty}")
-                if orig_qty > 0 and move.product_uom_qty != orig_qty:
-                    move.write({
-                        'product_uom_qty': orig_qty,
-                        'quantity': orig_qty
-                    })
-            for line in move.move_line_ids:
-                if line.result_package_id:
-                    line.write({'result_package_id': False})
-                
-        return res
-    
     # def _action_assign(self, **kwargs):
     #     moves_uu = self.filtered(lambda m: m.picking_id.picking_type_id.uu_only)
     #     moves_full_pallet = self.filtered(lambda m: m.picking_id.picking_type_id.book_full_pallet)
-    #     moves_normal = self - moves_uu
+    #     moves_outgoing = self.filtered(lambda m: m.picking_id.picking_type_id.code == 'outgoing')
+        
+    #     moves_to_check_full = moves_uu | moves_full_pallet
+    #     moves_normal = self - moves_to_check_full
+        
     #     res = True
-    #     _logger.info(f"MOVES NORMAL ATAU UU\nUU: {moves_uu}\nNormal: {moves_normal}")
+        
+    #     # 1. Jalankan Assign Bawaan Odoo
     #     if moves_normal:
     #         res = super(StockMove, moves_normal)._action_assign()
-    #     if moves_uu and not moves_full_pallet:
+    #     if moves_uu:
     #         res = super(StockMove, moves_uu.with_context(uu_only=True))._action_assign()
-    #         need_reassign = self.env['stock.move']
-    #         for move in moves_uu:
-    #             total_actual_pkg_qty = 0
-    #             has_partial = False
-    #             for line in move.move_line_ids:
-    #                 if line.package_id:
-    #                     actual_pkg_qty = sum(line.package_id.quant_ids.filtered(lambda q: q.product_id == line.product_id).mapped('quantity'))
-    #                     total_actual_pkg_qty += actual_pkg_qty
-    #                     if line.quantity < actual_pkg_qty:
-    #                         has_partial = True
-                            
-    #             if has_partial and move.product_uom_qty < total_actual_pkg_qty:
-    #                 move.product_uom_qty = total_actual_pkg_qty
-    #                 need_reassign |= move
-                    
-    #         if need_reassign:
-    #             super(StockMove, need_reassign.with_context(uu_only=True))._action_assign()
+        
+    #     moves_fp_only = moves_full_pallet - moves_uu
+    #     if moves_fp_only:
+    #         res = super(StockMove, moves_fp_only)._action_assign()
+
+    #     # 2. Logika Full Pallet (Step 1, 2, 3)
+    #     need_reassign = self.env['stock.move'].sudo()
+    #     for move in moves_to_check_full:
+    #         total_actual_pkg_qty = 0
+    #         has_partial = False
             
-    #         for line in moves_uu.mapped('move_line_ids'):
-    #             if line.package_id and not line.result_package_id:
-    #                 line.write({'result_package_id': line.package_id.id})
+    #         for line in move.move_line_ids:
+    #             if line.package_id:
+    #                 actual_pkg_qty = sum(line.package_id.quant_ids.filtered(lambda q: q.product_id == line.product_id).mapped('quantity'))
+    #                 total_actual_pkg_qty += actual_pkg_qty
+    #                 if line.quantity < actual_pkg_qty:
+    #                     has_partial = True
+                        
+    #         if has_partial and move.product_uom_qty < total_actual_pkg_qty:
+    #             move.product_uom_qty = total_actual_pkg_qty
+    #             need_reassign |= move
+    #             dest_moves = move.move_dest_ids
+    #             while dest_moves:
+    #                 valid_dest = dest_moves.filtered(
+    #                     lambda m: m.picking_id.picking_type_id.uu_only or m.picking_id.picking_type_id.book_full_pallet
+    #                 )
+                    
+    #                 if valid_dest:
+    #                     valid_dest.sudo().write({'product_uom_qty': total_actual_pkg_qty})
+    #                     dest_moves = valid_dest.mapped('move_dest_ids')
+    #                 else:
+    #                     break
+                
+    #     if need_reassign:
+    #         need_reassign_uu = need_reassign & moves_uu
+    #         need_reassign_others = need_reassign - moves_uu
+            
+    #         if need_reassign_others:
+    #             _logger.info("_action_assign Check Availability need_reassign_others")
+    #             super(StockMove, need_reassign_others)._action_assign()
+    #         if need_reassign_uu:
+    #             _logger.info("_action_assign Check Availability need_reassign_uu")
+    #             super(StockMove, need_reassign_uu.with_context(uu_only=True))._action_assign()
+
+    #     # 3. Pengisian Otomatis Result Package KHUSUS Step 1 (uu_only)
+    #     for line in moves_uu.mapped('move_line_ids'):
+    #         if line.package_id and not line.result_package_id:
+    #             _logger.info("Isi Otomatis Destination Package Untuk Scanner")
+    #             line.write({'result_package_id': line.package_id.id})
+                
+    #     for move in moves_outgoing:
+    #         _logger.info("Outgoing otomatis Adjust Demand sama Apus Destination Package")
+    #         if move.move_orig_ids:
+    #             orig_qty = sum(move.move_orig_ids.mapped('quantity'))
+    #             _logger.info(f"Quantity Before OrigQty {orig_qty}\nDemand {move.product_uom_qty}")
+    #             if orig_qty > 0 and move.product_uom_qty != orig_qty:
+    #                 move.write({
+    #                     'product_uom_qty': orig_qty,
+    #                     'quantity': orig_qty
+    #                 })
+    #         for line in move.move_line_ids:
+    #             if line.result_package_id:
+    #                 line.write({'result_package_id': False})
+                
     #     return res
+    
+    def _action_assign(self, **kwargs):
+        moves_uu = self.filtered(lambda m: m.picking_id.picking_type_id.uu_only)
+        moves_full_pallet = self.filtered(lambda m: m.picking_id.picking_type_id.book_full_pallet)
+        moves_normal = self - moves_uu
+        res = True
+        _logger.info(f"MOVES NORMAL ATAU UU\nUU: {moves_uu}\nNormal: {moves_normal}")
+        if moves_normal:
+            res = super(StockMove, moves_normal)._action_assign()
+        if moves_uu and not moves_full_pallet:
+            res = super(StockMove, moves_uu.with_context(uu_only=True))._action_assign()
+            need_reassign = self.env['stock.move']
+            for move in moves_uu:
+                total_actual_pkg_qty = 0
+                has_partial = False
+                for line in move.move_line_ids:
+                    if line.package_id:
+                        actual_pkg_qty = sum(line.package_id.quant_ids.filtered(lambda q: q.product_id == line.product_id).mapped('quantity'))
+                        total_actual_pkg_qty += actual_pkg_qty
+                        if line.quantity < actual_pkg_qty:
+                            has_partial = True
+                            
+                if has_partial and move.product_uom_qty < total_actual_pkg_qty:
+                    move.product_uom_qty = total_actual_pkg_qty
+                    need_reassign |= move
+                    
+            if need_reassign:
+                super(StockMove, need_reassign.with_context(uu_only=True))._action_assign()
+            
+            for line in moves_uu.mapped('move_line_ids'):
+                if line.package_id and not line.result_package_id:
+                    line.write({'result_package_id': line.package_id.id})
+        return res
                     
     # ini untuk next transfer
     def _get_new_picking_values(self):

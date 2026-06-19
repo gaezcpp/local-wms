@@ -253,9 +253,17 @@ class StockPicking(models.Model):
         self._check_all_result_package_id()
         self._check_production_order_sap()
         if self.checker_only or self.checker_out:
-            if self._has_missing_qty():
-                _logger.info(f"Missing qty detected for {self.name}. Triggering auto-backorder.")
-                raise ValidationError(f"Silahkan lakukan Check Quantity untuk melanjutkan proses Validate")
+            status, product, diff_qty = self._has_missing_qty()
+            konversi = False
+            if product:
+                konversi = product.uom_id._compute_quantity(diff_qty, product.uom_bag_id)
+            if status == 'missing':
+                _logger.info(f"Missing qty detected for {self.name}")
+                raise ValidationError("Silahkan lakukan Check Quantity untuk melanjutkan proses Validate")
+            elif status == 'excess':
+                _logger.info(f"Excess qty detected for {self.name}.")
+                raise ValidationError(f"Quantity yang dimasukkan melebihi Quantity Inbound sebanyak [{konversi} {product.uom_bag_id.name}]")
+            
             for move in self.move_ids:
                 if move.state in ('cancel', 'done'):
                     continue
@@ -291,8 +299,10 @@ class StockPicking(models.Model):
             total_processed = sum(all_moves_in_chain.mapped('move_line_ids.quantity'))
             _logger.info(f"APAKAH HAS MISSING DEMAND {total_demand} | PROCESSED {total_processed}")
             if total_demand > total_processed:
-                return True
-        return False
+                return 'missing', product, (total_demand - total_processed)
+            if total_demand < total_processed:
+                return 'excess', product, (total_processed - total_demand)
+        return 'ok', None, 0.0
     
     # Quantity Backorder
     def action_create_quantity_backorder(self):

@@ -178,11 +178,12 @@ class InheritPurchaseOrder(models.Model):
                 'nomor_polisi_desc': nomor_polisi_desc,
             }
             
+            is_new_po = False
             if not po:
                 po = po_model.create(vals_po)
-                po.button_confirm()
                 po.message_post(body=f"PO STO SAP {nomor_po} Created From CRON")
                 _logger.info(f"SO Created {nomor_po}")
+                is_new_po = True
             else:
                 if self._needs_update(po, vals_po):
                     po.write(vals_po)
@@ -235,6 +236,10 @@ class InheritPurchaseOrder(models.Model):
                             'product_uom_qty': qty,
                             'product_uom_id': product_uom.id,
                         })
+            
+            if is_new_po:
+                po.button_confirm()
+                _logger.info(f"PO Confirmed {nomor_po}")
     
     @api.model
     def cron_synhronize_purchase_sloc_to_sloc(self):
@@ -322,11 +327,12 @@ class InheritPurchaseOrder(models.Model):
                 'nomor_polisi_desc': trucknr,
             }
             
+            is_new_po = False
             if not po_sts:
                 po_sts = po_model.create(vals_po_sts)
-                po_sts.button_confirm()
                 po_sts.message_post(body=f"PO Sloc To Sloc SAP {nomor_po} Created From CRON")
                 _logger.info(f"PO Sloc to Sloc Created {nomor_po}")
+                is_new_po = True
             else:
                 if self._needs_update(po_sts, vals_po_sts):
                     po_sts.write(vals_po_sts)
@@ -379,3 +385,7 @@ class InheritPurchaseOrder(models.Model):
                             'product_uom_qty': qty,
                             'product_uom_id': product_uom.id,
                         })
+                        
+            if is_new_po:
+                po_sts.button_confirm()
+                _logger.info(f"PO Confirmed {nomor_po}")
