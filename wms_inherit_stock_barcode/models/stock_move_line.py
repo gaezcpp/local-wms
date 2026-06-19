@@ -30,38 +30,30 @@ class StockMoveLine(models.Model):
                 vals.pop('outermost_result_package_id')
             
         records = super().create(vals_list)
-        packages = records.mapped('result_package_id').filtered(lambda p: p)
-        if packages:
-            records._update_package_can_be_use(packages)
+        records._update_package_can_be_use()
         return records
 
     def write(self, vals):
         self._validate_bag_qty(vals, records=self)
         self._sync_qty_from_bag(vals, records=self)
         self._validate_qty_packaging_sap(vals)
-        
-        old_packages = self.env['stock.package']
-        if 'result_package_id' in vals:
-            old_packages = self.mapped('result_package_id').filtered(lambda p: p)
+        res = super().write(vals)
+        if 'qty_done' in vals or 'bag_qty' in vals or 'result_package_id' in vals:
+            self._update_package_can_be_use()
         
         # Bypass saat update/write data
         if 'outermost_result_package_id' in vals:
             vals.pop('outermost_result_package_id')
-            
-        res = super().write(vals)
-        if 'qty_done' in vals or 'bag_qty' in vals or 'result_package_id' in vals:
-            new_packages = self.mapped('result_package_id').filtered(lambda p: p)
-            packages_to_check = old_packages | new_packages
-            if packages_to_check:
-                self._update_package_can_be_use(packages_to_check)
-                
         return res
     
     def unlink(self):
         packages = self.mapped('result_package_id').filtered(lambda p: p)
         res = super().unlink()
-        if packages:
-            self._update_package_can_be_use(packages)
+        for package in packages:
+            lines = self.sudo().search([('result_package_id', '=', package.id)])
+            total_pallet = sum(lines.mapped('pallet_qty'))
+            if total_pallet < 1:
+                package.sudo().write({'can_be_use': True})
         return res
 
     def _sync_qty_from_bag(self, vals, records=None):
@@ -148,22 +140,19 @@ class StockMoveLine(models.Model):
             'checker_out',
         ]
     
-    def _update_package_can_be_use(self, packages):
+    def _update_package_can_be_use(self):
+        packages = self.mapped('result_package_id').filtered(lambda p: p)
         for package in packages:
-            lines = self.env['stock.move.line'].sudo().search([
+            lines = self.sudo().search([
                 ('result_package_id', '=', package.id),
+                ('product_id', 'in', self.mapped('product_id').ids),
+                ('picking_id', 'in', self.mapped('picking_id').ids),
             ])
-            
             total_pallet = sum(lines.mapped('pallet_qty'))
             total_bag = sum(lines.mapped('bag_qty'))
 
-            if lines:
-                uom_bag_name = lines[0].uom_bag_id.name if lines[0].uom_bag_id else 'BAG'
-                max_bag = lines[0].uom_pallet_id.factor / lines[0].uom_bag_id.factor if lines[0].uom_pallet_id and lines[0].uom_bag_id else 0
-            else:
-                uom_bag_name = 'BAG'
-                max_bag = 0
-
+            uom_bag_name = lines[0].uom_bag_id.name if lines and lines[0].uom_bag_id else 'BAG'
+            max_bag = lines[0].uom_pallet_id.factor / lines[0].uom_bag_id.factor if lines and lines[0].uom_pallet_id and lines[0].uom_bag_id else 0
             remaining_bag = max_bag - total_bag
 
             if total_pallet > 1:
@@ -171,31 +160,7 @@ class StockMoveLine(models.Model):
                     f"{package.name} sudah melebihi UPP Pallet, "
                     f"hanya bisa ditambah sebanyak {remaining_bag:.0f} {uom_bag_name} lagi!"
                 )
-            
             if total_pallet == 1:
                 package.sudo().write({'can_be_use': False})
             else:
-                package.sudo().write({'can_be_use': True})
-    
-    # def _update_package_can_be_use(self):
-    #     packages = self.mapped('result_package_id').filtered(lambda p: p)
-    #     for package in packages:
-    #         lines = self.sudo().search([
-    #             ('result_package_id', '=', package.id),
-    #             ('product_id', 'in', self.mapped('product_id').ids),
-    #             ('picking_id', 'in', self.mapped('picking_id').ids),
-    #         ])
-    #         total_pallet = sum(lines.mapped('pallet_qty'))
-    #         total_bag = sum(lines.mapped('bag_qty'))
-
-    #         uom_bag_name = lines[0].uom_bag_id.name if lines and lines[0].uom_bag_id else 'BAG'
-    #         max_bag = lines[0].uom_pallet_id.factor / lines[0].uom_bag_id.factor if lines and lines[0].uom_pallet_id and lines[0].uom_bag_id else 0
-    #         remaining_bag = max_bag - total_bag
-
-    #         if total_pallet > 1:
-    #             raise ValidationError(
-    #                 f"{package.name} sudah melebihi UPP Pallet, "
-    #                 f"hanya bisa ditambah sebanyak {remaining_bag:.0f} {uom_bag_name} lagi!"
-    #             )
-    #         if total_pallet == 1:
-    #             package.sudo().write({'can_be_use': False})
+                package.sudo().write({'can_be_use': False})
