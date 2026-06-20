@@ -37,7 +37,7 @@ class ProductionOrderSAP(models.Model):
     picking_ids = fields.One2many('stock.picking', 'po_sap_id', string="Pickings")
     remaining_qty = fields.Float(string="Remaining", compute='_compute_gr_qty', store=True)
 
-    @api.depends('picking_ids.state', 'picking_ids.move_ids.quantity')
+    @api.depends('picking_ids.state', 'picking_ids.move_ids.quantity', 'order_qty')
     def _compute_gr_qty(self):
         for po in self:
             done_moves = po.sudo().picking_ids.filtered(

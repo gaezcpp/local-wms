@@ -25,12 +25,10 @@ class StockQuant(models.Model):
             strict=strict,
             qty=qty
         )
-        
-        # Jauh lebih cepat: Filter langsung dari stock_type milik stock.quant
         if self.env.context.get('uu_only'):
             quants = quants.filtered(
-                lambda q: q.stock_type == 'UU' and q.quantity > 0 and (
-                    not q.package_id or (q.package_id.yellow_tag == 'ready' and not q.package_id.is_reserved)
+                lambda q: q.stock_type == 'UU' and (
+                    (q.package_id.yellow_tag == 'ready' and not q.package_id.is_reserved)
                 )
             )
 

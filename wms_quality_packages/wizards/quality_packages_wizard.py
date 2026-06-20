@@ -17,26 +17,19 @@ class QualityPackagesWizard(models.TransientModel):
         if not self.quality_packages_id:
             raise UserError("Data AFT Kosong, silahkan refresh halaman dan lakukan proses ulang!")
         
-        is_other_reason = self.category_aft_id.name.strip().lower() == 'others'
-        if is_other_reason and not self.other_reason:
-            raise UserError("Reason (Other Reason) wajib diisi untuk melanjutkan proses!")
+        if not self.category_aft_id:
+            raise ValidationError("Category AFT wajib diisi untuk melanjutkan proses")
+        else:
+            is_other_reason = self.category_aft_id.name.strip().lower() == 'others'
+            if is_other_reason and not self.other_reason:
+                raise ValidationError("Other Reason wajib diisi karena Category Other!")
         
-        if self.is_to_block:
-            if not self.other_reason:
-                raise UserError("Other Reason perlu diisi untuk melakukan proses Done untuk To Blocked!")
-            
             self.quality_packages_id.write({
                 'category_aft_id': self.category_aft_id.id,
                 'other_reason': self.other_reason if is_other_reason else False,
             })
+            
+        if self.is_to_block:
             return self.quality_packages_id.action_done()
         else:
-            if not self.category_aft_id:
-                raise UserError("Category Wajib diisi!")
-            
-            self.quality_packages_id.write({
-                'category_aft_id': self.category_aft_id.id,
-                'other_reason': self.other_reason if is_other_reason else False,
-            })
-            
             return self.quality_packages_id.action_reject()
