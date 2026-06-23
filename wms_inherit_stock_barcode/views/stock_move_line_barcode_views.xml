@@ -5,6 +5,7 @@
         <field name="model">stock.move.line</field>
         <field name="inherit_id" ref="stock_barcode.stock_move_line_product_selector"/>
         <field name="arch" type="xml">
+            <!--GLOBAL-->
             <xpath expr="//field[@name='quant_id']" position="after">
                 <field name="picking_type_id" invisible="1"/>
                 <field name="mandatory_destination" invisible="1"/>
@@ -28,9 +29,15 @@
                 <attribute name="options">{'no_open': True, 'no_create': True}</attribute>
                 <attribute name="invisible">production_only or checker_only</attribute> <!--PRODUCTION ONLY-->
             </xpath>
-            <xpath expr="//field[@name='product_id']" position="attributes">
+            <xpath expr="//field[@name='lot_id']" position="attributes">
+                <attribute name="readonly">1</attribute>
                 <attribute name="options">{'no_open': True, 'no_create': True}</attribute>
             </xpath>
+            <xpath expr="//div[@name='properties']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+            <!--GLOBAL-->
+
             <!--PRODUCTION ONLY-->
             <xpath expr="//div[@name='location_dest']" position="attributes">
                 <attribute name="invisible">production_only</attribute>
@@ -44,9 +51,9 @@
             <xpath expr="//div[@name='tracking_number']" position="attributes">
                 <attribute name="invisible">production_only</attribute>
             </xpath>
-            <xpath expr="//field[@name='expiration_date']/parent::div/parent::div" position="attributes">
+            <!-- <xpath expr="//field[@name='expiration_date']/parent::div/parent::div" position="attributes">
                 <attribute name="invisible">not use_expiration_date or production_only</attribute>
-            </xpath>
+            </xpath> -->
             <xpath expr="//field[@name='result_package_id']" position="attributes">
                 <attribute name="required">mandatory_destination</attribute>
                 <attribute name="options">{'no_open': True, 'no_create': True}</attribute>
@@ -61,6 +68,18 @@
             <xpath expr="//label[@for='result_package_id']" position="attributes">
                 <attribute name="string">Pallet</attribute>
             </xpath>
+            <xpath expr="//div[@name='location_src']/field[@name='location_id']" position="attributes">
+                <attribute name="readonly">checker_only</attribute>
+            </xpath>
+            <xpath expr="//field[@name='location_dest_id']" position="attributes">
+                <attribute name="readonly">checker_only</attribute>
+            </xpath>
+            <xpath expr="//field[@name='package_id']" position="attributes">
+                <attribute name="readonly">checker_only</attribute>
+            </xpath>
+            <xpath expr="//div[@name='quantity']" position="attributes">
+                <attribute name="invisible">checker_only or checker_out</attribute>
+            </xpath>
             <xpath expr="//div[@name='quantity']" position="before">
                 <div name="bag_quantity" class="row my-2">
                     <div class="col">
@@ -70,7 +89,7 @@
                         <field name="uom_bag_id" class="fs-6" options="{'no_open': True, 'no_create': True}" groups="uom.group_uom" widget="many2one_uom" force_save="1"/>
                     </div>
                 </div>
-                <div name="pallet_quantity" class="row my-2">
+                <div name="pallet_quantity" class="row my-2" invisible="checker_only or checker_out">
                     <div class="col">
                         <field name="pallet_qty" class="text-end" options="{'type': 'number'}" placeholder="Pallet Qty" force_save="1" readonly="1"/>
                     </div>

@@ -8,7 +8,7 @@
                 </span>
                 <br/>
                 
-                <t t-if="!line.checker_only or !line.checker_out">
+                <!-- <t t-if="!line.checker_only or !line.checker_out">
                     <span t-attf-class="o_barcode_scanner_qty font-monospace fs-1">
                         <span class="qty-done"
                             t-attf-class="{{nextExpected === 'quantity' &amp;&amp; qtyDone ? 'o_flash' : ''}} {{qtyDemand &amp;&amp; qtyDone == 0 ? env.model.zeroQtyClass(line) : ''}} {{qtyDemand &amp;&amp; qtyDone &amp;&amp; qtyDone == qtyDemand ? 'text-success' : ''}}"
@@ -16,23 +16,23 @@
                         <span t-if="env.model.displayLineQtyDemand(line)" t-out="'/' + qtyDemand"/>
                     </span>
                     <small t-if="props.displayUOM" class="o_line_uom text-muted ms-1" t-out="props.line.product_uom_id.name"/>
-                </t>
+                </t> -->
 
                 <t t-if="line.uom_bag_id">
-                    <span t-if="!line.checker_only or !line.checker_out" class="text-muted mx-2 fs-3 align-baseline">|</span>
+                    <!-- <span t-if="!line.checker_only or !line.checker_out" class="text-muted mx-2 fs-3 align-baseline">|</span> -->
                     <span class="o_barcode_scanner_qty font-monospace fs-1">
                         <span class="qty-done text-dark" t-esc="line.bag_qty ? Math.round(line.bag_qty * 100) / 100 : 0"/>
                     </span>
                     <small class="text-muted ms-1 fs-6">Bag</small>
                 </t>
 
-                <t t-if="line.uom_pallet_id">
+                <!-- <t t-if="line.uom_pallet_id">
                     <span class="text-muted mx-2 fs-3 align-baseline">|</span>
                     <span class="o_barcode_scanner_qty font-monospace fs-1">
                         <span class="qty-done text-dark" t-esc="line.pallet_qty ? Math.round(line.pallet_qty * 100) / 100 : 0"/>
                     </span>
                     <small class="text-muted ms-1 fs-6">Pallet</small>
-                </t>
+                </t> -->
             </div>
         </xpath>
     </t>

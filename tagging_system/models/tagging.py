@@ -115,11 +115,11 @@ class TaggingRecord(models.Model):
     # SNAPSHOT EQUIPMENT (untuk report/search)
     # =========================
     equipment = fields.Char(string="Equipment (Snapshot)", tracking=True)
-    available_equipment_ids = fields.Many2many(
-    "maintenance.equipment",
-    compute="_compute_available_equipments",
-    store=False,
-)
+#     available_equipment_ids = fields.Many2many(
+#     "maintenance.equipment",
+#     compute="_compute_available_equipments",
+#     store=False,
+# )
     spare_part = fields.Char(string="Spare Part (Snapshot)", tracking=True)
     sku = fields.Char(string="SKU (Snapshot)", tracking=True)
 
@@ -267,16 +267,16 @@ class TaggingRecord(models.Model):
             equip_code = getattr(rec.equipment_id, "functional_location_code", False) or ""
             rec.functional_location_code = parent_code or equip_code or ""
             
-    @api.onchange("equipment_id")
-    def _onchange_equipment_id_reset_sparepart(self):
-        self.sparepart_product_id = False
+    # @api.onchange("equipment_id")
+    # def _onchange_equipment_id_reset_sparepart(self):
+    #     self.sparepart_product_id = False
 
-        domain = [("id", "=", 0)]  # default kosong
-        if self.equipment_id:
-            product_ids = self.equipment_id.product_line_ids.mapped("product_id").ids
-            domain = [("id", "in", product_ids)] if product_ids else [("id", "=", 0)]
+    #     domain = [("id", "=", 0)]  # default kosong
+    #     if self.equipment_id:
+    #         product_ids = self.equipment_id.product_line_ids.mapped("product_id").ids
+    #         domain = [("id", "in", product_ids)] if product_ids else [("id", "=", 0)]
 
-        return {"domain": {"sparepart_product_id": domain}}
+    #     return {"domain": {"sparepart_product_id": domain}}
 
     @api.onchange("barcode_id", "maintenance_team_id")
     def _onchange_barcode_id_parent_equipment_domain(self):
@@ -544,22 +544,22 @@ class TaggingRecord(models.Model):
 
         return records
 
-    @api.depends("parent_equipment_id")
-    def _compute_available_equipments(self):
-        for rec in self:
-            rec.available_equipment_ids = rec.parent_equipment_id.child_equipment_ids if rec.parent_equipment_id else self.env["maintenance.equipment"].browse([])
+    # @api.depends("parent_equipment_id")
+    # def _compute_available_equipments(self):
+    #     for rec in self:
+    #         rec.available_equipment_ids = rec.parent_equipment_id.child_equipment_ids if rec.parent_equipment_id else self.env["maintenance.equipment"].browse([])
 
-    @api.onchange("parent_equipment_id")
-    def _onchange_parent_equipment_id(self):
-        self.equipment_id = False
-        self.sparepart_product_id = False
-        child_ids = self.parent_equipment_id.child_equipment_ids.ids if self.parent_equipment_id else []
-        self.wo_sparepart_ids = [(5, 0, 0)]
-        return {
-            "domain": {
-                "equipment_id": [("id", "in", child_ids)] if child_ids else [("id", "=", 0)]
-            }
-        }
+    # @api.onchange("parent_equipment_id")
+    # def _onchange_parent_equipment_id(self):
+    #     self.equipment_id = False
+    #     self.sparepart_product_id = False
+    #     child_ids = self.parent_equipment_id.child_equipment_ids.ids if self.parent_equipment_id else []
+    #     self.wo_sparepart_ids = [(5, 0, 0)]
+    #     return {
+    #         "domain": {
+    #             "equipment_id": [("id", "in", child_ids)] if child_ids else [("id", "=", 0)]
+    #         }
+    #     }
 
     def _m2o_name(self, v, default="Others"):
         if isinstance(v, (list, tuple)) and len(v) >= 2:

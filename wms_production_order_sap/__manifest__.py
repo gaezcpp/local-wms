@@ -29,6 +29,7 @@ Long description of module's purpose
         'views/production_order_sap_views.xml',
         'views/stock_picking_views.xml',
         'views/stock_quant_views.xml',
+        'views/stock_move_line_barcode_views.xml',
         'views/menuitem.xml',
     ],
 }

@@ -28,13 +28,33 @@ class QualityPackages(models.Model):
     category_aft_id = fields.Many2one(comodel_name='category.quality.packages', string="Category", tracking=True)
     other_reason = fields.Text(string="Other Reason", tracking=True)
     select_all = fields.Boolean(string="Select All", default=False)
+    lot_stock_id = fields.Many2one(comodel_name='stock.location', string="Location Stock")
     
     @api.model_create_multi
     def create(self, vals_list):
+        self._fill_lot_stock_id(vals_list)
         for vals in vals_list:
-            if vals.get('name', _('New')) == _('New'):
-                vals['name'] = self.env['ir.sequence'].next_by_code('quality.packages') or _('New')
+            if vals.get('name', 'New') == 'New':
+                vals['name'] = self.env['ir.sequence'].next_by_code('quality.packages') or 'New'
+                
         return super().create(vals_list)
+    
+    def _fill_lot_stock_id(self, vals_list):
+        company_ids = set()
+        for vals in vals_list:
+            if not vals.get('lot_stock_id'):
+                company_ids.add(vals.get('company_id', self.env.company.id))
+                
+        if not company_ids:
+            return
+        
+        warehouses = self.env['stock.warehouse'].sudo().search([('company_id', 'in', list(company_ids))])
+        wh_loc_map = {wh.company_id.id: wh.lot_stock_id.id for wh in warehouses if wh.lot_stock_id}
+        for vals in vals_list:
+            if not vals.get('lot_stock_id'):
+                company_id = vals.get('company_id', self.env.company.id)
+                if company_id in wh_loc_map:
+                    vals['lot_stock_id'] = wh_loc_map[company_id]
     
     @api.onchange('product_id', 'lot_id', 'location_id', 'action_aft_id')
     def _onchange_reset_checked(self):
@@ -71,7 +91,8 @@ class QualityPackages(models.Model):
                 domain.append(('lot_id', '=', rec.lot_id.id))
             if rec.location_id:
                 domain.append(('location_id', 'child_of', rec.location_id.id))
-
+            elif rec.lot_stock_id:
+                domain.append(('location_id', 'child_of', rec.lot_stock_id.id))
             if rec.action_aft_id and rec.action_aft_id.stock_type_from:
                 domain.append(('stock_type', '=', rec.action_aft_id.stock_type_from))
 

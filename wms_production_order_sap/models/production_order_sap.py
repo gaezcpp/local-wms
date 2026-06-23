@@ -261,7 +261,7 @@ class ProductionOrderSAP(models.Model):
         operation_type_barcode_fg = self.env['ir.config_parameter'].sudo().get_param('operation_type_barcode_fg')
         operation_type = self.env['stock.picking.type'].sudo().search([('company_id', '=', self.company_id.id),('barcode', '=', str(operation_type_barcode_fg))], limit=1)
         if not operation_type:
-            raise ValidationError(f"Operation Type tidak ditemukan untuk Company {self.company_id.company_registry} dan move type {operation_type_barcode_fg or ''}")
+            raise ValidationError(f"Operation Type tidak ditemukan untuk Company {self.company_id.company_registry} dan barcode {operation_type_barcode_fg or ''}")
         right_now = self.now_jakarta()
         now_hour = right_now.strftime('%H%M')
         prod_shift = self.env['production.shift'].sudo().search([('date_start', '<=', now_hour),('date_end', '>=', now_hour),], limit=1)
@@ -274,8 +274,10 @@ class ProductionOrderSAP(models.Model):
                     raise ValidationError("Tidak bisa melakukan GR FG karena Data Inactive")
                 if rec.state == 'teco':
                     raise ValidationError("Tidak bisa melakukan GR FG karena State sudah TECO")
+                if rec.finish_date:
+                    if fields.Date.today() > rec.finish_date:
+                        raise ValidationError(f"Tidak bisa melakukan GR FG karena {fields.Date.today()} sudah melebihi Finish Date {rec.finish_date}")
                 
-                move_vals = []
                 bag_qty = ((rec.remaining_qty * rec.uom_id.factor) / 1000)
                 picking = self.env['stock.picking'].sudo().create({
                     'picking_type_id': operation_type.id,
@@ -288,18 +290,38 @@ class ProductionOrderSAP(models.Model):
                     'origin': rec.po_number,
                     'note': f"Created From Production Order {rec.po_number}",
                 })
+                
+                move_vals = []
                 if picking:
-                    last_picking_id = picking.id
-                    move_vals.append({
-                        'picking_id': picking.id,
-                        'product_id': rec.product_id.id,
-                        'product_uom_qty': bag_qty,
-                        'product_uom': uom_kg.id,
-                        'company_id': rec.company_id.id,
-                    })
-                    self.env['stock.move'].sudo().create(move_vals)
+                    if rec.product_id:
+                        move_vals.append({
+                            'picking_id': picking.id,
+                            'product_id': rec.product_id.id,
+                            'product_uom_qty': 1,
+                            'product_uom': rec.uom_id.id,
+                            'company_id': rec.company_id.id,
+                            'location_id': operation_type.default_location_src_id.id,
+                            'location_dest_id': operation_type.default_location_dest_id.id,
+                        })
+                        
+                    for wip in rec.product_id.product_wip_line_ids:
+                        if wip.product_id:
+                            move_vals.append({
+                                'picking_id': picking.id,
+                                'product_id': wip.product_id.id,
+                                'product_uom_qty': 1,
+                                'product_uom': uom_kg.id,
+                                'company_id': rec.company_id.id,
+                                'location_id': operation_type.default_location_src_id.id,
+                                'location_dest_id': operation_type.default_location_dest_id.id,
+                            })
+                            
+                    if move_vals:
+                        self.env['stock.move'].sudo().create(move_vals)
+                        
                     picking.message_post(body=f"Created From Production Order {rec.po_number}")
                     picking.action_confirm()
+                    last_picking_id = picking.id
                     if picking.move_line_ids:
                         picking.move_line_ids.sudo().write({'stock_type': 'QI'})
                     rec.sudo().write({'state': 'in_progress'})
@@ -337,6 +359,9 @@ class ProductionOrderSAP(models.Model):
                 raise ValidationError("Tidak bisa melakukan GR WIP karena Data Inactive")
             if rec.state == 'teco':
                 raise ValidationError("Tidak bisa melakukan GR WIP karena State sudah TECO")
+            if rec.finish_date:
+                if fields.Date.today() > rec.finish_date:
+                    raise ValidationError(f"Tidak bisa melakukan GR WIP karena {fields.Date.today()} sudah melebihi Finish Date {rec.finish_date}")
                 
             picking = self.env['stock.picking'].sudo().create({
                 'picking_type_id': operation_type.id,
@@ -352,6 +377,17 @@ class ProductionOrderSAP(models.Model):
             
             move_vals = []
             if picking:
+                if rec.product_id:
+                    move_vals.append({
+                        'picking_id': picking.id,
+                        'product_id': rec.product_id.id,
+                        'product_uom_qty': 1,
+                        'product_uom': rec.uom_id.id,
+                        'company_id': rec.company_id.id,
+                        'location_id': operation_type.default_location_src_id.id,
+                        'location_dest_id': operation_type.default_location_dest_id.id,
+                    })
+
                 for wip in rec.product_id.product_wip_line_ids:
                     if wip.product_id:
                         move_vals.append({

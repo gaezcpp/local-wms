@@ -14,6 +14,40 @@ class InheritResPartner(models.Model):
     plant_sap = fields.Boolean(string="Plant SAP", default=False, tracking=True)
     cust_mobile = fields.Char(string="Mobile")
     
+    def _needs_update(self, model, vals):
+        for field, new_val in vals.items():
+            if field not in model._fields:
+                continue
+
+            field_def = model._fields[field]
+            old_val = model[field]
+
+            if field_def.type == 'many2one':
+                old_id = old_val.id if old_val else False
+                if old_id != new_val:
+                    return True
+
+            elif field_def.type in ('many2many', 'one2many'):
+                if isinstance(new_val, list):
+                    new_ids = set()
+                    for cmd in new_val:
+                        if cmd[0] == 6:
+                            new_ids = set(cmd[2])
+                        elif cmd[0] == 4:
+                            new_ids.add(cmd[1])
+                    old_ids = set(old_val.ids)
+                    if old_ids != new_ids:
+                        return True
+                else:
+                    if set(old_val.ids) != set(new_val):
+                        return True
+
+            else:
+                if (old_val or False) != (new_val or False):
+                    return True
+
+        return False
+    
     @api.model
     def _fetch_sap_data(self, config_key, cron_name):
         icp = self.env['ir.config_parameter'].sudo()
@@ -41,6 +75,7 @@ class InheritResPartner(models.Model):
                 url=f"{ip_sap_rfc}/api/v1/zfm-query-data",
                 headers=headers,
                 data=json.dumps(body),
+                timeout=240
             )
         except Exception as e:
             raise ValidationError(str(e))
@@ -70,6 +105,9 @@ class InheritResPartner(models.Model):
         Country = self.env['res.country'].sudo()
 
         country_cache = {c.code: c.id for c in Country.search([])}
+        all_refs = [d.get('KUNNR') for d in data_list if d.get('KUNNR')]
+        existing_partners = Partner.search([('ref', 'in', all_refs)])
+        partner_cache = {p.ref: p for p in existing_partners}
 
         for data in data_list:
             ref = data.get('KUNNR')
@@ -100,64 +138,31 @@ class InheritResPartner(models.Model):
                 'phone': phone,
                 'cust_mobile': mobile,
                 'sap_synchronize': True,
-                # additional
                 'type': 'contact',
                 'company_type': 'person',
                 'active': False if loevm == 'X' else True,
             }
 
-            partner = Partner.search([('ref', '=', ref)], limit=1)
-
+            partner = partner_cache.get(ref)
             if not partner:
                 new_partner = Partner.create(vals)
                 new_partner.message_post(body=f"Partner {ref} Created from Cron")
                 _logger.info(f"Partner {ref} Created")
+                partner_cache[ref] = new_partner
             else:
-                partner.write(vals)
-                # _logger.info(f"Partner {ref} Updated")
+                if self._needs_update(partner, vals):
+                    partner.write(vals)
+                    _logger.info(f"CUSTOMER {partner.ref} Updated")
                 
     @api.model
     def cron_synchronize_sap_plan_as_partner(self):
-        icp = self.env['ir.config_parameter'].sudo()
-
-        x_i_api_key = icp.get_param('x_i_api_key')
-        ip_sap_rfc = icp.get_param('ip_sap_rfc')
-        query_plan_as_partner_sap = icp.get_param('query_plan_as_partner_sap')
-
-        if not x_i_api_key:
-            raise ValidationError("x_i_api_key belum disetting!")
-        if not ip_sap_rfc:
-            raise ValidationError("ip_sap_rfc belum disetting!")
-        if not query_plan_as_partner_sap:
-            raise ValidationError("query_plan_as_partner_sap belum disetting!")
-
-        headers = {
-            "x-i-api-key": str(x_i_api_key),
-            "Content-Type": "application/json"
-        }
-
-        url = f"{str(ip_sap_rfc)}/api/v1/zfm-query-data"
-        body = {
-            "I_QUERY": str(query_plan_as_partner_sap),
-            "I_MOD": "CRON cron_synchronize_sap_plan_as_partner"
-        }
-
-        try:
-            response = requests.post(url=url, headers=headers, data=json.dumps(body),)
-        except Exception as e:
-            raise ValidationError(str(e))
-
-        res = response.json()
-
-        if res.get('error'):
-            raise ValidationError(json.dumps(res.get('error')))
-
-        if not res.get('success'):
-            _logger.info("=== CRON cron_synchronize_sap_plan_as_partner NOT SUCCESS ===")
+        data_list = self._fetch_sap_data(
+            config_key='query_plan_as_partner_sap',
+            cron_name='cron_synchronize_sap_plan_as_partner',
+        )
+        if not data_list:
             return True
-
-        data_list = res.get('data', [])
-        _logger.info(f"TOTAL DATA T001W : {len(data_list)}")
+        _logger.info(f"TOTAL DATA cron_synchronize_sap_plan_as_partner: {len(data_list)}")
         
         Partner = self.env['res.partner'].sudo()
         Country = self.env['res.country'].sudo()
@@ -196,4 +201,6 @@ class InheritResPartner(models.Model):
                 new_plant.message_post(body=f"PLANT {ref} Created from Cron")
                 _logger.info(f"PLANT {ref} Created from Cron")
             else:
-                existing_plant.write(vals)
+                if self._needs_update(existing_plant, vals):
+                    existing_plant.write(vals)
+                    _logger.info(f"PLAN {existing_plant.ref} Updated")
