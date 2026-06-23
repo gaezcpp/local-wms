@@ -12,6 +12,7 @@ class ProductWIP(models.Model):
     parent_product_id = fields.Many2one(comodel_name='product.template', string="Product Temp")
     product_id = fields.Many2one(comodel_name='product.product', string="Product WIP")
     default_code = fields.Char(string="Reference")
+    warehouse_id = fields.Many2one(comodel_name='stock.warehouse', string="WH Category")
     
     @api.onchange('product_id')
     def onchange_product_data(self):

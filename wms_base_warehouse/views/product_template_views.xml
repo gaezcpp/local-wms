@@ -11,12 +11,14 @@
                         <field name="product_wip_line_ids">
                             <list editable="bottom">
                                 <field name="product_id" options="{'no_create': True}"/>
-                                <field name="default_code" force_save="1" readonly="1"/>
+                                <field name="default_code" force_save="1" readonly="1" optional="hide"/>
+                                <field name="warehouse_id" options="{'no_create': True}" required="1"/>
                             </list>
                             <form create="0" edit="0" delete="0">
                                 <group>
                                     <field name="product_id" options="{'no_create': True}"/>
                                     <field name="default_code" force_save="1" readonly="1"/>
+                                    <field name="warehouse_id" options="{'no_create': True}"/>
                                 </group>
                             </form>
                         </field>
