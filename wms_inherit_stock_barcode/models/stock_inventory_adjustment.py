@@ -31,6 +31,7 @@ class StockInventoryAdjustment(models.Model):
         ('in_progress', 'In Progress'),
         ('done_counting', 'Done Counting'),
         ('done_sap', 'Done SAP'),
+        ('berita_acara', 'Berita Acara'),
         ('cancelled', 'Cancelled')
     ], default='draft', string="State", tracking=True)
     notes = fields.Text(string="Notes")
@@ -114,7 +115,8 @@ class StockInventoryAdjustment(models.Model):
 
             quant = Quant.search(domain)
             if not quant:
-                raise ValidationError("Physical Inventory not found!")
+                # raise ValidationError("Physical Inventory not found!")
+                print("Physical Inventory Not Found")
             
             for q in quant:
                 self.env['stock.inventory.adjustment.line'].create({
@@ -471,6 +473,9 @@ class StockInventoryAdjustment(models.Model):
                     summary_sia_model.create(vals_line)
 
             _logger.info(f"SIA Summary {iblnr} total line {len(rows)}")
+            
+            if sia.state == 'draft': 
+                sia.check_details()
             
     @api.model
     def cron_synchronize_auto_done_pid(self):

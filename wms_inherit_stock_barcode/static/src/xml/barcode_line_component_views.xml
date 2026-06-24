@@ -38,10 +38,22 @@
     </t>
 
     <!--NGILANGIN TOMBOL PLUS MINUS QUANTITY-->
-    <t t-inherit="stock_barcode.LineLowerButtons" t-inherit-mode="extension">
+    <!-- <t t-inherit="stock_barcode.LineLowerButtons" t-inherit-mode="extension">
         <xpath expr="//div[not(@t-if)]" position="replace">
             <div class="d-none flex-nowrap gap-2">
                 </div>
+        </xpath>
+    </t> -->
+    <t t-inherit="stock_barcode.LineLowerButtons" t-inherit-mode="extension">
+        <xpath expr="//div[hasclass('gap-2')]" position="replace">
+            <div t-else="" class="d-flex flex-nowrap gap-2">
+                <button t-if="env.model.isProductionOnly()" name="deleteButton"
+                        t-on-click="() => this.env.model.deleteLine(line)"
+                        t-att-disabled="!this.env.model.lineCanBeEdited(line)"
+                        class="o_line_button o_delete_line btn btn-danger">
+                    <span class="fa fa-lg fa-trash"/>
+                </button>
+            </div>
         </xpath>
     </t>
 

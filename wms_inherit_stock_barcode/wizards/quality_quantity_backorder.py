@@ -10,7 +10,7 @@ class QualityQuantityBackorder(models.TransientModel):
     picking_id = fields.Many2one(comodel_name='stock.picking', string="Pick")
     company_id = fields.Many2one(comodel_name='res.company', string="Company", default=lambda self: self.env.company)
     picking_type_id = fields.Many2one(comodel_name='stock.picking.type', string="Operation Type")
-    result_package_id = fields.Many2one(comodel_name='stock.package', string="Destination Package")
+    result_package_id = fields.Many2one(comodel_name='stock.package', string="Destination Pallet")
     is_quality = fields.Boolean(string="Is Quality", default=False)
     line_ids = fields.One2many(comodel_name='quality.quantity.backorder.line',inverse_name='backorder_wizard_id', string="Products")
     
@@ -19,11 +19,18 @@ class QualityQuantityBackorder(models.TransientModel):
         _logger.info(f"Starting Quality Backorder for Picking: {self.picking_id.name if self.picking_id else 'None'}")
         
         if not self.picking_type_id:
-            raise UserError(_("Operation Type wajib diisi!"))
+            raise UserError("Operation Type wajib diisi!")
         if not self.line_ids:
-            raise UserError(_("Tambahkan setidaknya satu produk!"))
+            raise UserError("Tambahkan setidaknya satu produk!")
+        
+        for line in self.line_ids:
+            if line.qty_pack > line.limit_qty_pack:
+                raise ValidationError(f"Quantity untuk Product {line.product_id.default_code} melebihi batas")
+            if not line.result_package_id:
+                raise ValidationError(f"Destination Pallet untuk Product {line.product_id.default_code} harus diisi!")
+            if not line.wh_category_id:
+                raise ValidationError(f"Category untuk Product {line.product_id.default_code} harus diisi!")
 
-        # 1. Buat Picking Baru
         new_picking = self.env['stock.picking'].create({
             'picking_type_id': self.picking_type_id.id,
             'location_id': self.line_ids[0].location_id.id,
@@ -35,14 +42,11 @@ class QualityQuantityBackorder(models.TransientModel):
         })
         _logger.info(f"New Picking created: {new_picking.name}")
 
-        # 2. Proses Move dan Move Lines
         for line in self.line_ids:
             _logger.info(f"Processing line for product {line.product_id.display_name}, Qty: {line.qty}")
             
-            # Hitung base quantity
             base_qty = line.product_uom_id._compute_quantity(line.qty, line.product_id.uom_id)
             
-            # Buat Stock Move di Picking baru
             move = self.env['stock.move'].create({
                 'product_id': line.product_id.id,
                 'product_uom_qty': base_qty,
@@ -54,7 +58,6 @@ class QualityQuantityBackorder(models.TransientModel):
             })
             move._action_confirm()
             
-            # Update/Reduce Move Line Asli
             if line.move_line_id:
                 orig_ml = line.move_line_id
                 _logger.info(f"Reducing original move line {orig_ml.id}. Old Qty: {orig_ml.quantity}")
@@ -69,7 +72,6 @@ class QualityQuantityBackorder(models.TransientModel):
                 else:
                     orig_ml.unlink()
 
-            # Create Move Line di Picking baru
             move.move_line_ids.unlink()
             self.env['stock.move.line'].create({
                 'move_id': move.id,
@@ -89,7 +91,6 @@ class QualityQuantityBackorder(models.TransientModel):
                 'wh_category_id': line.wh_category_id.id if line.wh_category_id else False,
             })
 
-        # 3. Finalisasi Picking
         new_picking.action_assign()
         new_picking.action_confirm()
         if new_picking.state == 'assigned':
@@ -107,7 +108,7 @@ class QualityQuantityBackorder(models.TransientModel):
                 "message": "Quality Backorder telah diproses.",
                 "type": "success",
                 "sticky": False,
-                "next": {"type": "ir.actions.act_window_close"}, # Menutup wizard
+                "next": {"type": "ir.actions.act_window_close"},
             },
         }
         
@@ -127,7 +128,9 @@ class QualityQuantityBackorderLine(models.TransientModel):
     location_id = fields.Many2one(comodel_name='stock.location', string="Source Location")
     package_id = fields.Many2one(comodel_name='stock.package', string="Package")
     production_line_id = fields.Many2one(comodel_name='production.line', string="Production Line")
+    company_id = fields.Many2one(comodel_name='res.company', string="Company")
     wh_category_id = fields.Many2one(comodel_name='stock.warehouse.category', string="Category")
+    limit_qty_pack = fields.Float(string="Limit Qty Pack")
     
     @api.onchange('qty_pack')
     def _onchange_qty_pack(self):

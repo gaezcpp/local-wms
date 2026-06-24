@@ -74,6 +74,11 @@ class ProductionOrderSAP(models.Model):
                 'duplicate': 0,
             }
         }
+        
+    def today_jakarta(self):
+        tz = pytz.timezone('Asia/Jakarta')
+        now_jakarta = datetime.now(tz)
+        return now_jakarta.date()
     
     def now_jakarta(self):
         tz = pytz.timezone('Asia/Jakarta')
@@ -267,14 +272,15 @@ class ProductionOrderSAP(models.Model):
         prod_shift = self.env['production.shift'].sudo().search([('date_start', '<=', now_hour),('date_end', '>=', now_hour),], limit=1)
         uom_kg = self.env['uom.uom'].sudo().search([('name', '=', 'kg')], limit=1)
         
+        today = self.today_jakarta()
         last_picking_id = False
         for rec in self:
             if not rec.active:
                 raise ValidationError("Tidak bisa melakukan GR FG karena Data Inactive")
             if rec.state == 'teco':
                 raise ValidationError("Tidak bisa melakukan GR FG karena State sudah TECO")
-            if rec.finish_date and fields.Date.today() > rec.finish_date:
-                raise ValidationError(f"Tidak bisa melakukan GR WIP karena {fields.Date.today()} sudah melebihi Finish Date {rec.finish_date}")
+            if rec.finish_date and today > rec.finish_date:
+                raise ValidationError(f"Tidak bisa melakukan GR WIP karena {today} sudah melebihi Finish Date {rec.finish_date}")
             
             bag_qty = ((rec.remaining_qty * rec.uom_id.factor) / 1000)
             picking = self.env['stock.picking'].sudo().create({
@@ -328,14 +334,14 @@ class ProductionOrderSAP(models.Model):
         uom_kg = self.env['uom.uom'].sudo().search([('name', '=', 'kg')], limit=1)
 
         last_picking_id = False
+        today = self.today_jakarta()
         for rec in self:
             if not rec.active:
                 raise ValidationError("Tidak bisa melakukan GR WIP karena Data Inactive")
             if rec.state == 'teco':
                 raise ValidationError("Tidak bisa melakukan GR WIP karena State sudah TECO")
-            if rec.finish_date:
-                if fields.Date.today() > rec.finish_date:
-                    raise ValidationError(f"Tidak bisa melakukan GR WIP karena {fields.Date.today()} sudah melebihi Finish Date {rec.finish_date}")
+            if rec.finish_date and today > rec.finish_date:
+                raise ValidationError(f"Tidak bisa melakukan GR WIP karena {today} sudah melebihi Finish Date {rec.finish_date}")
             
             bag_qty = ((rec.remaining_qty * rec.uom_id.factor) / 1000)
             picking = self.env['stock.picking'].sudo().create({
