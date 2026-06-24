@@ -122,6 +122,30 @@
                             <field name="sap_pp" force_save="1" readonly="1"/>
                         </group>
                     </group>
+                    <notebook>
+						<page string="WIP">
+							<field name="po_sap_line_ids">
+								<list editable="bottom">
+                                    <field name="po_sap_id" column_invisible="1" readonly="1" options="{'no_open': True, 'no_create': True}"/>
+                                    <field name="no_item" readonly="1"/>
+                                    <field name="product_id" readonly="1" options="{'no_open': True, 'no_create': True}"/>
+                                    <field name="uom_id" readonly="1" widget="many2one_uom" options="{'no_open': True, 'no_create': True}"/>
+                                    <field name="order_qty" readonly="1"/>
+                                    <field name="total_picking_wip" readonly="1"/>
+								</list>
+								<form create="0" edit="0" delete="0">
+                                    <group>
+                                        <field name="po_sap_id" invisible="1" readonly="1" options="{'no_open': True, 'no_create': True}"/>
+                                        <field name="no_item" readonly="1"/>
+                                        <field name="product_id" readonly="1" options="{'no_open': True, 'no_create': True}"/>
+                                        <field name="uom_id" readonly="1" widget="many2one_uom" options="{'no_open': True, 'no_create': True}"/>
+                                        <field name="order_qty" readonly="1"/>
+                                        <field name="total_picking_wip" readonly="1"/>
+                                    </group>
+								</form>
+							</field>
+						</page>
+					</notebook>
                 </sheet>
                 <chatter/>
             </form>

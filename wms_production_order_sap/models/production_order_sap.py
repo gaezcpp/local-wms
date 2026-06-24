@@ -1,6 +1,7 @@
 from odoo import models, fields, api
 from odoo.exceptions import ValidationError
 from datetime import datetime
+from collections import defaultdict
 import requests
 import json
 import logging
@@ -36,6 +37,7 @@ class ProductionOrderSAP(models.Model):
     gr_kg_qty = fields.Float(string="GR Kg", compute='_compute_gr_qty', store=True)
     picking_ids = fields.One2many('stock.picking', 'po_sap_id', string="Pickings")
     remaining_qty = fields.Float(string="Remaining", compute='_compute_gr_qty', store=True)
+    po_sap_line_ids = fields.One2many('production.order.sap.line', 'po_sap_id')
 
     @api.depends('picking_ids.state', 'picking_ids.move_ids.quantity', 'order_qty')
     def _compute_gr_qty(self):
@@ -160,6 +162,108 @@ class ProductionOrderSAP(models.Model):
         _logger.info(f"CRON {cron_name} - TOTAL DATA: {len(data_list)}")
         return data_list
     
+    # @api.model
+    # def cron_synchronize_sap_production_order(self):
+    #     data_list = self._fetch_sap_data(
+    #         config_key='query_production_order_sap',
+    #         cron_name='cron_synchronize_sap_production_order',
+    #     )
+    #     if not data_list:
+    #         return True
+    #     _logger.info(f"TOTAL DATA cron_synchronize_sap_production_order: {len(data_list)}")
+        
+    #     po_sap = self.env['production.order.sap'].sudo()
+    #     companies = self.env['res.company'].sudo()
+    #     product_template = self.env['product.product'].sudo()
+    #     unit_of_measure = self.env['uom.uom'].sudo()
+    #     for data in data_list:
+    #         po_number = data.get('AUFNR')
+    #         if not po_number:
+    #             continue
+            
+    #         order_type = data.get('AUART') or ''
+    #         company_registry = data.get('WERKS') or ''
+    #         if company_registry:
+    #             company_id = companies.search([
+    #                 ('company_registry', '=', company_registry),
+    #                 ('sync_wms', '=', True),
+    #             ], limit=1)
+    #             if not company_id:
+    #                 _logger.info(f"cron_synchronize_sap_production_order COMPANY: {company_registry} SKIPPED")
+    #                 continue
+            
+    #         product_code = (data.get('MATNR') or '').lstrip('0')
+    #         if product_code:
+    #             product_id = product_template.search([('default_code', '=', product_code),('company_id', '=', company_id.id)], limit=1)
+    #             if not product_id:
+    #                 _logger.info(f"cron_synchronize_sap_production_order PRODUCT: {product_code} SKIPPED")
+    #                 continue
+                
+    #         unit = data.get('GMEIN') or ''
+    #         product_uom = False
+    #         if unit.upper() != "KG":
+    #             raw_umrez = str(data.get('UMREZ') or '').strip()
+    #             uom_numerator = float(raw_umrez if raw_umrez else 0.0)
+                
+    #             raw_umren = str(data.get('UMREN') or '').strip()
+    #             uom_denominator = float(raw_umren if raw_umren else 0.0)
+                
+    #             ratio = (uom_numerator / uom_denominator) if uom_denominator else 0.0
+    #             ratio = int(ratio) if ratio.is_integer() else ratio
+    #             uom_name = f"{unit} {ratio}"
+    #             product_uom = unit_of_measure.search([('name', '=', uom_name)], limit=1)
+    #         else:
+    #             product_uom = unit_of_measure.search([('name', '=', 'kg')], limit=1)
+            
+    #         start_date = False
+    #         finish_date = False
+    #         raw_start = data.get('GSTRP')
+    #         if raw_start and len(raw_start) == 8:
+    #             start_date = datetime.strptime(raw_start, "%Y%m%d").date()
+
+    #         raw_finish = data.get('GLTRP')
+    #         if raw_finish and len(raw_finish) == 8:
+    #             finish_date = datetime.strptime(raw_finish, "%Y%m%d").date()
+            
+    #         raw_gamng = str(data.get('GAMNG') or '').strip()
+    #         order_qty = float(raw_gamng if raw_gamng else 0.0)
+    #         created_user = data.get('ERNAM') or ''
+    #         teco_status = (data.get('TECO_STATUS') or '').strip().upper()
+    #         loekz = (data.get('LOEKZ') or '').strip()
+            
+    #         vals = {
+    #             'po_number': po_number,
+    #             'order_type': order_type,
+    #             'start_date': start_date,
+    #             'finish_date': finish_date,
+    #             'product_id': product_id.id if product_id else False,
+    #             'uom_id': product_uom.id if product_uom else False,
+    #             'order_qty': order_qty,
+    #             'company_id': company_id.id if company_id else False,
+    #             'company_registry': company_id.company_registry if company_id else False,
+    #             'status_teco': teco_status,
+    #             'created_user': created_user,
+    #             'sap_pp': True,
+    #             'active': loekz != 'X',
+    #         }
+            
+    #         existing_po_sap = po_sap.search([('po_number', '=', po_number)], limit=1)
+    #         if not existing_po_sap:
+    #             new_po = po_sap.create(vals)
+    #             new_po.message_post(body=f"PO SAP {new_po.po_number} Created from Cron")
+    #             _logger.info(f"PO SAP {new_po.po_number} Created")
+    #         else:
+    #             if self._needs_update(existing_po_sap, vals):
+    #                 existing_po_sap.write(vals)
+    #                 _logger.info(f"PO {existing_po_sap.po_number} Updated")
+                
+    #             if teco_status == 'TECO':
+    #                 if existing_po_sap.state != 'teco':
+    #                     existing_po_sap.write({'state': 'teco', 'status_teco': 'TECO'})
+    #             else:
+    #                 if existing_po_sap.state != 'teco':
+    #                     existing_po_sap.write({'state': 'in_progress', 'status_teco': 'NOT TECO'})
+    
     @api.model
     def cron_synchronize_sap_production_order(self):
         data_list = self._fetch_sap_data(
@@ -170,64 +274,71 @@ class ProductionOrderSAP(models.Model):
             return True
         _logger.info(f"TOTAL DATA cron_synchronize_sap_production_order: {len(data_list)}")
         
-        po_sap = self.env['production.order.sap'].sudo()
-        companies = self.env['res.company'].sudo()
-        product_template = self.env['product.product'].sudo()
-        unit_of_measure = self.env['uom.uom'].sudo()
-        for data in data_list:
-            po_number = data.get('AUFNR')
+        po_sap_model = self.env['production.order.sap'].sudo()
+        po_sap_line_model = self.env['production.order.sap.line'].sudo()
+        company_model = self.env['res.company'].sudo()
+        product_model = self.env['product.product'].sudo()
+        uom_model = self.env['uom.uom'].sudo()
+        
+        grouped_data = defaultdict(list)
+        for row in data_list:
+            po_number = row.get('AUFNR') or ''
             if not po_number:
                 continue
+            grouped_data[po_number].append(row)
             
-            order_type = data.get('AUART') or ''
-            company_registry = data.get('WERKS') or ''
+        for po_number, rows in grouped_data.items():
+            first = rows[0]
+            order_type = first.get('AUART') or ''
+            
+            company_registry = first.get('WERKS') or ''
             if company_registry:
-                company_id = companies.search([
+                company_id = company_model.search([
                     ('company_registry', '=', company_registry),
                     ('sync_wms', '=', True),
                 ], limit=1)
                 if not company_id:
                     _logger.info(f"cron_synchronize_sap_production_order COMPANY: {company_registry} SKIPPED")
                     continue
-            
-            product_code = (data.get('MATNR') or '').lstrip('0')
+                
+            product_code = (first.get('MATNR') or '').lstrip('0')
             if product_code:
-                product_id = product_template.search([('default_code', '=', product_code),('company_id', '=', company_id.id)], limit=1)
+                product_id = product_model.search([('default_code', '=', product_code),('company_id', '=', company_id.id)], limit=1)
                 if not product_id:
                     _logger.info(f"cron_synchronize_sap_production_order PRODUCT: {product_code} SKIPPED")
                     continue
-                
-            unit = data.get('GMEIN') or ''
+            
+            unit = first.get('GMEIN') or ''
             product_uom = False
             if unit.upper() != "KG":
-                raw_umrez = str(data.get('UMREZ') or '').strip()
+                raw_umrez = str(first.get('UMREZ') or '').strip()
                 uom_numerator = float(raw_umrez if raw_umrez else 0.0)
                 
-                raw_umren = str(data.get('UMREN') or '').strip()
+                raw_umren = str(first.get('UMREN') or '').strip()
                 uom_denominator = float(raw_umren if raw_umren else 0.0)
                 
                 ratio = (uom_numerator / uom_denominator) if uom_denominator else 0.0
                 ratio = int(ratio) if ratio.is_integer() else ratio
                 uom_name = f"{unit} {ratio}"
-                product_uom = unit_of_measure.search([('name', '=', uom_name)], limit=1)
+                product_uom = uom_model.search([('name', '=', uom_name)], limit=1)
             else:
-                product_uom = unit_of_measure.search([('name', '=', 'kg')], limit=1)
+                product_uom = uom_model.search([('name', '=', 'kg')], limit=1)
             
             start_date = False
             finish_date = False
-            raw_start = data.get('GSTRP')
+            raw_start = first.get('GSTRP')
             if raw_start and len(raw_start) == 8:
                 start_date = datetime.strptime(raw_start, "%Y%m%d").date()
 
-            raw_finish = data.get('GLTRP')
+            raw_finish = first.get('GLTRP')
             if raw_finish and len(raw_finish) == 8:
                 finish_date = datetime.strptime(raw_finish, "%Y%m%d").date()
             
-            raw_gamng = str(data.get('GAMNG') or '').strip()
+            raw_gamng = str(first.get('GAMNG') or '').strip()
             order_qty = float(raw_gamng if raw_gamng else 0.0)
-            created_user = data.get('ERNAM') or ''
-            teco_status = (data.get('TECO_STATUS') or '').strip().upper()
-            loekz = (data.get('LOEKZ') or '').strip()
+            created_user = first.get('ERNAM') or ''
+            teco_status = (first.get('TECO_STATUS') or '').strip().upper()
+            loekz = (first.get('LOEKZ') or '').strip()
             
             vals = {
                 'po_number': po_number,
@@ -245,23 +356,72 @@ class ProductionOrderSAP(models.Model):
                 'active': loekz != 'X',
             }
             
-            existing_po_sap = po_sap.search([('po_number', '=', po_number)], limit=1)
-            if not existing_po_sap:
-                new_po = po_sap.create(vals)
-                new_po.message_post(body=f"PO SAP {new_po.po_number} Created from Cron")
-                _logger.info(f"PO SAP {new_po.po_number} Created")
+            prod_order = po_sap_model.search([('po_number', '=', po_number)], limit=1)
+            if not prod_order:
+                prod_order = po_sap_model.create(vals)
+                prod_order.message_post(body=f"PO SAP {prod_order.po_number} Created from Cron")
+                _logger.info(f"PO SAP {prod_order.po_number} Created")
             else:
-                if self._needs_update(existing_po_sap, vals):
-                    existing_po_sap.write(vals)
-                    _logger.info(f"PO {existing_po_sap.po_number} Updated")
+                if self._needs_update(prod_order, vals):
+                    prod_order.write(vals)
+                    _logger.info(f"PO {prod_order.po_number} Updated")
                 
                 if teco_status == 'TECO':
-                    if existing_po_sap.state != 'teco':
-                        existing_po_sap.write({'state': 'teco', 'status_teco': 'TECO'})
+                    if prod_order.state != 'teco':
+                        prod_order.write({'state': 'teco', 'status_teco': 'TECO'})
                 else:
-                    if existing_po_sap.state != 'teco':
-                        existing_po_sap.write({'state': 'in_progress', 'status_teco': 'NOT TECO'})
+                    if prod_order.state != 'teco':
+                        prod_order.write({'state': 'in_progress', 'status_teco': 'NOT TECO'})
+            
+            for row in rows:
+                component_code = (row.get('COMPONENT')).lstrip('0')
+                component = product_model.search([('default_code', '=', component_code),('company_id', '=', company_id.id)], limit=1)
+                if not component:
+                    continue
                 
+                op_type_id = False
+                for wip in component.product_wip_line_ids:
+                    if wip.product_id.id == component.id:
+                        op_type_id = wip.warehouse_id.pick_type_id.id
+                        break
+                
+                uom_component = (row.get('UOM_COMP')).strip().lower()
+                uom_comp = uom_model.search([('name', '=', uom_component)], limit=1)
+                if not uom_comp:
+                    continue
+                
+                qty_component = float(row.get('BDMNG') or 0)
+                seq_component = row.get('RSPOS')
+                
+                existing_line = po_sap_line_model.search([
+                    ('po_sap_id', '=', prod_order.id),
+                    ('no_item', '=', seq_component)
+                ], limit=1)
+                
+                vals_line = {
+                    'po_sap_id': prod_order.id,
+                    'no_item': seq_component,
+                    'product_id': component.id,
+                    'uom_id': uom_comp.id,
+                    'order_qty': qty_component,
+                    'picking_type_id': op_type_id,
+                }
+                
+                if existing_line:
+                    if self._needs_update(existing_line, vals_line):
+                        existing_line.write({
+                            'order_qty': qty_component,
+                            'uom_id': uom_comp.id, 
+                        })
+                else:
+                    existing_line = po_sap_line_model.create(vals_line)
+                
+                if existing_line.po_sap_id.state != 'teco' and not existing_line.picking_created:
+                    existing_line.action_create_picking_wip()
+
+            _logger.info(f"PROD ORDER {po_number} total line {len(rows)}")
+            
+        
     def action_picking_po_sap(self):
         operation_type_barcode_fg = self.env['ir.config_parameter'].sudo().get_param('operation_type_barcode_fg')
         operation_type = self.env['stock.picking.type'].sudo().search([('company_id', '=', self.company_id.id),('barcode', '=', str(operation_type_barcode_fg))], limit=1)
