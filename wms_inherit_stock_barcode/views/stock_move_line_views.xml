@@ -12,7 +12,7 @@
                     <field name="wh_category_id" string="Category" force_save="1" readonly="1" options="{'no_open': True, 'no_create': True}"/>
                 </xpath>
                 <xpath expr="//field[@name='quant_id']" position="before">
-                    <field name="qty_packaging_sap" readonly="1" invisible="1"/>
+                    <field name="qty_packaging_sap" readonly="1" column_invisible="1"/>
                 </xpath>
             </field>
         </record>

@@ -10,6 +10,7 @@ class QualityPackages(models.Model):
     _order = 'id desc'
     
     name = fields.Char(string="Name", default="New")
+    warehouse_id = fields.Many2one(comodel_name='stock.warehouse', string="Warehouse", tracking=True)
     product_id = fields.Many2one(comodel_name='product.product', string="Product", tracking=True)
     lot_id = fields.Many2one(comodel_name='stock.lot', string="Lot", tracking=True)
     location_id = fields.Many2one(comodel_name='stock.location', string="Location", tracking=True)
@@ -32,31 +33,20 @@ class QualityPackages(models.Model):
     
     @api.model_create_multi
     def create(self, vals_list):
-        self._fill_lot_stock_id(vals_list)
         for vals in vals_list:
             if vals.get('name', 'New') == 'New':
                 vals['name'] = self.env['ir.sequence'].next_by_code('quality.packages') or 'New'
                 
         return super().create(vals_list)
     
-    def _fill_lot_stock_id(self, vals_list):
-        company_ids = set()
-        for vals in vals_list:
-            if not vals.get('lot_stock_id'):
-                company_ids.add(vals.get('company_id', self.env.company.id))
-                
-        if not company_ids:
-            return
-        
-        warehouses = self.env['stock.warehouse'].sudo().search([('company_id', 'in', list(company_ids))])
-        wh_loc_map = {wh.company_id.id: wh.lot_stock_id.id for wh in warehouses if wh.lot_stock_id}
-        for vals in vals_list:
-            if not vals.get('lot_stock_id'):
-                company_id = vals.get('company_id', self.env.company.id)
-                if company_id in wh_loc_map:
-                    vals['lot_stock_id'] = wh_loc_map[company_id]
+    @api.onchange('warehouse_id')
+    def onchange_warehouse(self):
+        if self.warehouse_id:
+            self.lot_stock_id = self.warehouse_id.lot_stock_id.id
+        else:
+            self.lot_stock_id = False
     
-    @api.onchange('product_id', 'lot_id', 'location_id', 'action_aft_id')
+    @api.onchange('warehouse_id', 'product_id', 'lot_id', 'location_id', 'action_aft_id')
     def _onchange_reset_checked(self):
         if self.is_checked:
             self.is_checked = False
@@ -85,6 +75,8 @@ class QualityPackages(models.Model):
                 ('company_id', '=', rec.company_id.id),
                 ('location_id.usage', '=', 'internal'),
             ]
+            if rec.warehouse_id:
+                domain.append(('warehouse_id', '=', rec.warehouse_id.id))
             if rec.product_id:
                 domain.append(('product_id', '=', rec.product_id.id))
             if rec.lot_id:

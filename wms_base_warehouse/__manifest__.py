@@ -47,6 +47,7 @@ Long description of module's purpose
         'views/stock_move_views.xml',
         'views/product_template_views.xml',
         'views/res_users_views.xml',
+        'views/stock_warehouse_category_views.xml',
         'views/menuitem.xml',
     ],
 }

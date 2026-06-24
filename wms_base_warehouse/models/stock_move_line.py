@@ -20,7 +20,7 @@ class InheritBaseStockMoveLine(models.Model):
         ('QI', 'QI'),
         ('BLOCKED', 'BLOCKED'),
         ('UU', 'UU'),
-    ], string="Stock Type")
+    ], string="Stock Type", default='QI')
     
     # ini dipake kalo odoo.sh salah
     def _skip_custom_logic(self):

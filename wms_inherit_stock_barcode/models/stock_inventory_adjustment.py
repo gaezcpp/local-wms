@@ -103,8 +103,8 @@ class StockInventoryAdjustment(models.Model):
                 ('company_id', '=', rec.company_id.id),
             ]
             
-            if rec.product_ids:
-                domain.append(('product_id', 'in', rec.product_ids.ids))
+            # if rec.product_ids:
+            #     domain.append(('product_id', 'in', rec.product_ids.ids))
             if rec.location_id:
                 domain.append(('location_id', 'child_of', rec.location_id.id))
                 
@@ -138,7 +138,7 @@ class StockInventoryAdjustment(models.Model):
             # rec.is_checked = True
             rec.write({
                 'is_checked': True,
-                'state': 'in_progress'
+                'state': 'in_progress' if len(rec.adjustment_line_ids) > 1 else 'draft'
             })
     
     def action_in_progress(self):

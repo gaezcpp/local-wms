@@ -39,7 +39,6 @@ Long description of module's purpose
         'views/stock_inventory_adjustment_views.xml',
         'views/stock_move_views.xml',
         'views/daily_cycle_count_views.xml',
-        'views/stock_warehouse_category_views.xml',
         'views/menuitem.xml',
     ],
     

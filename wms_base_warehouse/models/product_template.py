@@ -72,7 +72,7 @@ class InheritProductTemplate(models.Model):
         company_model = self.env['res.company'].sudo()
         product_product_model = self.env['product.product'].sudo()
 
-        uom_kg = uom_model.search([('name', '=', 'kg')], limit=1) or uom_model.search([('name', '=', 'KG')], limit=1)
+        uom_kg = uom_model.search([('name', '=', 'kg')], limit=1)
         if not uom_kg:
             raise ValidationError("UoM kg tidak ditemukan")
 

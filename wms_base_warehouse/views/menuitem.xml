@@ -70,4 +70,12 @@
         action="wms_base_warehouse.storage_location_action"
         sequence="50"
     />
+
+    <menuitem
+        id="stock_warehouse_category_menu"
+        name="Quality Category"
+        parent="stock.menu_warehouse_config"
+        action="wms_base_warehouse.stock_warehouse_category_action"
+        sequence="55"
+    />
 </odoo>
