@@ -18,7 +18,7 @@ Long description of module's purpose
     'license': 'LGPL-3',
 
     # any module necessary for this one to work correctly
-    'depends': ['base', 'stock', 'wms_base_company', 'wms_inherit_stock_barcode'],
+    'depends': ['base', 'stock', 'wms_base_company', 'wms_inherit_stock_barcode', 'wms_base_warehouse'],
 
     # always loaded
     'data': [
@@ -26,10 +26,12 @@ Long description of module's purpose
         'security/security.xml',
         'data/parameter.xml',
         'data/cron.xml',
+        'data/sequence.xml',
         'views/production_order_sap_views.xml',
         'views/stock_picking_views.xml',
         'views/stock_quant_views.xml',
         'views/stock_move_line_barcode_views.xml',
+        'views/production_chronos_views.xml',
         'views/menuitem.xml',
     ],
 }

@@ -1,0 +1,103 @@
+<?xml version='1.0' encoding='utf-8'?>
+<odoo>
+    <!-- Search View -->
+    <record model="ir.ui.view" id="production_chronos_search">
+        <field name="name">production.chronos.search</field>
+        <field name="model">production.chronos</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="po_sap_id"/>
+                <field name="production_shift_id"/>
+                <field name="state"/>
+                <filter name="fl_draft" string="Draft" domain="[('state','=', 'draft')]"/>
+                <group>
+                    <filter name="gr_po_sap" string="Production" context="{'group_by':'po_sap_id'}"/>
+                    <filter name="gr_shift" string="Shift" context="{'group_by':'production_shift_id'}"/>
+                    <filter name="gr_state" string="State" context="{'group_by':'state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="production_chronos_view_list" model="ir.ui.view">
+        <field name="name">production.chronos.view.list</field>
+        <field name="model">production.chronos</field>
+        <field name="arch" type="xml">
+            <list string="Production Chronos">
+                <field name="name"/>
+                <field name="po_sap_id"/>
+                <field name="production_shift_id"/>
+                <field name="counter_awal"/>
+                <field name="counter_akhir"/>
+                <field name="state"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="production_chronos_view_form" model="ir.ui.view">
+        <field name="name">production.chronos.view.form</field>
+        <field name="model">production.chronos</field>
+        <field name="arch" type="xml">
+            <form string="Production Chronos">
+                <header>
+                    <button name="get_detail_production_chronos" string="Get Details" type="object" invisible="state != 'draft'"/>
+                    <button name="action_done" string="Done" type="object" class="oe_highlight" invisible="state != 'draft'"/>
+                    <button name="action_cancel" string="Cancel" type="object" class="btn-danger" invisible="state != 'draft'"/>
+                    <field name="state" widget="statusbar"/>
+                </header>
+                <sheet>
+					<label for="name" class="oe_edit_only"/>
+                    <h1>
+                        <field name="name" readonly="1"/>
+                    </h1>
+                    <group>
+                        <group name="pc_left">
+                            <field name="po_sap_id" readonly="state != 'draft'" required="1" options="{'no_open': True, 'no_create': True}" domain="[('active', '=', True)]"/>
+                            <field name="production_shift_id" readonly="state != 'draft'" required="1" options="{'no_open': True, 'no_create': True}"/>
+                            <field name="company_id" required="1" options="{'no_open': True, 'no_create': True}"/>
+                            <field name="is_checked" readonly="1" invisible="1"/>
+                        </group>
+                        <group name="pc_right">
+                            <field name="counter_awal" readonly="state != 'draft'"/>
+                            <field name="counter_akhir" readonly="state != 'draft'"/>
+                        </group>
+                    </group>
+                    <notebook>
+						<page string="Production">
+							<field name="po_chronos_line_ids">
+								<list create="0" edit="0" delete="0">
+                                    <field name="po_chronos_id" column_invisible="1" readonly="1" options="{'no_open': True, 'no_create': True}"/>
+                                    <field name="picking_id" options="{'no_open': True, 'no_create': True}"/>
+                                    <field name="warehouse_id" options="{'no_open': True, 'no_create': True}"/>
+                                    <field name="product_id" options="{'no_open': True, 'no_create': True}"/>
+                                    <field name="quantity"/>
+                                    <field name="product_uom_id" widget="many2one_uom" options="{'no_open': True, 'no_create': True}"/>
+                                    <field name="pack_qty"/>
+                                    <field name="product_pack_id" widget="many2one_uom" options="{'no_open': True, 'no_create': True}"/>
+								</list>
+								<form create="0" edit="0" delete="0">
+                                    <group>
+                                        <field name="po_chronos_id" invisible="1" readonly="1" options="{'no_open': True, 'no_create': True}"/>
+                                        <field name="picking_id" options="{'no_open': True, 'no_create': True}"/>
+                                        <field name="warehouse_id" options="{'no_open': True, 'no_create': True}"/>
+                                        <field name="product_id" options="{'no_open': True, 'no_create': True}"/>
+                                        <field name="quantity"/>
+                                        <field name="product_uom_id" widget="many2one_uom" options="{'no_open': True, 'no_create': True}"/>
+                                        <field name="pack_qty"/>
+                                        <field name="product_pack_id" widget="many2one_uom" options="{'no_open': True, 'no_create': True}"/>
+                                    </group>
+								</form>
+							</field>
+						</page>
+					</notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="production_chronos_action" model="ir.actions.act_window">
+        <field name="name">Production Chronos</field>
+        <field name="res_model">production.chronos</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>

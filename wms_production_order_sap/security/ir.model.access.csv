@@ -1,3 +1,5 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_user_production_order_sap,access_user_production_order_sap,model_production_order_sap,base.group_user,1,1,1,1
 access_user_production_order_sap_line,access_user_production_order_sap_line,model_production_order_sap_line,base.group_user,1,1,1,1
+access_user_production_chronos,access_user_production_chronos,model_production_chronos,base.group_user,1,1,1,1
+access_user_production_chronos_line,access_user_production_chronos_line,model_production_chronos_line,base.group_user,1,1,1,1

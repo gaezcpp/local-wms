@@ -14,4 +14,12 @@
         action="wms_production_order_sap.production_order_sap_action"
         sequence="10"
     />
+
+    <menuitem
+        id="production_chronos_menu"
+        name="Production Chronos"
+        parent="wms_production_order_sap.production_order_sap_menu_root"
+        action="wms_production_order_sap.production_chronos_action"
+        sequence="20"
+    />
 </odoo>
