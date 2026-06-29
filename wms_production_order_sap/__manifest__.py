@@ -32,6 +32,7 @@ Long description of module's purpose
         'views/stock_quant_views.xml',
         'views/stock_move_line_barcode_views.xml',
         'views/production_chronos_views.xml',
+        'views/stock_lot_views.xml',
         'views/menuitem.xml',
     ],
 }

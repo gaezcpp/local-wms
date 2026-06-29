@@ -17,6 +17,14 @@
             <field name="interval_number">1</field>
             <field name="interval_type">days</field>
         </record>
+        <record id="ir_cron_synhtonize_wo_analysis" model="ir.cron">
+            <field name="name">Cron Synchronize PM Analysis SAP</field>
+            <field name="model_id" ref="model_pm_analysis"/>
+            <field name="state">code</field>
+            <field name="code">model.cron_synhtonize_wo_analysis()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+        </record>
         <record id="ir_cron_reminder_wo_draft" model="ir.cron">
             <field name="name">Cron Reminder WO Draft</field>
             <field name="model_id" ref="model_pm_work_order"/>

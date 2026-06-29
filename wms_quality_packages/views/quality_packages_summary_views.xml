@@ -1,0 +1,77 @@
+<?xml version='1.0' encoding='utf-8'?>
+<odoo>
+    <!-- Search View -->
+    <record model="ir.ui.view" id="quality_packages_summary_line_search">
+        <field name="name">quality.packages.summary.line.search</field>
+        <field name="model">quality.packages.summary.line</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="quality_packages_id"/>
+                <field name="po_sap_id"/>
+                <field name="package_id"/>
+                <field name="product_id"/>
+                <field name="lot_id"/>
+                <field name="location_id"/>
+                <field name="stock_type_from"/>
+                <field name="stock_type_to"/>
+                <group>
+                    <filter name="gr_package_id" string="Pallet" context="{'group_by':'package_id'}"/>
+                    <filter name="gr_product_id" string="Product" context="{'group_by':'product_id'}"/>
+                    <filter name="gr_lot_id" string="Production Code" context="{'group_by':'lot_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="quality_packages_summary_line_view_list" model="ir.ui.view">
+        <field name="name">quality.packages.summary.line.view.list</field>
+        <field name="model">quality.packages.summary.line</field>
+        <field name="arch" type="xml">
+            <list string="Summary AFT" create="0" edit="0" delete="0" duplicate="0">
+                <field name="quality_packages_id"/>
+                <field name="po_sap_id"/>
+                <field name="package_id"/>
+                <field name="product_id"/>
+                <field name="lot_id"/>
+                <field name="location_id"/>
+                <field name="stock_type_from"/>
+                <field name="stock_type_to"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="quality_packages_summary_line_view_form" model="ir.ui.view">
+        <field name="name">quality.packages.summary.line.view.form</field>
+        <field name="model">quality.packages.summary.line</field>
+        <field name="arch" type="xml">
+            <form string="Summary AFT" create="0" edit="0" delete="0" duplicate="0">
+                <sheet>
+                    <group>
+                        <group name="saft_left">
+                            <field name="quality_packages_id" options="{'no_open': True, 'no_create': True}"/>
+                            <field name="po_sap_id" options="{'no_open': True, 'no_create': True}"/>
+                            <field name="product_id" options="{'no_open': True, 'no_create': True}"/>
+                            <field name="package_id" options="{'no_open': True, 'no_create': True}"/>
+                            <field name="location_id" options="{'no_open': True, 'no_create': True}"/>
+                            <field name="lot_id" options="{'no_open': True, 'no_create': True}"/>
+                        </group>
+                        <group name="saft_right">
+                            <field name="quantity"/>
+                            <field name="uom_id" options="{'no_open': True, 'no_create': True}"/>
+                            <field name="bag_qty"/>
+                            <field name="uom_bag_id" options="{'no_open': True, 'no_create': True}"/>
+                            <field name="stock_type_from"/>
+                            <field name="stock_type_to"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="quality_packages_summary_line_action" model="ir.actions.act_window">
+        <field name="name">Summary AFT</field>
+        <field name="res_model">quality.packages.summary.line</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>

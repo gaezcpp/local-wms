@@ -26,10 +26,6 @@ class PlanMaintenanceWorkOrder(models.Model):
     equipment_id = fields.Many2one(comodel_name='maintenance.equipment', string="Equipment", domain=[('parent_equipment_id', '=', False)], tracking=True)
     sub_equipment_id = fields.Many2one(comodel_name='maintenance.equipment', string="Sub Equipment", domain=[('parent_equipment_id', '!=', False)], tracking=True)
     pm_wo_material_line_ids = fields.One2many('pm.work.order.material.line', 'pm_work_order_id')
-    maintenance_type = fields.Selection([
-        ('CORRECTIVE', 'CORRECTIVE'),
-        ('PREVENTIF', 'PREVENTIF'),
-    ], string="Maintenance Type", default=False, tracking=True)
     priority = fields.Char(string="Priority", tracking=True)
     date_from = fields.Datetime(string="Date From", tracking=True)
     date_to = fields.Datetime(string="Date To", tracking=True)
@@ -42,11 +38,13 @@ class PlanMaintenanceWorkOrder(models.Model):
         ('closed', 'Closed'),
         ('rejected', 'Rejected'),
         ('canceled', 'Canceled'),
-    ], string="State", default='draft')
+    ], string="State", default='draft', tracking=True)
     sap_synchronize = fields.Boolean(string="SAP Synchronize", default=False, tracking=True)
     analysis_id = fields.Many2one(comodel_name='pm.analysis', string="Analysis", tracking=True)
     need_desc = fields.Boolean(string="Need Desc?")
     confirm_number = fields.Char(string="No. Konfirmasi", tracking=True)
+    pm_wo_jasa_line_ids = fields.One2many('pm.work.order.jasa.line', 'pm_work_order_id')
+    description = fields.Text(string="Description")
     
     @api.model_create_multi
     def create(self, vals_list):
@@ -157,6 +155,7 @@ class PlanMaintenanceWorkOrder(models.Model):
             wo_name = (records[0].get('AUFNR') or "").lstrip('0')
             type_mo = records[0].get('AUART')
             priority = records[0].get('PRIOKX')
+            ktext = records[0].get('KTEXT')
 
             if not wo_name:
                 continue
@@ -170,6 +169,7 @@ class PlanMaintenanceWorkOrder(models.Model):
                 'type_mo': type_mo,
                 'priority': priority,
                 'sap_synchronize': True,
+                'description': ktext,
             })
 
             materials_to_add = {}
@@ -178,6 +178,8 @@ class PlanMaintenanceWorkOrder(models.Model):
                 sku = rec.get('MATNR')
                 qty = float(rec.get('BDMNG') or 0.0)
                 bwart = rec.get('BWART')
+                srvpos = rec.get('SRVPOS')
+                ktext1 = rec.get('KTEXT1')
 
                 if not sku:
                     continue
@@ -233,19 +235,6 @@ class PlanMaintenanceWorkOrder(models.Model):
                 rec.need_desc = True
             else:
                 rec.need_desc = False
-    
-    def _validation_per_state(self):
-        for rec in self:
-            if rec.date_from:
-                raise ValidationError("Tidak bisa melakukan pengisian Date From jika status selain draft dan Type MO belum terisi!")
-            if rec.date_to:
-                raise ValidationError("Tidak bisa melakukan pengisian Date To jika status selain draft dan Type MO belum terisi!")
-            if rec.analysis:
-                raise ValidationError("Tidak bisa melakukan pengisian Analysis jika status selain draft dan Type MO belum terisi!")
-            if rec.problem_handling:
-                raise ValidationError("Tidak bisa melakukan pengisian Problem Handling jika status selain draft dan Type MO belum terisi!")
-            if rec.photo_attachment:
-                raise ValidationError("Tidak bisa melakukan pengisian Photo jika status selain draft dan Type MO belum terisi!")
                 
     def action_waiting_sap(self):
         for rec in self:
@@ -293,6 +282,7 @@ class PlanMaintenanceWorkOrder(models.Model):
             priority = first.get('PRIOKX')
             sub_equip = (first.get('EQUNR') or "").lstrip('0')
             company_registry = first.get('WERKS')
+            ktext = first.get('KTEXT')
             
             company = company_model.search([('company_registry', '=', company_registry),('sync_pm', '=', True)], limit=1)
             if not company:
@@ -304,15 +294,10 @@ class PlanMaintenanceWorkOrder(models.Model):
                 _logger.info(f"Sub Equipment {sub_equip} cron_synchronize_sap_preventif_work_order skipped")
                 continue
             
-            wo_preventif = pm_wo_model.search([
-                ('wo_sap', '=', nomor_wo),
-                ('company_id', '=', company.id),
-            ], limit=1)
-            
+            wo_preventif = pm_wo_model.search([('wo_sap', '=', nomor_wo),('company_id', '=', company.id)], limit=1)
             vals = {
                 'wo_sap': nomor_wo,
                 'type_mo': type_mo,
-                'maintenance_type': 'PREVENTIF',
                 'priority': priority,
                 'sap_synchronize': True,
                 'system_id': equipment.system_id.id,
@@ -320,6 +305,7 @@ class PlanMaintenanceWorkOrder(models.Model):
                 'equipment_id': equipment.parent_equipment_id.id,
                 'sub_equipment_id': equipment.id,
                 'company_id': company.id,
+                'description': ktext,
             }
             
             if not wo_preventif:

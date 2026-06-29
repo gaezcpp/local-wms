@@ -16,3 +16,4 @@ class QualityPackagesLine(models.Model):
     bag_qty = fields.Float(string="Quantity")
     uom_bag_id = fields.Many2one(comodel_name='uom.uom', string="Unit")
     is_selected = fields.Boolean(string="Selected")
+    po_sap_id = fields.Many2one(comodel_name='production.order.sap')

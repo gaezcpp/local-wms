@@ -8,6 +8,7 @@
             <search>
                 <field name="name"/>
                 <field name="code"/>
+                <field name="company_id"/>
                 <filter name="fl_need_desc" string="Need Description" domain="[('need_desc','=', True)]"/>
                 <filter name="fl_active" string="Active" domain="[('active','=', True)]"/>
             </search>
@@ -21,6 +22,7 @@
             <list string="Analysis">
                 <field name="name"/>
                 <field name="code"/>
+                <field name="company_id"/>
                 <field name="need_desc"/>
                 <field name="active"/>
             </list>
@@ -37,6 +39,7 @@
                         <group>
                             <field name="name"/>
                             <field name="code"/>
+                            <field name="company_id" readonly="1" options="{'no_open': True, 'no_create': True}"/>
                             <field name="need_desc"/>
                             <field name="active"/>
                         </group>

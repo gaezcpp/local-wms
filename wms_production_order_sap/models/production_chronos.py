@@ -7,18 +7,21 @@ class ProductionChronos(models.Model):
     _description = 'Production Chronos'
     _rec_name = 'name'
     _order = 'id desc'
+    _inherit = ['mail.thread', 'mail.activity.mixin']
     
     name = fields.Char(string="Name", default="New")
-    po_sap_id = fields.Many2one(comodel_name='production.order.sap', string="PO SAP")
+    po_sap_id = fields.Many2one(comodel_name='production.order.sap', string="PO SAP", tracking=True)
     production_shift_id = fields.Many2one(comodel_name='production.shift', string="Shift", tracking=True)
-    counter_awal = fields.Float(string="Counter Awal")
-    counter_akhir = fields.Float(string="Counter Akhir")
+    production_line_id = fields.Many2one(comodel_name='production.line', string="Line", tracking=True)
+    counter_awal = fields.Float(string="Counter Awal", tracking=True)
+    counter_akhir = fields.Float(string="Counter Akhir", tracking=True)
+    counter_total = fields.Float(string="Total Counter", compute='_compute_counter_total')
     state = fields.Selection([
         ('draft', 'Draft'),
-        ('Done', 'Done'),
+        ('done', 'Done'),
         ('cancel', 'Cancel'),
-    ], string="State", default='draft')
-    company_id = fields.Many2one(comodel_name='res.company', string="Company", default=lambda self: self.env.company)
+    ], string="State", default='draft', tracking=True)
+    company_id = fields.Many2one(comodel_name='res.company', string="Company", default=lambda self: self.env.company, tracking=True)
     is_checked = fields.Boolean(string="Is Checked", default=False)
     po_chronos_line_ids = fields.One2many('production.chronos.line', 'po_chronos_id')
     
@@ -29,6 +32,17 @@ class ProductionChronos(models.Model):
                 vals['name'] = self.env['ir.sequence'].next_by_code('production.chronos') or _('New')
         res = super().create(vals_list)
         return res
+    
+    @api.depends('counter_awal', 'counter_akhir')
+    def _compute_counter_total(self):
+        for rec in self:
+            rec.counter_total = rec.counter_akhir - rec.counter_awal
+    
+    @api.onchange('po_sap_id', 'production_shift_id', 'production_line_id', 'company_id')
+    def _onchange_is_check(self):
+        for rec in self:
+            if rec.is_checked:
+                rec.is_checked = False
     
     def get_detail_production_chronos(self):
         picking_model = self.env['stock.picking'].sudo()
@@ -55,7 +69,10 @@ class ProductionChronos(models.Model):
                 raise ValidationError("Picking List tidak ditemukan!")
             
             for pick in pickings:
-                for move in pick.move_ids:
+                valid_moves = pick.move_ids.filtered(
+                    lambda m: any(sml.production_line_id.id == rec.production_line_id.id for sml in m.move_line_ids)
+                )
+                for move in valid_moves:
                     lines_to_create.append({
                         'po_chronos_id': rec.id,
                         'picking_id': pick.id,
@@ -78,6 +95,8 @@ class ProductionChronos(models.Model):
                 raise ValidationError("Hanya bisa melakukan Done saat Status Draft")
             if not rec.po_sap_id or not rec.production_shift_id:
                 raise ValidationError("PO SAP atau Shift tidak boleh kosong!")
+            if not rec.production_line_id:
+                raise ValidationError("Production Line tidak boleh kosong!")
             if not rec.is_checked or len(rec.po_chronos_line_ids) <= 0:
                 raise ValidationError("Silahkan lakukan Get Details terlebih dahulu")
             if rec.counter_awal <= 0:

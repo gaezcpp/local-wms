@@ -106,6 +106,7 @@ class QualityPackages(models.Model):
                     'uom_id': quant.product_uom_id.id,
                     'bag_qty': quant.bag_qty,
                     'uom_bag_id': quant.uom_bag_id.id or False,
+                    'po_sap_id': quant.po_sap_id.id or False,
                 })
 
             rec.is_checked = True
@@ -247,6 +248,7 @@ class QualityPackages(models.Model):
                     'stock_type_from': sap_aft.stock_type_from,
                     'stock_type_to': sap_aft.stock_type_to,
                     'move_type': sap_aft.move_type,
+                    'po_sap_id': line.po_sap_id.id or False,
                 })
 
             if lines_to_create:

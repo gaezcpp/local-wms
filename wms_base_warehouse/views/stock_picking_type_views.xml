@@ -20,6 +20,7 @@
                     <field name="quantity_out_type_id" required="checker_out" invisible="not checker_out"/>
                     <field name="book_full_pallet"/>
                     <field name="mandatory_destination"/>
+                    <field name="split_package"/>
                 </xpath>
                 <xpath expr="//field[@name='return_picking_type_id']" position="after">
                     <field name="packaging_type_id"/>

@@ -82,6 +82,7 @@ class InheritBaseStockMoveLine(models.Model):
                     'name': lot_name,
                     'product_id': self.move_id.product_id.id,
                     'company_id': self.company_id.id,
+                    'po_sap_id': self.picking_id.po_sap_id.id if self.picking_id.po_sap_id else False,
                 })
 
         return lot
@@ -206,18 +207,19 @@ class InheritBaseStockMoveLine(models.Model):
                     
         res = super()._action_done()
         
-        for line in self:
-            po_sap_id = line.picking_id.po_sap_id
-            if not po_sap_id:
-                continue
+        # Pindah related stock.lot
+        # for line in self:
+        #     po_sap_id = line.picking_id.po_sap_id
+        #     if not po_sap_id:
+        #         continue
 
-            quants = self.env['stock.quant'].sudo().search([
-                ('product_id', '=', line.product_id.id),
-                ('location_id', '=', line.location_dest_id.id),
-                ('lot_id', '=', line.lot_id.id if line.lot_id else False),
-                ('package_id', '=', line.result_package_id.id if line.result_package_id else False),
-                ('company_id', '=', line.company_id.id),
-            ])
-            quants.write({'po_sap_id': po_sap_id.id})
+        #     quants = self.env['stock.quant'].sudo().search([
+        #         ('product_id', '=', line.product_id.id),
+        #         ('location_id', '=', line.location_dest_id.id),
+        #         ('lot_id', '=', line.lot_id.id if line.lot_id else False),
+        #         ('package_id', '=', line.result_package_id.id if line.result_package_id else False),
+        #         ('company_id', '=', line.company_id.id),
+        #     ])
+        #     quants.write({'po_sap_id': po_sap_id.id})
             
         return res

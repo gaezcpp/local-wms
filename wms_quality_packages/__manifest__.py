@@ -18,7 +18,7 @@ Long description of module's purpose
     'license': 'LGPL-3',
 
     # any module necessary for this one to work correctly
-    'depends': ['base', 'stock'],
+    'depends': ['base', 'stock', 'wms_production_order_sap'],
 
     # always loaded
     'data': [
@@ -28,8 +28,10 @@ Long description of module's purpose
         'wizards/package_wizards_views.xml',
         'wizards/quality_packages_wizard_views.xml',
         'views/quality_packages_views.xml',
+        'views/quality_packages_summary_views.xml',
         'views/category_quality_packages_views.xml',
         'views/sap_aft_views.xml',
+        'views/stock_package_views.xml',
         'views/menuitem.xml',
     ],
 }

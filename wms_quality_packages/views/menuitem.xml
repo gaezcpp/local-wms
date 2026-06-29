@@ -16,9 +16,18 @@
     />
 
     <menuitem
+        id="quality_packages_summary_line_menu"
+        name="Summary AFT"
+        parent="wms_quality_packages.quality_packages_aft_menu_root"
+        action="wms_quality_packages.quality_packages_summary_line_action"
+        sequence="20"
+    />
+
+    <menuitem
         id="quality_packages_configuration_menu"
         name="Configuration"
         parent="wms_quality_packages.quality_packages_aft_menu_root"
+        sequence="90"
     />
 
     <menuitem

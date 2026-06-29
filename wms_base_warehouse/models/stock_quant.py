@@ -52,7 +52,7 @@ class StockQuant(models.Model):
             old_type = old_values.get(quant.id)
             new_type = quant.stock_type
             if old_type != new_type and quant.package_id:
-                message_body = f"Update Stock Type: Produk {quant.product_id.display_name} telah diubah dari {old_type or '-'} menjadi {new_type}."
+                message_body = f"Update Stock Type: Produk {quant.product_id.display_name} telah diubah dari [{old_type or '-'}] menjadi [{new_type}]."
                 quant.package_id.message_post(body=message_body)
     
     # @api.model

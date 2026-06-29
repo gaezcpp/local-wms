@@ -41,9 +41,9 @@
             <form string="Production Chronos">
                 <header>
                     <button name="get_detail_production_chronos" string="Get Details" type="object" invisible="state != 'draft'"/>
-                    <button name="action_done" string="Done" type="object" class="oe_highlight" invisible="state != 'draft'"/>
-                    <button name="action_cancel" string="Cancel" type="object" class="btn-danger" invisible="state != 'draft'"/>
-                    <field name="state" widget="statusbar"/>
+                    <button name="action_done" string="Done" type="object" class="oe_highlight" confirm="Yakin?" invisible="state != 'draft'"/>
+                    <button name="action_cancel" string="Cancel" type="object" class="btn-danger" confirm="Yakin?" invisible="state != 'draft'"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,done"/>
                 </header>
                 <sheet>
 					<label for="name" class="oe_edit_only"/>
@@ -52,14 +52,16 @@
                     </h1>
                     <group>
                         <group name="pc_left">
-                            <field name="po_sap_id" readonly="state != 'draft'" required="1" options="{'no_open': True, 'no_create': True}" domain="[('active', '=', True)]"/>
-                            <field name="production_shift_id" readonly="state != 'draft'" required="1" options="{'no_open': True, 'no_create': True}"/>
-                            <field name="company_id" required="1" options="{'no_open': True, 'no_create': True}"/>
-                            <field name="is_checked" readonly="1" invisible="1"/>
+                            <field name="po_sap_id" readonly="state != 'draft'" required="1" options="{'no_open': True, 'no_create': True}" domain="[('active', '=', True),('company_id', '=', company_id)]"/>
+                            <field name="production_shift_id" readonly="state != 'draft'" required="1" options="{'no_open': True, 'no_create': True}" domain="[('company_id', '=', company_id)]"/>
+                            <field name="production_line_id" readonly="state != 'draft'" required="1" options="{'no_open': True, 'no_create': True}" domain="[('company_id', '=', company_id)]"/>
+                            <field name="company_id" required="1" readonly="1" options="{'no_open': True, 'no_create': True}"/>
                         </group>
                         <group name="pc_right">
+                            <field name="is_checked" force_save="1" readonly="1"/>
                             <field name="counter_awal" readonly="state != 'draft'"/>
                             <field name="counter_akhir" readonly="state != 'draft'"/>
+                            <field name="counter_total" readonly="1"/>
                         </group>
                     </group>
                     <notebook>
@@ -70,9 +72,9 @@
                                     <field name="picking_id" options="{'no_open': True, 'no_create': True}"/>
                                     <field name="warehouse_id" options="{'no_open': True, 'no_create': True}"/>
                                     <field name="product_id" options="{'no_open': True, 'no_create': True}"/>
-                                    <field name="quantity"/>
+                                    <field name="quantity" sum="total_qty"/>
                                     <field name="product_uom_id" widget="many2one_uom" options="{'no_open': True, 'no_create': True}"/>
-                                    <field name="pack_qty"/>
+                                    <field name="pack_qty" sum="total_pack"/>
                                     <field name="product_pack_id" widget="many2one_uom" options="{'no_open': True, 'no_create': True}"/>
 								</list>
 								<form create="0" edit="0" delete="0">
@@ -91,6 +93,7 @@
 						</page>
 					</notebook>
                 </sheet>
+                <chatter/>
             </form>
         </field>
     </record>

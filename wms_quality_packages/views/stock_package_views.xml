@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <record model="ir.ui.view" id="inherit_aft_stock_package_form">
+            <field name="name">inherit.aft.stock.package.form</field>
+            <field name="model">stock.package</field>
+            <field name="inherit_id" ref="stock.stock_package_view_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//button[@name='action_view_picking']" position="after">
+                    <button name="action_summary_aft" type="object" class="oe_stat_button" icon="fa-align-justify" invisible="aft_count == 0">
+                        <field name="aft_count" string="Summary AFT" widget="statinfo"/>
+                    </button>
+                </xpath>
+            </field>
+        </record>
+    </data>
+</odoo>

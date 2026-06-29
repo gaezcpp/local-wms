@@ -18,22 +18,23 @@ class StockMoveLine(models.Model):
     checker_only = fields.Boolean(related='picking_id.checker_only', store=True)
     checker_out = fields.Boolean(related='picking_id.checker_out', store=True)
     wh_category_id = fields.Many2one(comodel_name='stock.warehouse.category', string="Category")
+    suggest_dest_id = fields.Many2one(comodel_name='stock.location', string="Suggest Location")
 
     @api.model_create_multi
     def create(self, vals_list):
         for vals in vals_list:
+            vals['outermost_result_package_id'] = False
+            
             self._validate_bag_qty(vals)
             self._sync_qty_from_bag(vals)
-            
-            # Bypass pengisian outermost_result_package_id
-            if 'outermost_result_package_id' in vals:
-                vals.pop('outermost_result_package_id')
             
         records = super().create(vals_list)
         records._update_package_can_be_use()
         return records
 
     def write(self, vals):
+        vals['outermost_result_package_id'] = False
+        
         self._validate_bag_qty(vals, records=self)
         self._sync_qty_from_bag(vals, records=self)
         self._validate_qty_packaging_sap(vals)
@@ -41,9 +42,6 @@ class StockMoveLine(models.Model):
         if 'qty_done' in vals or 'bag_qty' in vals or 'result_package_id' in vals:
             self._update_package_can_be_use()
         
-        # Bypass saat update/write data
-        if 'outermost_result_package_id' in vals:
-            vals.pop('outermost_result_package_id')
         return res
     
     def unlink(self):

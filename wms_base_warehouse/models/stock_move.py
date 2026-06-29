@@ -34,6 +34,7 @@ class StockMove(models.Model):
         moves_uu = self.filtered(lambda m: m.picking_id.picking_type_id.uu_only)
         moves_full_pallet = self.filtered(lambda m: m.picking_id.picking_type_id.book_full_pallet)
         moves_outgoing = self.filtered(lambda m: m.picking_id.picking_type_id.code == 'outgoing')
+        moves_split_package = self.filtered(lambda m: m.picking_id.picking_type_id.split_package)
         
         moves_to_check_full = moves_uu | moves_full_pallet
         moves_normal = self - moves_to_check_full
@@ -41,7 +42,6 @@ class StockMove(models.Model):
         
         res = True
         
-        # 1. Jalankan Assign Bawaan Odoo (Diperbaiki agar `res` diakumulasi, bukan ditimpa berulang kali)
         if moves_normal:
             res = super(StockMove, moves_normal)._action_assign(**kwargs) and res
         if moves_uu:
@@ -49,7 +49,6 @@ class StockMove(models.Model):
         if moves_fp_only:
             res = super(StockMove, moves_fp_only)._action_assign(**kwargs) and res
 
-        # 2. Logika Full Pallet (Step 1, 2, 3)
         need_reassign = self.env['stock.move'].sudo()
         for move in moves_to_check_full:
             total_actual_pkg_qty = 0
@@ -78,10 +77,7 @@ class StockMove(models.Model):
                         break
                 
         if need_reassign:
-            # PERBAIKAN KRUSIAL: Unreserve stok lama sebelum mencoba reservasi ulang 
-            # untuk mencegah tabrakan kuantitas dan pencurian baris reservasi orang lain.
             need_reassign._do_unreserve()
-            
             need_reassign_uu = need_reassign & moves_uu
             need_reassign_others = need_reassign - moves_uu
             
@@ -92,14 +88,13 @@ class StockMove(models.Model):
                 _logger.info("_action_assign Check Availability need_reassign_uu")
                 super(StockMove, need_reassign_uu.with_context(uu_only=True))._action_assign()
 
-        # 3. Pengisian Otomatis Result Package KHUSUS Step 1 (uu_only)
         for line in moves_uu.mapped('move_line_ids'):
             if line.package_id and not line.result_package_id:
                 _logger.info("Isi Otomatis Destination Package Untuk Scanner")
                 line.write({'result_package_id': line.package_id.id})
                 
         for move in moves_outgoing:
-            _logger.info("Outgoing otomatis Adjust Demand sama Apus Destination Package")
+            _logger.info("Outgoing otomatis Adjust Demand")
             if move.move_orig_ids:
                 orig_qty = sum(move.move_orig_ids.mapped('quantity'))
                 if orig_qty > 0 and move.product_uom_qty != orig_qty:
@@ -108,7 +103,9 @@ class StockMove(models.Model):
                         'quantity': orig_qty
                     })
             
-            # Dioptimasi dengan filter & bulk write agar lebih aman dari data lock
+        moves_to_clear_package = moves_outgoing | moves_split_package
+        for move in moves_to_clear_package:
+            _logger.info("Menghapus Destination Package (Outgoing / Split Package)")
             lines_to_clear = move.move_line_ids.filtered(lambda l: l.result_package_id)
             if lines_to_clear:
                 lines_to_clear.write({'result_package_id': False})

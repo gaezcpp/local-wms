@@ -112,7 +112,7 @@ class InheritProductTemplate(models.Model):
 
         uom_name_map = {u.name: u for u in uom_model.search([])}
         category_map = {c.name: c for c in category_model.search([])}
-        warehouse_map = {w.code: w for w in warehouse_model.search([])}
+        warehouse_map = {(w.code, w.company_id.id): w for w in warehouse_model.search([])}
 
         pending_creates = {}
         write_map = {}
@@ -143,7 +143,7 @@ class InheritProductTemplate(models.Model):
                 mhdhb = int(data.get('MHDHB') or 0)
 
                 if lgort:
-                    wh = warehouse_map.get(lgort)
+                    wh = warehouse_map.get((lgort, company.id))
                     if wh:
                         warehouse_ids_set.add(wh.id)
 
@@ -160,11 +160,12 @@ class InheritProductTemplate(models.Model):
 
                 meinh = (data.get('MEINH') or "").strip()
                 meins = (data.get('MEINS') or "").strip()
-                uom_name = meinh
+                vrkme = (data.get('VRKME') or "").strip()
+                uom_name = vrkme
                 
-                if not any(c.isdigit() for c in meinh):
-                    if meinh and meinh != meins:
-                        uom_name = f"{meinh} {data.get('UMREZ') or '-'}"
+                if not any(c.isdigit() for c in vrkme):
+                    if vrkme and vrkme != meins:
+                        uom_name = f"{vrkme} {data.get('UMREZ') or '-'}"
 
                 if not uom_name:
                     continue
@@ -176,7 +177,7 @@ class InheritProductTemplate(models.Model):
                     'relative_factor': factor,
                     'relative_uom_id': uom_kg.id,
                     'sap_synchronize': True,
-                    'sap_name': meinh,
+                    'sap_name': vrkme,
                 }
 
                 if not existing_uom:
@@ -185,16 +186,16 @@ class InheritProductTemplate(models.Model):
                 else:
                     existing_uom.write(vals_uom)
 
-                if meinh.upper() != 'KG' and existing_uom.id not in uom_ids:
+                if vrkme.upper() != 'KG' and existing_uom.id not in uom_ids:
                     uom_ids.append(existing_uom.id)
 
-                meinh_upper = (meinh or "").upper()
+                vrkme_upper = (vrkme or "").upper()
                 uom_name_upper = (uom_name or "").upper()
                 try:
-                    if re.match(r'^B\d+$', meinh_upper):
-                        bag_size = int(meinh_upper[1:])
+                    if re.match(r'^B\d+$', vrkme_upper):
+                        bag_size = int(vrkme_upper[1:])
                         bag_candidates.append((bag_size, existing_uom.id))
-                    elif meinh_upper == "BAG":
+                    elif vrkme_upper == "BAG":
                         umrez = float(data.get('UMREZ') or 1)
                         umren = float(data.get('UMREN') or 1)
                         if umren:

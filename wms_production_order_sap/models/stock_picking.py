@@ -108,15 +108,16 @@ class InheritBaseStockPicking(models.Model):
     def _action_done(self):
         res = super()._action_done()
         for picking in self:
-            picking._propagate_po_sap_to_quant()
+            # picking._propagate_po_sap_to_quant() # Pindah related stock.lot
             if picking.po_sap_id and picking.po_sap_id.state != 'teco':
                 picking.po_sap_id.state = 'in_progress'
         return res
     
     # isi po_sap_id di stock.quant
-    def _propagate_po_sap_to_quant(self):
-        for picking in self.filtered(lambda p: p.po_sap_id and p.state == 'done'):
-            quants = picking.move_line_ids.mapped('quant_id')
-            quants = quants.filtered(lambda q: not q.po_sap_id)
-            if quants:
-                quants.write({'po_sap_id': picking.po_sap_id.id})
+    # Pindah related stock.lot
+    # def _propagate_po_sap_to_quant(self):
+    #     for picking in self.filtered(lambda p: p.po_sap_id and p.state == 'done'):
+    #         quants = picking.move_line_ids.mapped('quant_id')
+    #         quants = quants.filtered(lambda q: not q.po_sap_id)
+    #         if quants:
+    #             quants.write({'po_sap_id': picking.po_sap_id.id})
