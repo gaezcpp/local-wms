@@ -1,6 +1,6 @@
 /** @odoo-module **/
 
-import { Component, onWillStart, onWillUnmount, useRef, useState } from "@odoo/owl";
+import { Component, onWillStart, onMounted, onWillUnmount, useRef, useState } from "@odoo/owl";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 
@@ -67,6 +67,10 @@ export class TaggingDashboard extends Component {
       await this.loadOptions();
       this.applyPresetToDates(this.filters.date_range);
       await this.fetchStats();
+    });
+
+    onMounted(() => {
+      this.renderAll(true);
     });
 
     // Cleanup
@@ -191,6 +195,12 @@ export class TaggingDashboard extends Component {
   // ------------------------------------------------------------
   async fetchStats() {
     const payload = { ...this.filters };
+
+    // Tambahan custom parameter untuk mengecualikan status tertentu
+    // khusus untuk chart-chart di bawah (System, Problem, ABC)
+    payload.system_exclude_statuses = ["rejected"];
+    payload.problem_exclude_statuses = ["rejected"];
+    payload.abc_exclude_statuses = ["rejected"];
 
     // Kalau preset bukan custom, aman juga walaupun backend mau hitung sendiri.
     // Tapi untuk konsisten, kita selalu kirim date_from/date_to sesuai preset.

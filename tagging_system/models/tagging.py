@@ -658,8 +658,14 @@ class TaggingRecord(models.Model):
         by_system = {"labels": [], "values": []}
         try:
             counter = defaultdict(int)
+            
+            system_domain = list(domain)
+            exclude_statuses = payload.get("system_exclude_statuses")
+            if exclude_statuses:
+                system_domain.append(("status", "not in", exclude_statuses))
+                
             # Pada _read_group, field M2O (system_id) mengembalikan objek record, bukan tuple
-            for sys_rec, count in Model._read_group(domain, ["system_id"], ["__count"]):
+            for sys_rec, count in Model._read_group(system_domain, ["system_id"], ["__count"]):
                 key = sys_rec.name if sys_rec else "Others"
                 counter[key] += count
 
@@ -672,7 +678,13 @@ class TaggingRecord(models.Model):
         if "category_problem_id" in Model._fields:
             try:
                 p_counter = defaultdict(int)
-                for prob_rec, count in Model._read_group(domain, ["category_problem_id"], ["__count"]):
+                
+                problem_domain = list(domain)
+                exclude_prob_statuses = payload.get("problem_exclude_statuses")
+                if exclude_prob_statuses:
+                    problem_domain.append(("status", "not in", exclude_prob_statuses))
+
+                for prob_rec, count in Model._read_group(problem_domain, ["category_problem_id"], ["__count"]):
                     key = prob_rec.cat_masalah if prob_rec else "Others"
                     p_counter[key] += count
 
@@ -687,8 +699,14 @@ class TaggingRecord(models.Model):
         treemap_nodes = []
         try:
             t_counter = defaultdict(int)
+            
+            abc_domain = list(domain)
+            exclude_abc_statuses = payload.get("abc_exclude_statuses")
+            if exclude_abc_statuses:
+                abc_domain.append(("status", "not in", exclude_abc_statuses))
+
             # Grouping dengan 2 parameter
-            for abc_val, sys_rec, count in Model._read_group(domain, ["abc_indic", "system_id"], ["__count"]):
+            for abc_val, sys_rec, count in Model._read_group(abc_domain, ["abc_indic", "system_id"], ["__count"]):
                 abc_key = norm(abc_val)
                 sys_name = sys_rec.name if sys_rec else "Others"
                 t_counter[(abc_key, sys_name)] += count
@@ -708,7 +726,13 @@ class TaggingRecord(models.Model):
         abc_table = []
         try:
             agg = defaultdict(lambda: {"total": 0, "closed": 0})
-            for abc_val, st_val, count in Model._read_group(domain, ["abc_indic", "status"], ["__count"]):
+            
+            abc_domain = list(domain)
+            exclude_abc_statuses = payload.get("abc_exclude_statuses")
+            if exclude_abc_statuses:
+                abc_domain.append(("status", "not in", exclude_abc_statuses))
+
+            for abc_val, st_val, count in Model._read_group(abc_domain, ["abc_indic", "status"], ["__count"]):
                 abc_key = norm(abc_val)
                 agg[abc_key]["total"] += count
                 if st_val == "closed":
@@ -733,7 +757,13 @@ class TaggingRecord(models.Model):
         abc_system_grouping = {}
         try:
             tmp = defaultdict(lambda: defaultdict(int))
-            for abc_val, sys_rec, count in Model._read_group(domain, ["abc_indic", "system_id"], ["__count"]):
+            
+            abc_domain = list(domain)
+            exclude_abc_statuses = payload.get("abc_exclude_statuses")
+            if exclude_abc_statuses:
+                abc_domain.append(("status", "not in", exclude_abc_statuses))
+
+            for abc_val, sys_rec, count in Model._read_group(abc_domain, ["abc_indic", "system_id"], ["__count"]):
                 abc_key = norm(abc_val)
                 sys_name = sys_rec.name if sys_rec else "Others"
                 tmp[abc_key][sys_name] += count
@@ -773,6 +803,8 @@ class TaggingRecord(models.Model):
             },
             "metrics": {
                 "total": total_count,
+                "closed": closed_count,
+                "not_valid": open_count,
                 "pct_closed": round(pct_closed, 2),
                 "pct_not_valid": round(pct_not_valid, 2),
             },

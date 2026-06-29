@@ -69,14 +69,14 @@
               <div class="perf-value"><t t-esc="state.metrics.total"/></div>
             </div>
 
-            <div class="perf-item">
+            <div class="perf-item" t-att-title="'Quantity: ' + (state.metrics.closed || 0)">
               <div class="perf-label">% Closed</div>
               <div class="perf-value text-danger">
                 <t t-esc="(state.metrics.pct_closed || 0).toFixed(2)"/>%
               </div>
             </div>
 
-            <div class="perf-item">
+            <div class="perf-item" t-att-title="'Quantity: ' + (state.metrics.not_valid || 0)">
               <div class="perf-label">% Not Valid</div>
               <div class="perf-value">
                 <t t-esc="(state.metrics.pct_not_valid || 0).toFixed(2)"/>%
