@@ -3,6 +3,7 @@
 import { patch } from "@web/core/utils/patch";
 import BarcodePickingModel from "@stock_barcode/models/barcode_picking_model";
 import { _t } from "@web/core/l10n/translation";
+import { ConfirmationDialog } from "@web/core/confirmation_dialog/confirmation_dialog";
 
 patch(BarcodePickingModel.prototype, {
 
@@ -91,8 +92,6 @@ patch(BarcodePickingModel.prototype, {
                 : this.record.location_dest_id;
         }
 
-        console.log("-> State AWAL (Sebelum di-update Odoo) - Expected Loc ID:", oldExpectedLocId);
-
         await super._processBarcode(...arguments);
 
         const lastScan = this.scanHistory[0];
@@ -104,33 +103,38 @@ patch(BarcodePickingModel.prototype, {
                 const scannedLocation = lastScan.destLocation;
                 
                 if (oldExpectedLocId && oldExpectedLocId !== scannedLocation.id) {
-                    console.log("6. Kondisi BEDA terpenuhi, memanggil notifikasi dan update suggest_dest_id...");
+                    console.log("6. Kondisi BEDA terpenuhi, memanggil Dialog Konfirmasi...");
                     
-                    this.notification(
-                        _t("Scan lokasi %s tidak sesuai dengan Store To awal. Proses tetap dilanjutkan.", scannedLocation.display_name),
-                        {
-                            title: _t("Peringatan Lokasi"),
-                            type: "warning",
+                    this.dialogService.add(ConfirmationDialog, {
+                        title: _t("Peringatan: Lokasi Berbeda!"),
+                        body: _t("Anda melakukan scan pada lokasi %s, yang mana tidak sesuai dengan Store To awal. Apakah Anda yakin ingin melanjutkan?", scannedLocation.display_name),
+                        
+                        confirm: async () => {
+                            console.log("User mengkonfirmasi perubahan lokasi.");
+                            
+                            if (lineBeforeScan && typeof lineBeforeScan.id === 'number') {
+                                try {
+                                    await this.orm.write("stock.move.line", [lineBeforeScan.id], {
+                                        suggest_dest_id: oldExpectedLocId
+                                    });
+                                    console.log("7. Berhasil menyimpan suggest_dest_id:", oldExpectedLocId);
+                                } catch (error) {
+                                    console.error("Gagal menyimpan suggest_dest_id ke backend:", error);
+                                }
+                            }
+                        },
+                        
+                        cancel: () => {
+                            console.log("User membatalkan peringatan.");
+                            // Catatan: Karena super._processBarcode sudah berjalan, UI aplikasi sudah 
+                            // terlanjur berubah. Jika Anda ingin membatalkan/me-revert lokasi ke semula 
+                            // saat tombol cancel ditekan, logikanya harus ditambahkan di blok ini.
                         }
-                    );
+                    });
 
-                    if (lineBeforeScan && typeof lineBeforeScan.id === 'number') {
-                        try {
-                            await this.orm.write("stock.move.line", [lineBeforeScan.id], {
-                                suggest_dest_id: oldExpectedLocId
-                            });
-                            console.log("7. Berhasil menyimpan suggest_dest_id:", oldExpectedLocId, "pada Line ID:", lineBeforeScan.id);
-                        } catch (error) {
-                            console.error("Gagal menyimpan suggest_dest_id ke backend:", error);
-                        }
-                    } else {
-                        console.log("X. Baris belum memiliki ID Real (Virtual ID), lewati update DB.");
-                    }
                 } else {
-                    console.log("6. Kondisi SAMA, tidak ada aksi tambahan.");
+                    console.log("6. Kondisi SAMA, tidak ada popup muncul.");
                 }
-            } else {
-                console.log("X. Bukan internal atau entire_packs tidak aktif, fungsinya diabaikan.");
             }
         }
     }

@@ -439,8 +439,8 @@ class ProductionOrderSAP(models.Model):
                 raise ValidationError("Tidak bisa melakukan GR FG karena Data Inactive")
             if rec.state == 'teco':
                 raise ValidationError("Tidak bisa melakukan GR FG karena State sudah TECO")
-            if rec.finish_date and today > rec.finish_date:
-                raise ValidationError(f"Tidak bisa melakukan GR WIP karena {today} sudah melebihi Finish Date {rec.finish_date}")
+            # if rec.finish_date and today > rec.finish_date:
+            #     raise ValidationError(f"Tidak bisa melakukan GR WIP karena {today} sudah melebihi Finish Date {rec.finish_date}")
             
             bag_qty = ((rec.remaining_qty * rec.uom_id.factor) / 1000)
             picking = self.env['stock.picking'].sudo().create({
@@ -462,7 +462,7 @@ class ProductionOrderSAP(models.Model):
                         move_vals.append({
                             'picking_id': picking.id,
                             'product_id': wip.product_id.id,
-                            'product_uom_qty': bag_qty,
+                            'product_uom_qty': bag_qty if bag_qty > 0 else 1,
                             'product_uom': uom_kg.id if rec.uom_id.name == 'kg' else rec.uom_id.id,
                             'company_id': rec.company_id.id,
                         })    
@@ -500,8 +500,8 @@ class ProductionOrderSAP(models.Model):
                 raise ValidationError("Tidak bisa melakukan GR WIP karena Data Inactive")
             if rec.state == 'teco':
                 raise ValidationError("Tidak bisa melakukan GR WIP karena State sudah TECO")
-            if rec.finish_date and today > rec.finish_date:
-                raise ValidationError(f"Tidak bisa melakukan GR WIP karena {today} sudah melebihi Finish Date {rec.finish_date}")
+            # if rec.finish_date and today > rec.finish_date:
+            #     raise ValidationError(f"Tidak bisa melakukan GR WIP karena {today} sudah melebihi Finish Date {rec.finish_date}")
             
             bag_qty = ((rec.remaining_qty * rec.uom_id.factor) / 1000)
             picking = self.env['stock.picking'].sudo().create({
@@ -524,7 +524,7 @@ class ProductionOrderSAP(models.Model):
                         move_vals.append({
                             'picking_id': picking.id,
                             'product_id': wip.product_id.id,
-                            'product_uom_qty': bag_qty,
+                            'product_uom_qty': bag_qty if bag_qty > 0 else 1,
                             'product_uom': uom_kg.id if rec.uom_id.name == 'kg' else rec.uom_id.id,
                             'company_id': rec.company_id.id,
                         })   
