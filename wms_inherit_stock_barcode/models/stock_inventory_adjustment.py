@@ -350,6 +350,33 @@ class StockInventoryAdjustment(models.Model):
                 line.lot_id.name, line.package_status,
                 line.inventory_quantity, line.bag_count
             )
+
+    # Ini buat testing
+    def bypass_done_pid_sap(self):
+        for rec in self:
+            quant_ids = rec.adjustment_line_ids.mapped('quant_id').filtered(lambda q: q.id)
+            try:
+                if quant_ids:
+                    quants_to_apply = quant_ids.filtered(lambda q: q.inventory_quantity_set)
+                    if quants_to_apply:
+                        quants_to_apply.action_apply_inventory()
+                        _logger.info(f"cron_synchronize_auto_done_pid IBLNR {rec.name}: action_apply_inventory berhasil untuk {len(quants_to_apply)} quant.")
+                    else:
+                        _logger.warning(f"cron_synchronize_auto_done_pid IBLNR {rec.name}: Tidak ada quant dengan inventory_quantity_set=True.")
+                else:
+                    _logger.warning(f"cron_synchronize_auto_done_pid IBLNR {rec.name}: Tidak ada quant terkait pada SIA {rec.name}")
+
+                self.apply_lot_aft_adjustment(rec) # Update lot qty by stocktype
+                
+                rec.write({
+                    'state': 'done_sap',
+                    'done_pid_number': 'BYPASS',
+                })
+            except Exception as e:
+                _logger.error("cron_synchronize_auto_done_pid Gagal proses SIA %s — %s", rec.name, str(e))
+                rec.message_post(body=f"GAGAL apply inventory via cron: {str(e)}")
+                continue
+            
     
     @api.model
     def cron_synhronize_pid_sap(self):
