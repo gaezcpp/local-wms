@@ -11,7 +11,7 @@
         </record>
         <record id="query_funcloc_sap" model="ir.config_parameter">
             <field name="key">query_funcloc_sap</field>
-            <field name="value">SELECT a.tplnr, d.pltxt, a.tplma, c.werks, if.abckz, b.eqfnr FROM iflot a JOIN iflotx d ON a.mandt=d.mandt AND a.tplnr=d.tplnr AND d.spras='E' JOIN (SELECT tplnr, MAX(eqfnr) AS eqfnr, MAX(swerk) AS swerk, mandt FROM iloa GROUP BY tplnr, mandt) b ON a.mandt=b.mandt AND a.tplnr=b.tplnr JOIN t001w c ON b.mandt=c.mandt AND b.swerk=c.werks left join iflo if on a.tplnr = if.tplnr and a.mandt = if.mandt</field>
+            <field name="value">SELECT a.tplnr, d.pltxt, a.tplma, c.werks, if.abckz, b.eqfnr FROM iflot a JOIN iflotx d ON a.mandt=d.mandt AND a.tplnr=d.tplnr AND d.spras='E' JOIN (SELECT tplnr, MAX(eqfnr) AS eqfnr, MAX(swerk) AS swerk, mandt FROM iloa GROUP BY tplnr, mandt) b ON a.mandt=b.mandt AND a.tplnr=b.tplnr JOIN t001w c ON b.mandt=c.mandt AND b.swerk=c.werks left join iflo if on a.tplnr = if.tplnr and a.mandt = if.mandt where c.werks in ('1443', '1321')</field>
         </record>
         <record id="query_tagging_problem_sap" model="ir.config_parameter">
             <field name="key">query_tagging_problem_sap</field>

@@ -122,7 +122,7 @@ class PlanMaintenanceWorkOrder(models.Model):
         if res.get('error'):
             raise ValidationError(json.dumps(res.get('error')))
         if not res.get('success'):
-            _logger.info(f"CRON {cron_name} NOT SUCCESS")
+            _logger.info(f"CRON {cron_name} NOT SUCCESS || {res}")
             return []
 
         data_list = res.get('data', [])
@@ -143,6 +143,7 @@ class PlanMaintenanceWorkOrder(models.Model):
         pm_wo_model = self.env['pm.work.order'].sudo()
         spare_part_model = self.env['tagging.spare_part'].sudo()
         wo_material_line_model = self.env['pm.work.order.material.line'].sudo()
+        company_model = self.env['res.company'].sudo()
 
         grouped = {}
         for data in data_list:
@@ -156,11 +157,16 @@ class PlanMaintenanceWorkOrder(models.Model):
             type_mo = records[0].get('AUART')
             priority = records[0].get('PRIOKX')
             ktext = records[0].get('KTEXT')
+            werks = records[0].get('COMPANY_ID') or records[0].get('WERKS')
 
             if not wo_name:
                 continue
+            
+            company = company_model.search([('company_registry', '=', werks),('sync_pm', '=', True)], limit=1)
+            if not company:
+                continue
 
-            work_order = pm_wo_model.search([('tagging_id.name', '=', no_tagging)], limit=1)
+            work_order = pm_wo_model.search([('tagging_id.name', '=', no_tagging),('company_id', '=', company.id)], limit=1)
             if not work_order:
                 continue
 
@@ -206,7 +212,7 @@ class PlanMaintenanceWorkOrder(models.Model):
             create_vals = []
 
             for sku, qty in materials_to_add.items():
-                product = spare_part_model.search([('sku', '=', sku)], limit=1)
+                product = spare_part_model.search([('sku', '=', sku),('company_id', '=', company)], limit=1)
                 if not product:
                     continue
 

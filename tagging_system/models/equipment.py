@@ -303,7 +303,7 @@ class TaggingSapSyncService(models.AbstractModel):
             raise ValidationError(json.dumps(res.get('error')))
 
         if not res.get('success'):
-            return True
+            raise ValidationError(f"NOT SUCCESS {res}")
 
         data_list = res.get('data', [])
 
