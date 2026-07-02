@@ -3,7 +3,7 @@
     <data noupdate="1">
         <record id="query_production_order_sap" model="ir.config_parameter">
             <field name="key">query_production_order_sap</field>
-            <field name="value">SELECT a.aufnr, a.auart, p.matnr, a.werks, k.gamng, p.meins, k.gmein, k.gstrp, k.gltrp, a.ernam, a.erdat, marm.umrez, marm.umren, 'NOT TECO' AS teco_status, a.loekz, s.rspos, s.matnr AS component, s.bdmng, s.meins AS uom_comp FROM aufk a LEFT JOIN afko k ON a.mandt = k.mandt AND a.aufnr = k.aufnr LEFT JOIN afpo p ON a.mandt = p.mandt AND a.aufnr = p.aufnr LEFT JOIN marm ON marm.mandt = p.mandt AND marm.matnr = p.matnr AND marm.meinh = k.gmein INNER JOIN resb s ON a.mandt = s.mandt AND k.rsnum = s.rsnum WHERE a.autyp = '10' AND a.erdat BETWEEN TO_CHAR(TRUNC(SYSDATE)-2,'YYYYMMDD') AND TO_CHAR(TRUNC(SYSDATE),'YYYYMMDD')</field>
+            <field name="value">SELECT a.aufnr, a.auart, p.matnr, a.werks, k.gamng, p.meins, k.gmein, k.gstrp, k.gltrp, a.ernam, a.erdat, marm.umrez, marm.umren, 'NOT TECO' AS teco_status, a.loekz, s.rspos, s.matnr AS component, s.bdmng, s.meins AS uom_comp FROM aufk a LEFT JOIN afko k ON a.mandt = k.mandt AND a.aufnr = k.aufnr LEFT JOIN afpo p ON a.mandt = p.mandt AND a.aufnr = p.aufnr LEFT JOIN marm ON marm.mandt = p.mandt AND marm.matnr = p.matnr AND marm.meinh = k.gmein LEFT JOIN resb s ON a.mandt = s.mandt AND k.rsnum = s.rsnum WHERE a.autyp = '10' AND a.erdat BETWEEN TO_CHAR(TRUNC(SYSDATE)-1,'YYYYMMDD') AND TO_CHAR(TRUNC(SYSDATE),'YYYYMMDD')</field>
         </record>
         <record id="operation_type_barcode_wip" model="ir.config_parameter">
             <field name="key">operation_type_barcode_wip</field>
