@@ -1,5 +1,6 @@
 from odoo import models, fields, api, _
 from odoo.exceptions import ValidationError
+from collections import defaultdict
 import logging
 _logger  = logging.getLogger(__name__)
 
@@ -27,6 +28,7 @@ class QualityPackages(models.Model):
     quality_summary_line_ids = fields.One2many('quality.packages.summary.line', 'quality_packages_id')
     is_checked = fields.Boolean(string="Is Checked", default=False, tracking=True)
     category_aft_id = fields.Many2one(comodel_name='category.quality.packages', string="Category", tracking=True)
+    block_action_id = fields.Many2one(comodel_name='action.quality.packages', string="Block Action", tracking=True)
     other_reason = fields.Text(string="Other Reason", tracking=True)
     select_all = fields.Boolean(string="Select All", default=False)
     lot_stock_id = fields.Many2one(comodel_name='stock.location', string="Location Stock")
@@ -99,6 +101,7 @@ class QualityPackages(models.Model):
 
                 quality_line_model.create({
                     'quality_packages_id': rec.id,
+                    'quant_id': quant.id or False,
                     'package_id': quant.package_id.id or False,
                     'location_id': quant.location_id.id,
                     'lot_id': quant.lot_id.id,
@@ -127,6 +130,104 @@ class QualityPackages(models.Model):
             else:
                 raise ValidationError("Hanya bisa ke In Progress jika Status Draft dan sudah Check Availability")
     
+    # def action_done(self):
+    #     for rec in self:
+    #         if rec.state != 'in_progress':
+    #             raise ValidationError("Hanya bisa Done dari status In Progress!")
+
+    #         selected_lines = rec.quality_line_ids.filtered(lambda l: l.is_selected and l.lot_id)
+    #         if not selected_lines:
+    #             raise ValidationError("Tidak ada Packages yang dipilih atau Packages yang dipilih Lotnya kosong!")
+
+    #         is_to_block = False
+    #         stock_type_from = rec.action_aft_id.stock_type_from
+    #         stock_type_to = rec.action_aft_id.stock_type_to
+    #         if stock_type_to and stock_type_to.strip().upper() == 'BLOCKED':
+    #             is_to_block = True
+                
+    #         if is_to_block:
+    #             if not rec.category_aft_id and not rec.block_action_id and not rec.other_reason:
+    #                 return self.action_open_aft_wizard()
+
+    #         for line in selected_lines:
+    #             lot = line.lot_id
+    #             qty_to_move = line.quantity
+    #             bag_qty_to_move = line.bag_qty
+
+    #             if qty_to_move <= 0:
+    #                 _logger.warning(
+    #                     "QualityPackages %s: Line lot %s memiliki quantity 0, dilewati.",
+    #                     rec.name, lot.name
+    #                 )
+    #                 continue
+
+    #             aft_from = self.env['stock.lot.aft'].sudo().search([
+    #                 ('lot_id', '=', lot.id),
+    #                 ('stock_type', '=', stock_type_from),
+    #             ], limit=1)
+
+    #             if not aft_from:
+    #                 aft_from = self.env['stock.lot.aft'].sudo().create({
+    #                     'lot_id': lot.id,
+    #                     'stock_type': stock_type_from,
+    #                     'quantity': 0,
+    #                     'bag_qty': 0,
+    #                     'uom_id': line.uom_id.id or False,
+    #                     'uom_bag_id': line.uom_bag_id.id or False,
+    #                 })
+
+    #             aft_to = self.env['stock.lot.aft'].sudo().search([
+    #                 ('lot_id', '=', lot.id),
+    #                 ('stock_type', '=', stock_type_to),
+    #             ], limit=1)
+
+    #             if not aft_to:
+    #                 aft_to = self.env['stock.lot.aft'].sudo().create({
+    #                     'lot_id': lot.id,
+    #                     'stock_type': stock_type_to,
+    #                     'quantity': 0,
+    #                     'bag_qty': 0,
+    #                     'uom_id': line.uom_id.id or False,
+    #                     'uom_bag_id': line.uom_bag_id.id or False,
+    #                 })
+
+    #             new_aft_from_qty = max(0.0, aft_from.quantity - qty_to_move)
+    #             new_aft_from_bag = max(0.0, aft_from.bag_qty - bag_qty_to_move)
+
+    #             aft_from.write({
+    #                 'quantity': new_aft_from_qty,
+    #                 'bag_qty': new_aft_from_bag,
+    #             })
+
+    #             aft_to.write({
+    #                 'quantity': aft_to.quantity + qty_to_move,
+    #                 'bag_qty': aft_to.bag_qty + bag_qty_to_move,
+    #             })
+
+    #             quant_domain = [
+    #                 ('lot_id', '=', lot.id),
+    #                 ('stock_type', '=', stock_type_from),
+    #             ]
+    #             if line.package_id:
+    #                 quant_domain.append(('package_id', '=', line.package_id.id))
+    #             if line.location_id:
+    #                 quant_domain.append(('location_id', '=', line.location_id.id))
+
+    #             matching_quants = self.env['stock.quant'].sudo().search(quant_domain)
+    #             if matching_quants:
+    #                 matching_quants.write({'stock_type': stock_type_to})
+
+    #             lot.message_post(
+    #                 body=(
+    #                     f"Stock Lot AFT Updated from {rec.name}: "
+    #                     f"{stock_type_from} -{qty_to_move} (sisa: {new_aft_from_qty}) "
+    #                     f"→ {stock_type_to} +{qty_to_move} (total: {aft_to.quantity + qty_to_move})"
+    #                 )
+    #             )
+
+    #         rec.state = 'done'
+    #         rec._create_summary_line()
+    
     def action_done(self):
         for rec in self:
             if rec.state != 'in_progress':
@@ -136,57 +237,66 @@ class QualityPackages(models.Model):
             if not selected_lines:
                 raise ValidationError("Tidak ada Packages yang dipilih atau Packages yang dipilih Lotnya kosong!")
 
-            is_to_block = False
             stock_type_from = rec.action_aft_id.stock_type_from
             stock_type_to = rec.action_aft_id.stock_type_to
-            if stock_type_to and stock_type_to.strip().upper() == 'BLOCKED':
-                is_to_block = True
+            is_to_block = stock_type_to and stock_type_to.strip().upper() == 'BLOCKED'
                 
-            if is_to_block:
-                if not rec.category_aft_id and not rec.other_reason:
-                    return self.action_open_aft_wizard()
+            if is_to_block and not rec.category_aft_id and not rec.block_action_id and not rec.other_reason:
+                return self.action_open_aft_wizard()
 
+            lot_totals = defaultdict(lambda: {'qty': 0.0, 'bag_qty': 0.0, 'uom_id': False, 'uom_bag_id': False, 'lot_obj': False})
+            
             for line in selected_lines:
-                lot = line.lot_id
-                qty_to_move = line.quantity
-                bag_qty_to_move = line.bag_qty
-
-                if qty_to_move <= 0:
-                    _logger.warning(
-                        "QualityPackages %s: Line lot %s memiliki quantity 0, dilewati.",
-                        rec.name, lot.name
-                    )
+                if line.quantity <= 0:
+                    _logger.warning(f"QualityPackages {rec.name}: Line lot {line.lot_id.name} memiliki quantity 0, dilewati.")
                     continue
+                
+                lot_id = line.lot_id.id
+                lot_totals[lot_id]['qty'] += line.quantity
+                lot_totals[lot_id]['bag_qty'] += line.bag_qty
+                lot_totals[lot_id]['uom_id'] = line.uom_id.id
+                lot_totals[lot_id]['uom_bag_id'] = line.uom_bag_id.id or False
+                lot_totals[lot_id]['lot_obj'] = line.lot_id
 
-                aft_from = self.env['stock.lot.aft'].sudo().search([
-                    ('lot_id', '=', lot.id),
-                    ('stock_type', '=', stock_type_from),
-                ], limit=1)
+            if not lot_totals:
+                raise ValidationError("Tidak ada Packages dengan quantity lebih besar dari 0 yang dapat diproses!")
 
+            lot_ids = list(lot_totals.keys())
+            aft_records = self.env['stock.lot.aft'].sudo().search([
+                ('lot_id', 'in', lot_ids),
+                ('stock_type', 'in', [stock_type_from, stock_type_to])
+            ])
+            
+            aft_map = {(r.lot_id.id, r.stock_type): r for r in aft_records}
+
+            for lot_id, data in lot_totals.items():
+                lot = data['lot_obj']
+                qty_to_move = data['qty']
+                bag_qty_to_move = data['bag_qty']
+
+                aft_from = aft_map.get((lot_id, stock_type_from))
                 if not aft_from:
                     aft_from = self.env['stock.lot.aft'].sudo().create({
-                        'lot_id': lot.id,
+                        'lot_id': lot_id,
                         'stock_type': stock_type_from,
                         'quantity': 0,
                         'bag_qty': 0,
-                        'uom_id': line.uom_id.id or False,
-                        'uom_bag_id': line.uom_bag_id.id or False,
+                        'uom_id': data['uom_id'],
+                        'uom_bag_id': data['uom_bag_id'],
                     })
+                    aft_map[(lot_id, stock_type_from)] = aft_from
 
-                aft_to = self.env['stock.lot.aft'].sudo().search([
-                    ('lot_id', '=', lot.id),
-                    ('stock_type', '=', stock_type_to),
-                ], limit=1)
-
+                aft_to = aft_map.get((lot_id, stock_type_to))
                 if not aft_to:
                     aft_to = self.env['stock.lot.aft'].sudo().create({
-                        'lot_id': lot.id,
+                        'lot_id': lot_id,
                         'stock_type': stock_type_to,
                         'quantity': 0,
                         'bag_qty': 0,
-                        'uom_id': line.uom_id.id or False,
-                        'uom_bag_id': line.uom_bag_id.id or False,
+                        'uom_id': data['uom_id'],
+                        'uom_bag_id': data['uom_bag_id'],
                     })
+                    aft_map[(lot_id, stock_type_to)] = aft_to
 
                 new_aft_from_qty = max(0.0, aft_from.quantity - qty_to_move)
                 new_aft_from_bag = max(0.0, aft_from.bag_qty - bag_qty_to_move)
@@ -201,26 +311,23 @@ class QualityPackages(models.Model):
                     'bag_qty': aft_to.bag_qty + bag_qty_to_move,
                 })
 
-                quant_domain = [
-                    ('lot_id', '=', lot.id),
-                    ('stock_type', '=', stock_type_from),
-                ]
-                if line.package_id:
-                    quant_domain.append(('package_id', '=', line.package_id.id))
-                if line.location_id:
-                    quant_domain.append(('location_id', '=', line.location_id.id))
-
-                matching_quants = self.env['stock.quant'].sudo().search(quant_domain)
-                if matching_quants:
-                    matching_quants.write({'stock_type': stock_type_to})
-
                 lot.message_post(
                     body=(
                         f"Stock Lot AFT Updated from {rec.name}: "
-                        f"{stock_type_from} -{qty_to_move} (sisa: {new_aft_from_qty}) "
-                        f"→ {stock_type_to} +{qty_to_move} (total: {aft_to.quantity + qty_to_move})"
+                        f"{stock_type_from} -{bag_qty_to_move} (sisa: {new_aft_from_bag}) "
+                        f"→ {stock_type_to} +{bag_qty_to_move} (total: {aft_to.bag_qty})"
                     )
                 )
+
+            valid_lines = selected_lines.filtered(lambda l: l.quantity > 0)
+            
+            quants_to_update = valid_lines.mapped('quant_id')
+            if quants_to_update:
+                quants_to_update.sudo().write({'stock_type': stock_type_to})
+            
+            packages_to_update = valid_lines.mapped('package_id')
+            if packages_to_update:
+                packages_to_update.sudo().write({'block_action_id': rec.block_action_id.id})
 
             rec.state = 'done'
             rec._create_summary_line()

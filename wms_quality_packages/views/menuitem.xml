@@ -45,4 +45,12 @@
         action="wms_quality_packages.category_quality_packages_action"
         sequence="20"
     />
+
+    <menuitem
+        id="action_quality_packages_menu"
+        name="Action AFT"
+        parent="wms_quality_packages.quality_packages_configuration_menu"
+        action="wms_quality_packages.action_quality_packages_action"
+        sequence="30"
+    />
 </odoo>

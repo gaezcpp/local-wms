@@ -69,6 +69,7 @@
                             <field name="lot_stock_id" force_save="1" readonly="1" options="{'no_open': True, 'no_create': True}"/>
                             <field name="is_checked" readonly="1"/>
                             <field name="category_aft_id" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1"/>
+                            <field name="block_action_id" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1"/>
                             <field name="other_reason" force_save="1" readonly="1"/>
                         </group>
                     </group>

@@ -5,6 +5,7 @@ class StockPackageAFT(models.Model):
     _inherit = 'stock.package'
     
     aft_count = fields.Integer(string="AFT Count", compute='_compute_aft_count')
+    block_action_id = fields.Many2one(comodel_name='action.quality.packages', string="Block Action")
     
     def _compute_aft_count(self):
         domain = [('package_id', 'in', self.ids)]

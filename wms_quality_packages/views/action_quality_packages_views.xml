@@ -1,0 +1,43 @@
+<?xml version='1.0' encoding='utf-8'?>
+<odoo>
+    <!-- Search View -->
+    <record model="ir.ui.view" id="action_quality_packages_search">
+        <field name="name">action.quality.packages.search</field>
+        <field name="model">action.quality.packages</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_quality_packages_view_list" model="ir.ui.view">
+        <field name="name">action.quality.packages.view.list</field>
+        <field name="model">action.quality.packages</field>
+        <field name="arch" type="xml">
+            <list string="Category Quality Packages">
+                <field name="name"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_quality_packages_view_form" model="ir.ui.view">
+        <field name="name">action.quality.packages.view.form</field>
+        <field name="model">action.quality.packages</field>
+        <field name="arch" type="xml">
+            <form string="Category Quality Packages">
+                <sheet>
+                    <group>
+                        <field name="name" required="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_quality_packages_action" model="ir.actions.act_window">
+        <field name="name">Category Quality Packages</field>
+        <field name="res_model">action.quality.packages</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>

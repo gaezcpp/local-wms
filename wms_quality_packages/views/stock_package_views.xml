@@ -11,6 +11,9 @@
                         <field name="aft_count" string="Summary AFT" widget="statinfo"/>
                     </button>
                 </xpath>
+                <xpath expr="//field[@name='pack_date']" position="after">
+                    <field name="block_action_id" readonly="1"/>
+                </xpath>
             </field>
         </record>
     </data>

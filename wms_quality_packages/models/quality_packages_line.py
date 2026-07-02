@@ -7,10 +7,11 @@ class QualityPackagesLine(models.Model):
     _name = 'quality.packages.line'
     _description = 'Quality Packages Line'
     
-    quality_packages_id = fields.Many2one(comodel_name='quality.packages', string="Quality Packages")
+    quality_packages_id = fields.Many2one(comodel_name='quality.packages', string="Quality Packages", ondelete='cascade')
     package_id = fields.Many2one(comodel_name='stock.package', string="Package")
     location_id = fields.Many2one(comodel_name='stock.location', string="Location")
     lot_id = fields.Many2one(comodel_name='stock.lot', string="Lot")
+    quant_id = fields.Many2one(comodel_name='stock.quant', string="Quant")
     quantity = fields.Float(string="Quantity")
     uom_id = fields.Many2one(comodel_name='uom.uom', string="Unit")
     bag_qty = fields.Float(string="Quantity")

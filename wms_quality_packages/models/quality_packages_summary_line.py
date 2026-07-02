@@ -7,7 +7,7 @@ class QualityPackagesSummaryLine(models.Model):
     _name = 'quality.packages.summary.line'
     _description = 'Quality Packages Summary Line'
     
-    quality_packages_id = fields.Many2one(comodel_name='quality.packages', string="Quality Packages")
+    quality_packages_id = fields.Many2one(comodel_name='quality.packages', string="Quality Packages", ondelete='cascade')
     product_id = fields.Many2one(comodel_name='product.product', string="Product")
     package_id = fields.Many2one(comodel_name='stock.package', string="Package")
     location_id = fields.Many2one(comodel_name='stock.location', string="Location")

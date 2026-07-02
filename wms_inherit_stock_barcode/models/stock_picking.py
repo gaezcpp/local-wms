@@ -224,22 +224,32 @@ class StockPicking(models.Model):
                     
     def _sync_post_validate_quantities(self):
         for picking in self:
-            if picking.state == 'done':
-                for line in picking.move_line_ids:
-                    qty = line.qty_done if hasattr(line, 'qty_done') else line.quantity
-                    if qty > 0 and line.bag_qty <= 0 and line.pallet_qty <= 0:
-                        new_bag_qty = 0.0
-                        new_pallet_qty = 0.0
-                        if line.product_uom_id and line.product_uom_id.factor and line.uom_bag_id and line.uom_bag_id.factor:
-                            new_bag_qty = ((qty * line.product_uom_id.factor) / 1000) / (line.uom_bag_id.factor / 1000)
-                        if line.uom_pallet_id and line.uom_pallet_id.factor:
-                            new_pallet_qty = qty / (line.uom_pallet_id.factor / 1000)
-                        line.write({
-                            'bag_qty': round(new_bag_qty),
-                            'pallet_qty': new_pallet_qty
-                        })
+            if picking.state != 'done':
+                continue
+
+            is_updated = False
+            for line in picking.move_line_ids:
+                qty = line.qty_done if line.qty_done > 0 else line.quantity
                 
-                picking.message_post(body=f"Bag dan Pallet Move Line otomatis terisi karena match kondisi")
+                if qty > 0 and line.bag_qty <= 0 and line.pallet_qty <= 0:
+                    new_bag_qty = 0.0
+                    new_pallet_qty = 0.0
+                    
+                    if line.product_uom_id and line.product_uom_id.factor and line.uom_bag_id and line.uom_bag_id.factor:
+                        new_bag_qty = ((qty * line.product_uom_id.factor) / 1000) / (line.uom_bag_id.factor / 1000)
+                        
+                    if line.uom_pallet_id and line.uom_pallet_id.factor:
+                        new_pallet_qty = qty / (line.uom_pallet_id.factor / 1000)
+                        
+                    line.write({
+                        'bag_qty': round(new_bag_qty),
+                        'pallet_qty': new_pallet_qty
+                    })
+                    
+                    is_updated = True
+            
+            if is_updated:
+                picking.message_post(body="Bag dan Pallet Move Line otomatis terisi karena match kondisi")
     
     def _check_production_order_sap(self):
         for picking in self:

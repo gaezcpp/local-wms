@@ -186,7 +186,7 @@ class InheritBaseStockPicking(models.Model):
         if res.get('error'):
             raise ValidationError(json.dumps(res.get('error')))
         if not res.get('success'):
-            _logger.info(f"CRON {cron_name} NOT SUCCESS")
+            _logger.info(f"CRON {cron_name} NOT SUCCESS || {res}")
             return []
 
         data_list = res.get('data', [])

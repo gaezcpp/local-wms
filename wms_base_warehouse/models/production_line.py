@@ -8,7 +8,7 @@ _logger = logging.getLogger(__name__)
 class ProductionLineCustom(models.Model):
     _name = 'production.line'
     _description = 'Production Line'
-    _rec_name = 'code'
+    _rec_name = 'name'
     
     active = fields.Boolean(string="Active", default=True)
     code = fields.Char(string="Code")
@@ -51,7 +51,7 @@ class ProductionLineCustom(models.Model):
         if res.get('error'):
             raise ValidationError(json.dumps(res.get('error')))
         if not res.get('success'):
-            _logger.info(f"CRON {cron_name} NOT SUCCESS")
+            _logger.info(f"CRON {cron_name} NOT SUCCESS || {res}")
             return []
 
         data_list = res.get('data', [])

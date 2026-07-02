@@ -32,6 +32,7 @@ Long description of module's purpose
         'views/category_quality_packages_views.xml',
         'views/sap_aft_views.xml',
         'views/stock_package_views.xml',
+        'views/action_quality_packages_views.xml',
         'views/menuitem.xml',
     ],
 }
