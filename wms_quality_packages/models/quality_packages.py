@@ -102,6 +102,7 @@ class QualityPackages(models.Model):
                 quality_line_model.create({
                     'quality_packages_id': rec.id,
                     'quant_id': quant.id or False,
+                    'product_id': quant.product_id.id or False,
                     'package_id': quant.package_id.id or False,
                     'location_id': quant.location_id.id,
                     'lot_id': quant.lot_id.id,

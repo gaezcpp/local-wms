@@ -31,7 +31,7 @@
                 <field name="lot_id" string="Production Code"/>
                 <field name="location_id"/>
                 <field name="action_aft_id"/>
-                <field name="state"/>
+                <field name="state" widget="badge" decoration-danger="state == 'cancel'" decoration-warning="state == 'in_progress'" decoration-success="state == 'done'"/>
                 <field name="company_id"/>
             </list>
         </field>
@@ -79,6 +79,7 @@
 								<list create="0" delete="0" editable="bottom">
                                     <field name="is_selected" readonly="parent.state != 'draft'" widget="boolean_toggle"/>
                                     <field name="quality_packages_id" column_invisible="1" options="{'no_open': True, 'no_create': True}" readonly="1"/>
+                                    <field name="product_id" options="{'no_open': True, 'no_create': True}" readonly="1"/>
                                     <field name="package_id" options="{'no_open': True, 'no_create': True}" readonly="1"/>
                                     <field name="location_id" options="{'no_open': True, 'no_create': True}" readonly="1"/>
                                     <field name="lot_id" options="{'no_open': True, 'no_create': True}" readonly="1"/>
@@ -170,7 +171,7 @@
                 <field name="lot_id"/>
                 <field name="location_id"/>
                 <field name="action_aft_id"/>
-                <field name="state"/>
+                <field name="state" decoration-danger="state == 'cancel'" decoration-warning="state == 'in_progress'" decoration-success="state == 'done'"/>
                 <templates>
                     <t t-name="card">
                         <div class="oe_kanban_card oe_kanban_global_click">
@@ -179,7 +180,7 @@
                                     <strong><field name="name"/></strong>
                                 </div>
                                 <div class="col-4 text-right">
-                                    <field name="state" widget="badge"/>
+                                    <field name="state" widget="badge" decoration-danger="state == 'cancel'" decoration-warning="state == 'in_progress'" decoration-success="state == 'done'"/>
                                 </div>
                             </div>
                             <div class="row mb-1">
