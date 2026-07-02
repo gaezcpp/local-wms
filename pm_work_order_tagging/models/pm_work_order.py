@@ -6,7 +6,7 @@ from html import escape
 import requests
 import json
 import logging
-import random
+import pytz
 _logger = logging.getLogger(__name__)
 
 
@@ -52,6 +52,15 @@ class PlanMaintenanceWorkOrder(models.Model):
             if vals.get('name', _('New')) == _('New'):
                 vals['name'] = self.env['ir.sequence'].next_by_code('pm.work.order') or _('New')
         return super().create(vals_list)
+    
+    def today_jakarta(self):
+        tz = pytz.timezone('Asia/Jakarta')
+        now_jakarta = datetime.now(tz)
+        return now_jakarta.date()
+    
+    def now_jakarta(self):
+        tz = pytz.timezone('Asia/Jakarta')
+        return datetime.now(pytz.utc).astimezone(tz)
     
     def _needs_update(self, model, vals):
         for field, new_val in vals.items():
@@ -129,6 +138,7 @@ class PlanMaintenanceWorkOrder(models.Model):
         _logger.info(f"CRON {cron_name} - TOTAL DATA: {len(data_list)}")
         return data_list
     
+    # INI JAMAN DULU BANGET
     @api.model
     def cron_synchronize_sap_work_order_material(self):
         data_list = self._fetch_sap_data(
@@ -234,6 +244,8 @@ class PlanMaintenanceWorkOrder(models.Model):
             if create_vals:
                 wo_material_line_model.create(create_vals)
                 
+    # INI JAMAN DULU BANGET
+    @api.model
     def cron_synchronize_sap_work_order_material_v2(self):
         data_list = self._fetch_sap_data(
             config_key='query_work_order_material_sap',
@@ -361,7 +373,6 @@ class PlanMaintenanceWorkOrder(models.Model):
         wo_jasa_line_model = self.env['pm.work.order.jasa.line'].sudo()
         company_model = self.env['res.company'].sudo()
 
-        # 1. Kelompokkan data berdasarkan Tagging (FETXT)
         grouped = {}
         for data in data_list:
             no_tagging = (data.get('FETXT') or "").strip()
@@ -369,13 +380,11 @@ class PlanMaintenanceWorkOrder(models.Model):
                 continue
             grouped.setdefault(no_tagging, []).append(data)
 
-        # 2. Iterasi per Work Order / Tagging
         for no_tagging, records in grouped.items():
             first_rec = records[0]
             wo_name = (first_rec.get('AUFNR') or "").lstrip('0')
             werks = first_rec.get('COMPANY_ID') or first_rec.get('WERKS')
 
-            # Validasi awal Header
             if not wo_name:
                 _logger.warning(f"SKIPPED: {no_tagging} - AUFNR Kosong")
                 continue
@@ -393,7 +402,6 @@ class PlanMaintenanceWorkOrder(models.Model):
                 _logger.warning(f"SKIPPED: {no_tagging} - Work Order tidak ditemukan di sistem")
                 continue
 
-            # Update Header Work Order
             work_order.write({
                 'wo_sap': wo_name,
                 'type_mo': first_rec.get('AUART'),
@@ -402,13 +410,11 @@ class PlanMaintenanceWorkOrder(models.Model):
                 'description': first_rec.get('KTEXT'),
             })
 
-            # 3. Persiapan variabel penampung untuk Bulk Operation
             materials_to_delete = []
-            materials_to_add_update = {}  # Format: {sku: qty}
-            jasa_to_add_update = {}       # Format: {srvpos: description}
+            materials_to_add_update = {}
+            jasa_to_add_update = {}
             sku_list = set()
 
-            # Klasifikasi aksi berdasarkan BWART
             for rec in records:
                 sku = rec.get('MATNR')
                 qty = float(rec.get('BDMNG') or 0.0)
@@ -416,7 +422,6 @@ class PlanMaintenanceWorkOrder(models.Model):
                 srvpos = rec.get('SRVPOS')
                 ktext1 = rec.get('KTEXT1')
 
-                # Kumpulkan Material
                 if sku:
                     sku_list.add(sku)
                     if bwart == 'Z62':
@@ -424,11 +429,9 @@ class PlanMaintenanceWorkOrder(models.Model):
                     elif bwart == 'Z61':
                         materials_to_add_update[sku] = qty
 
-                # Kumpulkan Jasa (Jika terdapat ID Service)
                 if srvpos:
                     jasa_to_add_update[srvpos] = ktext1
 
-            # 4. Proses Delete (Unlink) Material Z62
             if materials_to_delete:
                 lines_to_unlink = work_order.pm_wo_material_line_ids.filtered(
                     lambda l: l.product_sparepart_id.sku in materials_to_delete
@@ -436,11 +439,9 @@ class PlanMaintenanceWorkOrder(models.Model):
                 if lines_to_unlink:
                     lines_to_unlink.unlink()
 
-            # 5. Pencarian Sparepart Massal (Menghindari N+1 Query)
             products = spare_part_model.search([('sku', 'in', list(sku_list)), ('company_id', '=', company.id)])
             product_dict = {p.sku: p for p in products}
 
-            # Mapping record yang sudah ada
             existing_mat_lines = {
                 line.product_sparepart_id.sku: line
                 for line in work_order.pm_wo_material_line_ids
@@ -453,12 +454,10 @@ class PlanMaintenanceWorkOrder(models.Model):
                 if line.no_service
             }
 
-            # 6. Kalkulasi Persiapan Create/Update
             mat_create_vals = []
             jasa_create_vals = []
             mat_sequence = len(work_order.pm_wo_material_line_ids)
 
-            # Eksekusi Material Z61 (Tentukan apakah perlu Create atau Write)
             for sku, qty in materials_to_add_update.items():
                 product = product_dict.get(sku)
                 if not product:
@@ -480,12 +479,9 @@ class PlanMaintenanceWorkOrder(models.Model):
                         'quantity': qty,
                     })
 
-            # Eksekusi Jasa (Tentukan apakah perlu Create atau Write)
             for srvpos, desc in jasa_to_add_update.items():
                 if srvpos in existing_jasa_lines:
-                    existing_jasa_lines[srvpos].write({
-                        'description': desc
-                    })
+                    existing_jasa_lines[srvpos].write({'description': desc})
                 else:
                     jasa_create_vals.append({
                         'pm_work_order_id': work_order.id,
@@ -493,15 +489,12 @@ class PlanMaintenanceWorkOrder(models.Model):
                         'description': desc,
                     })
 
-            # 7. Eksekusi Bulk Create ke Database (Hanya menembak DB 1 kali untuk masing-masing model)
             if mat_create_vals:
                 wo_material_line_model.create(mat_create_vals)
             
             if jasa_create_vals:
                 wo_jasa_line_model.create(jasa_create_vals)
 
-        return True
-    
     @api.onchange('analysis_id')
     def _onchange_analysis_pm(self):
         for rec in self:
@@ -511,11 +504,37 @@ class PlanMaintenanceWorkOrder(models.Model):
                 rec.need_desc = False
                 
     def action_waiting_sap(self):
+        now = self.now_jakarta()
         for rec in self:
-            if rec.state == 'draft' and rec.sap_synchronize:
-                rec.state = 'waiting_sap'
-            else:
+            date_from = rec.date_from.replace(tzinfo=pytz.utc)
+            date_to = rec.date_to.replace(tzinfo=pytz.utc)
+            
+            if rec.state != 'draft' and not rec.sap_synchronize:
                 raise ValidationError(f"Status pada {rec.name} bukan Draft dan SAP Synchronize belum ceklis!")
+            if not rec.date_from:
+                raise ValidationError("Date From harus diisi!")
+            if not rec.date_to:
+                raise ValidationError("Date To harus diisi!")
+            if not rec.analysis_id:
+                raise ValidationError("Analysis harus diisi!")
+            if rec.analysis_id and rec.analysis_id.need_desc:
+                if not rec.analysis:
+                    raise ValidationError("Analysis Desc harus diisi karena membutuhkan Deskripsi!")
+            if not rec.problem_handling:
+                raise ValidationError("Problem Handling harus diisi!")
+            if not rec.photo_attachment:
+                raise ValidationError("Photo harus diisi!")
+            if rec.date_from:
+                if date_from < now:
+                    raise ValidationError("Date From tidak boleh kurang dari sekarang hari ini")
+            if rec.date_to:
+                if date_to < now:
+                    raise ValidationError("Date To tidak boleh kurang dari sekarang!")
+            if rec.date_from and rec.date_to:
+                if rec.date_to < rec.date_from:
+                    raise ValidationError("Date To tidak boleh kurang dari Date From!")
+            
+            rec.write({'state': 'waiting_sap'})
     
     def action_close(self):
         for rec in self:
@@ -543,6 +562,9 @@ class PlanMaintenanceWorkOrder(models.Model):
         pm_wo_model = self.env['pm.work.order'].sudo()
         equip_model = self.env['maintenance.equipment'].sudo()
         company_model = self.env['res.company'].sudo()
+        spare_part_model = self.env['tagging.spare_part'].sudo()
+        wo_material_line_model = self.env['pm.work.order.material.line'].sudo()
+        wo_jasa_line_model = self.env['pm.work.order.jasa.line'].sudo()
         grouped_data = defaultdict(list)
         
         for row in data_list:
@@ -589,6 +611,57 @@ class PlanMaintenanceWorkOrder(models.Model):
             else:
                 if self._needs_update(wo_preventif, vals):
                     wo_preventif.write(vals)
+        
+        for row in rows:
+            matnr = row.get('MATNR')
+            qty = float(row.get('BDMNG') or 0.0)
+            srvpos = row.get('SRVPOS')
+            ktext1 = row.get('KTEXT1')
+            
+            sparepart = spare_part_model.search([('sku', '=', matnr), ('company_id', '=', company.id)], limit=1)
+            if not sparepart:
+                _logger.info(f"cron_synchronize_sap_preventif_work_order SPAREPART {matnr} SKIPPED")
+                continue
+            
+            existing_mat_line = wo_material_line_model.search([
+                ('pm_work_order_id', '=', wo_preventif.id),
+                ('product_sparepart_id', '=', sparepart.id),
+            ], limit=1)
+            
+            existing_jasa_line = wo_jasa_line_model.search([
+                ('pm_work_order_id', '=', wo_preventif.id),
+                ('no_service', '=', srvpos)
+            ], limit=1)
+            
+            vals_mat = {
+                'pm_work_order_id': wo_preventif.id,
+                'sequence': 1,
+                'product_sparepart_id': sparepart.id,
+                'product_material': sparepart.sku,
+                'quantity': qty,
+            }
+            
+            vals_jasa = {
+                'pm_work_order_id': wo_preventif.id,
+                'no_service': srvpos,
+                'description': ktext1,
+            }
+            
+            if not existing_mat_line:
+                wo_material_line_model.create(vals_mat)
+            else:
+                if self._needs_update(existing_mat_line, vals_mat):
+                    existing_mat_line.write({
+                        'product_sparepart_id': sparepart.id,
+                        'product_material': sparepart.sku,
+                        'quantity': qty,
+                    })
+            
+            if not existing_jasa_line:
+                wo_jasa_line_model.create(vals_jasa)
+            else:
+                if self._needs_update(existing_jasa_line, vals_jasa):
+                    existing_jasa_line.write({'description': ktext1})
                     
     @api.model
     def cron_reminder_wo_draft(self):

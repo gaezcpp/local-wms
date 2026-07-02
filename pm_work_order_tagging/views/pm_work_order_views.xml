@@ -29,7 +29,6 @@
                 <field name="equipment_id"/>
                 <field name="sub_equipment_id"/>
                 <field name="priority"/>
-                <field name="gi_gr_sap"/>
                 <field name="company_id"/>
             </list>
         </field>
@@ -46,10 +45,12 @@
                     <field name="state" widget="statusbar" statusbar_visible="draft,waiting_sap,closed"/>
                 </header>
                 <sheet>
-                    <label for="name" class="oe_edit_only"/>
-                    <h1>
-                        <field name="name" force_save="1" readonly="1"/>
+                    <h1 invisible="not description">
+                        <field name="description" readonly="1"/>
                     </h1>
+                    <h2>
+                        <field name="name" readonly="1"/>
+                    </h2>
                     <group>
                         <group name="pm_left">
                             <field name="wo_sap" force_save="1" readonly="1"/>
@@ -57,7 +58,6 @@
                             <field name="type_mo" force_save="1" readonly="1"/>
                             <field name="priority" force_save="1" readonly="1"/>
                             <field name="confirm_number" force_save="1" readonly="1" invisible="not confirm_number"/>
-                            <field name="gi_gr_sap" force_save="1" readonly="1" invisible="1"/>
                             <field name="sap_synchronize" force_save="1" readonly="1" invisible="1"/>
                         </group>
                         <group name="pm_right">

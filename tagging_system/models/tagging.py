@@ -253,6 +253,15 @@ class TaggingRecord(models.Model):
                 raise UserError(_("This record is Closed and cannot be edited."))
 
         return super().write(vals)
+    
+    def today_jakarta(self):
+        tz = pytz.timezone('Asia/Jakarta')
+        now_jakarta = datetime.now(tz)
+        return now_jakarta.date()
+    
+    def now_jakarta(self):
+        tz = pytz.timezone('Asia/Jakarta')
+        return datetime.now(pytz.utc).astimezone(tz)
 
     @api.depends("equipment_id")
     def _compute_available_spareparts(self):
@@ -456,6 +465,7 @@ class TaggingRecord(models.Model):
         return (b.functional_location_name or b.functional_location or system_code or "Others")
 
     def action_set_closed(self):
+        now = self.now_jakarta()
         for rec in self:
             if rec.status == "closed":
                 continue
@@ -465,6 +475,12 @@ class TaggingRecord(models.Model):
                 raise UserError('Close Start Date harus diisi!')
             if not rec.close_end_date:
                 raise UserError('Close End Date harus diisi!')
+            if rec.close_start_date and rec.close_end_date:
+                start_date_aware = rec.close_start_date.replace(tzinfo=pytz.utc)
+                if start_date_aware < now:
+                    raise UserError("Work Start Date tidak boleh kurang dari hari ini")
+                if rec.close_end_date < rec.close_start_date:
+                    raise UserError("Work End Date tidak boleh kurang dari Work Start Date")
             if not rec.close_description:
                 raise UserError(_("Deskripsi Close wajib diisi sebelum Close."))
             if not rec.close_photo:
@@ -472,19 +488,16 @@ class TaggingRecord(models.Model):
 
             vals = {
                 "status": "closed",
-                "end_date": fields.Datetime.now(),
+                "end_date": now.astimezone(pytz.utc).replace(tzinfo=None),
             }
 
-            # ====== NEW FLOW (maintenance.equipment) ======
             if rec.equipment_id:
                 vals.update({
                     "equipment": rec.equipment_id.display_name or rec.equipment_id.name or "",
                     "spare_part": rec.sparepart_product_id.display_name if rec.sparepart_product_id else "",
-                    # sesuaikan: banyak DB pakai default_code untuk SKU
                     "sku": (rec.sparepart_product_id.default_code if rec.sparepart_product_id else "") or "",
                 })
 
-            # ====== LEGACY FLOW (tagging.machine_bom) ======
             elif rec.machine_bom_id:
                 bom = rec.machine_bom_id
                 vals.update({
@@ -494,11 +507,7 @@ class TaggingRecord(models.Model):
                 })
 
             else:
-                # kalau mau: ganti teks error jadi lebih akurat
                 raise UserError(_("Equipment wajib dipilih sebelum Close."))
-
-            # if not rec.start_date:
-            #     vals["start_date"] = rec.end_date
             
             if rec.status == 'validated':
                 rec.wo_sparepart_ids.sudo().unlink()

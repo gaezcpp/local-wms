@@ -51,4 +51,27 @@
         action="pm_work_order_tagging.zmo_report_action"
         sequence="20"
     />
+
+    <menuitem
+        id="work_order_tagging_menu"
+        name="Work Order"
+        parent="tagging_system.menu_tagging_root"
+        sequence="30"
+    />
+
+    <menuitem
+        id="work_order_pm_tagging_menu"
+        name="Work Order"
+        parent="pm_work_order_tagging.work_order_tagging_menu"
+        action="pm_work_order_tagging.pm_work_order_action"
+        sequence="10"
+    />
+
+    <menuitem
+        id="work_order_calendar_tagging_menu"
+        name="Work Order Calendar"
+        parent="pm_work_order_tagging.work_order_tagging_menu"
+        action="pm_work_order_tagging.pm_work_order_calendar_action"
+        sequence="20"
+    />
 </odoo>
