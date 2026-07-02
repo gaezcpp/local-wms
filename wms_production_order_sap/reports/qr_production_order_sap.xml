@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="qr_production_order_sap" name="qr_production_order_sap">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="doc">
+                <t t-call="web.internal_layout">
+                    <div class="page">
+                        <div class="row">
+                            <center>
+                                <table>
+                                    <tr>
+                                        <td class="text-center">
+                                            <img t-if="doc.po_number" t-att-src="'/report/barcode/?barcode_type=%s&amp;value=%s&amp;width=%s&amp;height=%s' % ('QR', doc.po_number, 300, 300)" alt="QR Code" style="height:300px"/>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-center">
+                                            <t t-esc="doc.po_number"/>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </center>
+                        </div>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+
+    <record id="action_report_qr_production" model="ir.actions.report">
+        <field name="name">Print QR Production</field>
+        <field name="model">production.order.sap</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">wms_production_order_sap.qr_production_order_sap</field>
+        <field name="report_file">wms_production_order_sap.qr_production_order_sap</field>
+        <field name="print_report_name">'QR-Label-%s' % (object.po_number)</field>
+        <field name="binding_model_id" ref="wms_production_order_sap.model_production_order_sap"/>
+        <field name="binding_type">report</field>
+    </record>
+
+</odoo>

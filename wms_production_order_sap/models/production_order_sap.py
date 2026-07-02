@@ -629,3 +629,6 @@ class ProductionOrderSAP(models.Model):
     #         return last_picking_record.action_open_picking_client_action()
             
     #     return {'type': 'ir.actions.act_window_close'}
+    
+    # def download_qr(self):
+    #     return self.env.ref('wms_production_order_sap.qr_production_order_sap').report_action(self)

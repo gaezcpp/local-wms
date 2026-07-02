@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<templates xml:space="preserve">
+    <t t-name="QRScannerTemplate" owl="1">
+        <div class="o_qr_scanner_wrapper" style="height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background-color: #f2f2f7; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+            <div class="scanner-icon" style="width: 80px; height: 80px; background: #007aff; border-radius: 20px; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; box-shadow: 0 10px 20px rgba(0,122,255,0.3);">
+                <i class="fa fa-qrcode" style="font-size: 40px; color: white;"></i>
+            </div>
+            
+            <h3 style="color: #1c1c1e; font-weight: 600; margin-bottom: 8px;">Siap Memindai</h3>
+            <p style="color: #8e8e93; font-size: 14px; text-align: center; padding: 0 40px;">Arahkan scanner ke kode QR pada Production Order.</p>
+
+            <input type="text" 
+                   class="o_barcode_input" 
+                   style="opacity: 0; position: absolute; top: 0; left: 0; height: 0; width: 0; pointer-events: none;" 
+                   autofocus="autofocus"
+                   inputmode="none"/>
+        </div>
+    </t>
+</templates>
