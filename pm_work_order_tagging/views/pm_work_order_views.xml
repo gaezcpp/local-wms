@@ -11,6 +11,7 @@
                 <field name="tagging_id"/>
                 <field name="company_id"/>
                 <field name="name"/>
+                <filter name="fl_sap_synchronize" string="GI/GR" domain="[('sap_synchronize','=', True)]"/>
             </search>
         </field>
     </record>
@@ -28,6 +29,7 @@
                 <field name="equipment_id"/>
                 <field name="sub_equipment_id"/>
                 <field name="priority"/>
+                <field name="gi_gr_sap"/>
                 <field name="company_id"/>
             </list>
         </field>
@@ -55,6 +57,7 @@
                             <field name="type_mo" force_save="1" readonly="1"/>
                             <field name="priority" force_save="1" readonly="1"/>
                             <field name="confirm_number" force_save="1" readonly="1" invisible="not confirm_number"/>
+                            <field name="gi_gr_sap" force_save="1" readonly="1" invisible="1"/>
                             <field name="sap_synchronize" force_save="1" readonly="1" invisible="1"/>
                         </group>
                         <group name="pm_right">
@@ -133,6 +136,8 @@
         <field name="name">Work Order</field>
         <field name="res_model">pm.work.order</field>
         <field name="view_mode">list,calendar,form</field>
+        <field name="context">{'search_default_fl_sap_synchronize': 1}
+        </field>
     </record>
 
     <record id="pm_work_order_calendar_action" model="ir.actions.act_window">

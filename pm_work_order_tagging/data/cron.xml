@@ -5,7 +5,7 @@
             <field name="name">Cron Synchronize Work Order Material SAP</field>
             <field name="model_id" ref="model_pm_work_order"/>
             <field name="state">code</field>
-            <field name="code">model.cron_synchronize_sap_work_order_material()</field>
+            <field name="code">model.cron_synchronize_sap_work_order_material_ultimate()</field>
             <field name="interval_number">1</field>
             <field name="interval_type">days</field>
         </record>

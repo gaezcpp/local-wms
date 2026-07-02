@@ -234,6 +234,274 @@ class PlanMaintenanceWorkOrder(models.Model):
             if create_vals:
                 wo_material_line_model.create(create_vals)
                 
+    def cron_synchronize_sap_work_order_material_v2(self):
+        data_list = self._fetch_sap_data(
+            config_key='query_work_order_material_sap',
+            cron_name='cron_synchronize_sap_work_order_material_v2',
+        )
+        if not data_list:
+            return True
+
+        _logger.info(f"TOTAL DATA cron_synchronize_sap_work_order_material_v2 {len(data_list)}")
+
+        pm_wo_model = self.env['pm.work.order'].sudo()
+        spare_part_model = self.env['tagging.spare_part'].sudo()
+        wo_material_line_model = self.env['pm.work.order.material.line'].sudo()
+        wo_jasa_line_model = self.env['pm.work.order.jasa.line'].sudo()
+        company_model = self.env['res.company'].sudo()
+
+        grouped_data = defaultdict(list)
+        
+        for row in data_list:
+            tagging = row.get('FETXT')
+            if tagging:
+                grouped_data[tagging].append(row)
+                
+        for tagging, rows in grouped_data.items():
+            first = rows[0]
+            wo_name = (first.get('AIFNR') or '').lstrip('0')
+            type_mo = first.get('AUART')
+            priority = first.get('PRIOKX')
+            ktext = first.get('KTEXT')
+            werks = (first.get('COMPANY_ID') or first.get('WERKS')).strip()
+            
+            if not wo_name:
+                _logger.info("cron_synchronize_sap_work_order_material_v2 AUFNR SKIPPED")
+                continue
+            
+            company = company_model.search([('company_registry', '=', werks),('sync_pm', '=', True)], limit=1)
+            if not company:
+                _logger.info("cron_synchronize_sap_work_order_material_v2 WERKS SKIPPED")
+                continue
+            
+            work_order = pm_wo_model.search([('tagging_id.name', '=', tagging), ('company_id', '=', company.id)], limit=1)
+            if not work_order:
+                _logger.info(f"cron_synchronize_sap_work_order_material_v2 WORK ORDER TAGGING {tagging} SKIPPED")
+                continue
+            
+            work_order.write({
+                'wo_sap': wo_name,
+                'type_mo': type_mo,
+                'priority': priority,
+                'sap_synchronize': True,
+                'description': ktext,
+            })
+            
+            for row in rows:
+                matnr = row.get('MATNR')
+                qty = float(row.get('BDMNG') or 0.0)
+                bwart = row.get('BWART')
+                srvpos = row.get('SRVPOS')
+                ktext1 = row.get('KTEXT1')
+                
+                sparepart = spare_part_model.search([('sku', '=', matnr), ('company_id', '=', company.id)], limit=1)
+                if not sparepart:
+                    _logger.info(f"cron_synchronize_sap_work_order_material_v2 SPAREPART {matnr} SKIPPED")
+                    continue
+                
+                existing_mat_line = wo_material_line_model.search([
+                    ('pm_work_order_id', '=', work_order.id),
+                    ('product_sparepart_id', '=', sparepart.id),
+                ], limit=1)
+                
+                existing_jasa_line = wo_jasa_line_model.search([
+                    ('pm_work_order_id', '=', work_order.id),
+                    ('no_service', '=', srvpos)
+                ], limit=1)
+                
+                vals_mat = {
+                    'pm_work_order_id': work_order.id,
+                    'sequence': 1,
+                    'product_sparepart_id': sparepart.id,
+                    'product_material': sparepart.sku,
+                    'quantity': qty,
+                }
+                
+                vals_jasa = {
+                    'pm_work_order_id': work_order.id,
+                    'no_service': srvpos,
+                    'description': ktext1,
+                }
+                
+                if bwart == 'Z62':
+                    if existing_mat_line:
+                        existing_mat_line.unlink()
+                
+                elif bwart == 'Z61':
+                    if not existing_mat_line:
+                        wo_material_line_model.create(vals_mat)
+                    else:
+                        if self._needs_update(existing_mat_line, vals_mat):
+                            existing_mat_line.write({
+                                'product_sparepart_id': sparepart.id,
+                                'product_material': sparepart.sku,
+                                'quantity': qty,
+                            })
+                
+                if not existing_jasa_line:
+                    wo_jasa_line_model.create(vals_jasa)
+                else:
+                    if self._needs_update(existing_jasa_line, vals_jasa):
+                        existing_jasa_line.write({'description': ktext1})
+                
+    @api.model
+    def cron_synchronize_sap_work_order_material_ultimate(self):
+        data_list = self._fetch_sap_data(
+            config_key='query_work_order_material_sap',
+            cron_name='cron_synchronize_sap_work_order_material_ultimate',
+        )
+        if not data_list:
+            return True
+
+        _logger.info(f"TOTAL DATA cron_synchronize_sap_work_order_material_ultimate: {len(data_list)}")
+
+        pm_wo_model = self.env['pm.work.order'].sudo()
+        spare_part_model = self.env['tagging.spare_part'].sudo()
+        wo_material_line_model = self.env['pm.work.order.material.line'].sudo()
+        wo_jasa_line_model = self.env['pm.work.order.jasa.line'].sudo()
+        company_model = self.env['res.company'].sudo()
+
+        # 1. Kelompokkan data berdasarkan Tagging (FETXT)
+        grouped = {}
+        for data in data_list:
+            no_tagging = (data.get('FETXT') or "").strip()
+            if not no_tagging:
+                continue
+            grouped.setdefault(no_tagging, []).append(data)
+
+        # 2. Iterasi per Work Order / Tagging
+        for no_tagging, records in grouped.items():
+            first_rec = records[0]
+            wo_name = (first_rec.get('AUFNR') or "").lstrip('0')
+            werks = first_rec.get('COMPANY_ID') or first_rec.get('WERKS')
+
+            # Validasi awal Header
+            if not wo_name:
+                _logger.warning(f"SKIPPED: {no_tagging} - AUFNR Kosong")
+                continue
+            if not werks:
+                _logger.warning(f"SKIPPED: {no_tagging} - WERKS / COMPANY_ID Kosong")
+                continue
+
+            company = company_model.search([('company_registry', '=', werks), ('sync_pm', '=', True)], limit=1)
+            if not company:
+                _logger.warning(f"SKIPPED: {no_tagging} - Company dengan registry '{werks}' tidak ditemukan")
+                continue
+
+            work_order = pm_wo_model.search([('tagging_id.name', '=', no_tagging), ('company_id', '=', company.id)], limit=1)
+            if not work_order:
+                _logger.warning(f"SKIPPED: {no_tagging} - Work Order tidak ditemukan di sistem")
+                continue
+
+            # Update Header Work Order
+            work_order.write({
+                'wo_sap': wo_name,
+                'type_mo': first_rec.get('AUART'),
+                'priority': first_rec.get('PRIOKX'),
+                'sap_synchronize': True,
+                'description': first_rec.get('KTEXT'),
+            })
+
+            # 3. Persiapan variabel penampung untuk Bulk Operation
+            materials_to_delete = []
+            materials_to_add_update = {}  # Format: {sku: qty}
+            jasa_to_add_update = {}       # Format: {srvpos: description}
+            sku_list = set()
+
+            # Klasifikasi aksi berdasarkan BWART
+            for rec in records:
+                sku = rec.get('MATNR')
+                qty = float(rec.get('BDMNG') or 0.0)
+                bwart = rec.get('BWART')
+                srvpos = rec.get('SRVPOS')
+                ktext1 = rec.get('KTEXT1')
+
+                # Kumpulkan Material
+                if sku:
+                    sku_list.add(sku)
+                    if bwart == 'Z62':
+                        materials_to_delete.append(sku)
+                    elif bwart == 'Z61':
+                        materials_to_add_update[sku] = qty
+
+                # Kumpulkan Jasa (Jika terdapat ID Service)
+                if srvpos:
+                    jasa_to_add_update[srvpos] = ktext1
+
+            # 4. Proses Delete (Unlink) Material Z62
+            if materials_to_delete:
+                lines_to_unlink = work_order.pm_wo_material_line_ids.filtered(
+                    lambda l: l.product_sparepart_id.sku in materials_to_delete
+                )
+                if lines_to_unlink:
+                    lines_to_unlink.unlink()
+
+            # 5. Pencarian Sparepart Massal (Menghindari N+1 Query)
+            products = spare_part_model.search([('sku', 'in', list(sku_list)), ('company_id', '=', company.id)])
+            product_dict = {p.sku: p for p in products}
+
+            # Mapping record yang sudah ada
+            existing_mat_lines = {
+                line.product_sparepart_id.sku: line
+                for line in work_order.pm_wo_material_line_ids
+                if line.product_sparepart_id
+            }
+
+            existing_jasa_lines = {
+                line.no_service: line
+                for line in work_order.pm_wo_jasa_line_ids
+                if line.no_service
+            }
+
+            # 6. Kalkulasi Persiapan Create/Update
+            mat_create_vals = []
+            jasa_create_vals = []
+            mat_sequence = len(work_order.pm_wo_material_line_ids)
+
+            # Eksekusi Material Z61 (Tentukan apakah perlu Create atau Write)
+            for sku, qty in materials_to_add_update.items():
+                product = product_dict.get(sku)
+                if not product:
+                    _logger.warning(f"SKIPPED MATERIAL: {sku} pada {no_tagging} - Sparepart tidak ditemukan")
+                    continue
+
+                if sku in existing_mat_lines:
+                    existing_mat_lines[sku].write({
+                        'product_material': product.sku,
+                        'quantity': qty,
+                    })
+                else:
+                    mat_sequence += 1
+                    mat_create_vals.append({
+                        'pm_work_order_id': work_order.id,
+                        'sequence': mat_sequence,
+                        'product_sparepart_id': product.id,
+                        'product_material': product.sku,
+                        'quantity': qty,
+                    })
+
+            # Eksekusi Jasa (Tentukan apakah perlu Create atau Write)
+            for srvpos, desc in jasa_to_add_update.items():
+                if srvpos in existing_jasa_lines:
+                    existing_jasa_lines[srvpos].write({
+                        'description': desc
+                    })
+                else:
+                    jasa_create_vals.append({
+                        'pm_work_order_id': work_order.id,
+                        'no_service': srvpos,
+                        'description': desc,
+                    })
+
+            # 7. Eksekusi Bulk Create ke Database (Hanya menembak DB 1 kali untuk masing-masing model)
+            if mat_create_vals:
+                wo_material_line_model.create(mat_create_vals)
+            
+            if jasa_create_vals:
+                wo_jasa_line_model.create(jasa_create_vals)
+
+        return True
+    
     @api.onchange('analysis_id')
     def _onchange_analysis_pm(self):
         for rec in self:

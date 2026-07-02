@@ -14,7 +14,7 @@
                 </xpath>
                 <xpath expr="//group[@name='tag_equipment']" position="before">
                     <group name="tag_notif" string="Notification" invisible="status not in ('validated','open_wo','closed')">
-                        <field name="tagging_type_notification_id" options="{'no_open': True, 'no_create': True}" readonly="status not in ('validated','open_wo','closed')"/>
+                        <field name="tagging_type_notification_id" options="{'no_open': True, 'no_create': True}" readonly="status not in ('validated', 'waiting_sap')"/>
                         <field name="notification_desc" force_save="1" readonly="1"/>
                     </group>
                 </xpath>
