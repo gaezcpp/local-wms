@@ -2,7 +2,9 @@ from odoo import api, fields, models, _
 from datetime import timedelta
 from odoo.exceptions import UserError
 from collections import defaultdict
+from datetime import datetime
 from odoo.tools import html_escape as escape
+import pytz
 import logging
 _logger = logging.getLogger(__name__)
 
@@ -126,7 +128,7 @@ class TaggingRecord(models.Model):
     # =========================
     # DATE TRACKING
     # =========================
-    start_date = fields.Datetime(string="Start Date", tracking=True, default=fields.Datetime.now())
+    start_date = fields.Datetime(string="Start Date", tracking=True)
     end_date = fields.Datetime(string="End Date", tracking=True)
 
     # =========================
@@ -527,9 +529,14 @@ class TaggingRecord(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         seq = self.env["ir.sequence"]
+        jakarta_tz = pytz.timezone('Asia/Jakarta')
         for vals in vals_list:
             if vals.get("name", "New") == "New":
                 vals["name"] = seq.next_by_code("tagging.record") or _("New")
+            if not vals.get("start_date"):
+                now_jakarta = datetime.now(jakarta_tz)
+                now_utc = now_jakarta.astimezone(pytz.utc)
+                vals["start_date"] = now_utc.replace(tzinfo=None)
 
         records = super().create(vals_list)
 
