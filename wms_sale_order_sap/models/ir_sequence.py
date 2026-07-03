@@ -19,8 +19,7 @@ class InheritIrSequence(models.Model):
             return prefix, suffix
         
         replacements = {
-            '{do_sap}': sale.do_sap or '',
-            '{po_sap}': sale.po_sap or '',
+            '{do_sap}': sale.do_sap if sale.do_sap else sale.po_sap,
         }
         
         for placeholder, value in replacements.items():

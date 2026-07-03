@@ -154,8 +154,15 @@ class InheritSaleOrderSAP(models.Model):
 
             partner = partner_model.search([('ref', '=', customer_ref)], limit=1)
             if not partner:
-                _logger.info(f"cron_synchronize_sap_sale_order PARTNER {customer_ref} SKIPPED")
-                continue
+                _logger.info(f"cron_synchronize_sap_sale_order PARTNER {customer_ref} CREATED NEW")
+                partner = partner_model.create({
+                    'ref': customer_ref,
+                    'name': customer_ref,
+                    'sap_synchronize': True,
+                    'type': 'contact',
+                    'company_type': 'person',
+                    'comment': "Created from cron_synchronize_sap_sale_order",
+                })
 
             partner_shipping = partner_model.search([('ref', '=', delivery_ref)], limit=1)
             if not partner_shipping:
@@ -272,7 +279,7 @@ class InheritSaleOrderSAP(models.Model):
             cron_name='cron_synhronize_sap_so_sto',
         )
         if not data_list:
-            return True
+            self.cron_synhronize_so_sloc_to_sloc()
 
         _logger.info(f"TOTAL DATA cron_synhronize_sap_so_sto {len(data_list)}")
         
@@ -405,7 +412,7 @@ class InheritSaleOrderSAP(models.Model):
                 _logger.info(f"SO Confirmed {nomor_do}")
         
         # sekalian jalanin sloc to sloc
-        self.cron_synhronize_so_sloc_to_sloc()
+        # self.cron_synhronize_so_sloc_to_sloc()
       
     @api.model
     def _process_auto_done_picking(self, config_key, search_field, data_key, cron_name):
