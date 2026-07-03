@@ -18,8 +18,11 @@ class InheritIrSequence(models.Model):
         if not sale.exists():
             return prefix, suffix
         
+        do_sap_value = sale.do_sap.strip() if sale.do_sap else ''
+        po_sap_value = sale.po_sap.strip() if sale.po_sap else ''
+        naming = do_sap_value if do_sap_value else po_sap_value
         replacements = {
-            '{do_sap}': sale.do_sap if sale.do_sap else sale.po_sap,
+            '{do_sap}': naming or '',
         }
         
         for placeholder, value in replacements.items():

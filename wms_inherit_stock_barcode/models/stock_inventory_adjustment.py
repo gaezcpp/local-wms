@@ -23,7 +23,7 @@ class StockInventoryAdjustment(models.Model):
     user_id = fields.Many2one(comodel_name='res.users', string="User", default=lambda self:self.env.user)
     location_id = fields.Many2one(comodel_name='stock.location', index=True)
     company_id = fields.Many2one(comodel_name='res.company', default=lambda self:self.env.company, string="Company")
-    date_time = fields.Datetime(string="Inventory Date", default=fields.Datetime.now())
+    date_time = fields.Datetime(string="Inventory Date", default=fields.Datetime.now)
     quant_id = fields.Many2one(comodel_name='stock.quant', string="Quant")
     quant_count = fields.Integer(compute='_compute_quant_count')
     state = fields.Selection([
@@ -40,6 +40,7 @@ class StockInventoryAdjustment(models.Model):
     summary_line_ids = fields.One2many('stock.inventory.adjustment.summary', 'stock_adjustment_id', ondelete='cascade')
     product_ids = fields.Many2many('product.product', string="Product(s)")
     sap_synchronize = fields.Boolean(string="SAP Synchronize", default=False)
+    need_berita_acara = fields.Boolean(string="Need Berita Acara", default=False)
     
     @api.model_create_multi
     def create(self, vals_list):
@@ -93,18 +94,15 @@ class StockInventoryAdjustment(models.Model):
     
     def check_details(self):
         Quant = self.env['stock.quant'].sudo()
+        LineModel = self.env['stock.inventory.adjustment.line']
         for rec in self:
             if rec.state != 'draft':
                 continue
 
             rec.adjustment_line_ids.unlink()
 
-            domain = [
-                ('company_id', '=', rec.company_id.id),
-            ]
+            domain = [('company_id', '=', rec.company_id.id)]
             
-            # if rec.product_ids:
-            #     domain.append(('product_id', 'in', rec.product_ids.ids))
             if rec.location_id:
                 domain.append(('location_id', 'child_of', rec.location_id.id))
                 
@@ -113,13 +111,13 @@ class StockInventoryAdjustment(models.Model):
             if summary_stock_types:
                 domain.append(('stock_type', 'in', summary_stock_types))
 
-            quant = Quant.search(domain)
-            if not quant:
-                # raise ValidationError("Physical Inventory not found!")
-                print("Physical Inventory Not Found")
+            quants = Quant.search(domain)
+            if not quants:
+                _logger.info("Physical Inventory Not Found for SIA %s", rec.name)
             
-            for q in quant:
-                self.env['stock.inventory.adjustment.line'].create({
+            vals_list = []
+            for q in quants:
+                vals_list.append({
                     'quant_id': q.id,
                     'stock_adjustment_id': rec.id,
                     'product_id': q.product_id.id,
@@ -135,10 +133,12 @@ class StockInventoryAdjustment(models.Model):
                     'inventory_diff_quantity': q.inventory_diff_quantity,
                 })
             
-            # rec.is_checked = True
+            if vals_list:
+                LineModel.create(vals_list)
+            
             rec.write({
                 'is_checked': True,
-                'state': 'in_progress' if len(rec.adjustment_line_ids) > 1 else 'draft'
+                'state': 'in_progress' if len(rec.adjustment_line_ids) > 0 else 'draft'
             })
     
     def action_in_progress(self):
@@ -152,12 +152,11 @@ class StockInventoryAdjustment(models.Model):
                 rec.state = 'in_progress'
     
     def action_done_counting(self):
+        SummaryModel = self.env['stock.inventory.adjustment.summary'].sudo()
         for rec in self:
             if rec.state != 'in_progress':
                 continue
 
-            SummaryModel = self.env['stock.inventory.adjustment.summary'].sudo()
-            
             unapplied_lines = rec.adjustment_line_ids.filtered(lambda l: l.quant_id and not l.quant_id.inventory_quantity_set)
             if unapplied_lines:
                 unapplied_products = unapplied_lines.mapped('product_id.display_name')
@@ -192,15 +191,13 @@ class StockInventoryAdjustment(models.Model):
                 summary_map[key]['bag_count'] += line.bag_count or 0.0
                 summary_map[key]['inventory_diff_quantity'] += line.inventory_diff_quantity or 0.0
 
+            existing_summaries = SummaryModel.search([('stock_adjustment_id', '=', rec.id)])
+            existing_map = {(s.product_id.id, s.stock_type): s for s in existing_summaries}
+            
+            new_summaries = []
             for key_tuple, vals in summary_map.items():
-                existing = SummaryModel.search([
-                    ('stock_adjustment_id', '=', rec.id),
-                    ('product_id', '=', vals['product_id']),
-                    ('stock_type', '=', vals['stock_type']),
-                ], limit=1)
-
-                if existing:
-                    existing.write({
+                if key_tuple in existing_map:
+                    existing_map[key_tuple].write({
                         'quantity': vals['quantity'],
                         'inventory_quantity': vals['inventory_quantity'],
                         'bag_qty': vals['bag_qty'],
@@ -208,7 +205,10 @@ class StockInventoryAdjustment(models.Model):
                         'inventory_diff_quantity': vals['inventory_diff_quantity'],
                     })
                 else:
-                    SummaryModel.create(vals)
+                    new_summaries.append(vals)
+                    
+            if new_summaries:
+                SummaryModel.create(new_summaries)
 
             rec.state = 'done_counting'
     
@@ -222,34 +222,16 @@ class StockInventoryAdjustment(models.Model):
             if rec.state in ('draft', 'in_progress'):
                 rec.state = 'cancelled'
 
+    @api.depends('adjustment_line_ids', 'adjustment_line_ids.quant_id')
     def _compute_quant_count(self):
-        Quant = self.env['stock.quant'].sudo()
-        for rec in self:
-            if not rec.adjustment_line_ids:
-                rec.quant_count = 0
-                continue
-            domain = [('company_id', '=', rec.company_id.id),]
-            
-            if rec.product_ids:
-                domain.append(('product_id', 'in', rec.product_ids.ids))
-            if rec.location_id:
-                domain.append(('location_id', 'child_of', rec.location_id.id))
-            
-            rec.quant_count = Quant.search_count(domain)
+        for record in self:
+            record.quant_count = len(record.adjustment_line_ids.mapped('quant_id'))
     
     def action_view_quant(self):
         self.ensure_one()
 
-        domain = [
-            ('company_id', '=', self.company_id.id),
-            ('location_id.usage', '=', 'internal'),
-        ]
-        if self.product_ids:
-            domain.append(('product_id', 'in', self.product_ids.ids))
-        if self.location_id:
-            domain.append(('location_id', 'child_of', self.location_id.id))
-
         list_view_id = self.env.ref('wms_inherit_stock_barcode.view_stock_quant_readonly_list').id
+        quant_ids = self.adjustment_line_ids.mapped('quant_id').ids
 
         return {
             'type': 'ir.actions.act_window',
@@ -257,7 +239,7 @@ class StockInventoryAdjustment(models.Model):
             'view_mode': 'list',
             'views': [(list_view_id, 'list')],
             'res_model': 'stock.quant',
-            'domain': domain,
+            'domain': [('id', 'in', quant_ids)],
             'context': {
                 'create': False,
                 'edit': False,
@@ -267,6 +249,37 @@ class StockInventoryAdjustment(models.Model):
                 'no_recompute': True,
             }
         }
+    
+    def apply_lot_aft_adjustment(self, sia):
+        valid_lines = sia.adjustment_line_ids.filtered(lambda l: l.lot_id and l.package_status)
+        if not valid_lines:
+            return
+
+        lot_ids = valid_lines.mapped('lot_id').ids
+        stock_types = list(set(valid_lines.mapped('package_status')))
+        
+        existing_lot_afts = self.env['stock.lot.aft'].search([
+            ('lot_id', 'in', lot_ids),
+            ('stock_type', 'in', stock_types)
+        ])
+        
+        lot_aft_map = {(la.lot_id.id, la.stock_type): la for la in existing_lot_afts}
+        for line in valid_lines:
+            lot_aft = lot_aft_map.get((line.lot_id.id, line.package_status))
+
+            if not lot_aft:
+                _logger.warning(f"lot_aft tidak ditemukan untuk lot {line.lot_id.name} stock_type {line.package_status}")
+                continue
+
+            lot_aft.write({
+                'quantity': line.inventory_quantity,
+                'bag_qty': line.bag_count,
+            })
+            _logger.info(
+                "_apply_lot_aft_adjustment: lot %s stock_type %s → qty=%.3f bag=%.3f",
+                line.lot_id.name, line.package_status,
+                line.inventory_quantity, line.bag_count
+            )
     
     # Ini yang auto scan
     def action_open_barcode_inventory(self):
@@ -323,60 +336,28 @@ class StockInventoryAdjustment(models.Model):
 
         return False
     
-    def apply_lot_aft_adjustment(self, sia):
-        for line in sia.adjustment_line_ids:
-            if not line.lot_id or not line.package_status:
-                continue
-
-            lot_aft = self.env['stock.lot.aft'].search([
-                ('lot_id', '=', line.lot_id.id),
-                ('stock_type', '=', line.package_status),
-            ], limit=1)
-
-            if not lot_aft:
-                _logger.warning(
-                    "_apply_lot_aft_adjustment: lot_aft tidak ditemukan "
-                    "untuk lot %s stock_type %s",
-                    line.lot_id.name, line.package_status
-                )
-                continue
-
-            lot_aft.write({
-                'quantity': line.inventory_quantity,
-                'bag_qty': line.bag_count,
-            })
-            _logger.info(
-                "_apply_lot_aft_adjustment: lot %s stock_type %s → qty=%.3f bag=%.3f",
-                line.lot_id.name, line.package_status,
-                line.inventory_quantity, line.bag_count
-            )
-
     # Ini buat testing
     def bypass_done_pid_sap(self):
         for rec in self:
             quant_ids = rec.adjustment_line_ids.mapped('quant_id').filtered(lambda q: q.id)
-            try:
-                if quant_ids:
-                    quants_to_apply = quant_ids.filtered(lambda q: q.inventory_quantity_set)
-                    if quants_to_apply:
-                        quants_to_apply.action_apply_inventory()
-                        _logger.info(f"cron_synchronize_auto_done_pid IBLNR {rec.name}: action_apply_inventory berhasil untuk {len(quants_to_apply)} quant.")
-                    else:
-                        _logger.warning(f"cron_synchronize_auto_done_pid IBLNR {rec.name}: Tidak ada quant dengan inventory_quantity_set=True.")
-                else:
-                    _logger.warning(f"cron_synchronize_auto_done_pid IBLNR {rec.name}: Tidak ada quant terkait pada SIA {rec.name}")
+            if quant_ids:
+                quants_to_apply = quant_ids.filtered(lambda q: q.inventory_quantity_set)
+                if quants_to_apply:
+                    stock_type_snapshot = {q.id: q.stock_type for q in quants_to_apply}
+                    
+                    self.apply_lot_aft_adjustment(rec)
+                    quants_to_apply.action_apply_inventory()
+                    
+                    for q in quants_to_apply:
+                        if q.id in stock_type_snapshot:
+                            q.stock_type = stock_type_snapshot[q.id]
+                            
+                    _logger.info(f"cron_synchronize_auto_done_pid IBLNR {rec.name}: action_apply_inventory berhasil untuk {len(quants_to_apply)} quant.")
 
-                self.apply_lot_aft_adjustment(rec) # Update lot qty by stocktype
-                
-                rec.write({
-                    'state': 'done_sap',
-                    'done_pid_number': 'BYPASS',
-                })
-            except Exception as e:
-                _logger.error("cron_synchronize_auto_done_pid Gagal proses SIA %s — %s", rec.name, str(e))
-                rec.message_post(body=f"GAGAL apply inventory via cron: {str(e)}")
-                continue
-            
+                    rec.write({
+                        'state': 'done_sap',
+                        'done_pid_number': 'BYPASS',
+                    })
     
     @api.model
     def cron_synhronize_pid_sap(self):
@@ -551,26 +532,19 @@ class StockInventoryAdjustment(models.Model):
                 continue
 
             quant_ids = sia.adjustment_line_ids.mapped('quant_id').filtered(lambda q: q.id)
-
-            try:
-                if quant_ids:
-                    quants_to_apply = quant_ids.filtered(lambda q: q.inventory_quantity_set)
-                    if quants_to_apply:
-                        quants_to_apply.action_apply_inventory()
-                        _logger.info(f"cron_synchronize_auto_done_pid IBLNR {iblnr}: action_apply_inventory berhasil untuk {len(quants_to_apply)} quant.")
-                    else:
-                        _logger.warning(f"cron_synchronize_auto_done_pid IBLNR {iblnr}: Tidak ada quant dengan inventory_quantity_set=True.")
+            if quant_ids:
+                quants_to_apply = quant_ids.filtered(lambda q: q.inventory_quantity_set)
+                if quants_to_apply:
+                    self.apply_lot_aft_adjustment(sia) # Update lot qty by stocktype
+                    quants_to_apply.action_apply_inventory()
+                    _logger.info(f"cron_synchronize_auto_done_pid IBLNR {iblnr}: action_apply_inventory berhasil untuk {len(quants_to_apply)} quant.")
                 else:
-                    _logger.warning(f"cron_synchronize_auto_done_pid IBLNR {iblnr}: Tidak ada quant terkait pada SIA {sia.name}")
+                    _logger.warning(f"cron_synchronize_auto_done_pid IBLNR {iblnr}: Tidak ada quant dengan inventory_quantity_set=True.")
+            else:
+                _logger.warning(f"cron_synchronize_auto_done_pid IBLNR {iblnr}: Tidak ada quant terkait pada SIA {sia.name}")
 
-                self.apply_lot_aft_adjustment(sia) # Update lot qty by stocktype
-                
-                sia.write({
-                    'state': 'done_sap',
-                    'done_pid_number': mblnr,
-                })
-                sia.message_post(body=f"Inventory applied & status Done SAP via cron. IBLNR: {iblnr}, MBLNR: {mblnr}")
-            except Exception as e:
-                _logger.error("cron_synchronize_auto_done_pid IBLNR %s: Gagal proses SIA %s — %s", iblnr, sia.name, str(e))
-                sia.message_post(body=f"GAGAL apply inventory via cron: {str(e)}")
-                continue
+            sia.write({
+                'state': 'done_sap',
+                'done_pid_number': mblnr,
+            })
+            sia.message_post(body=f"Inventory applied & status Done SAP via cron. IBLNR: {iblnr}, MBLNR: {mblnr}")

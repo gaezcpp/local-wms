@@ -4,6 +4,7 @@
         id="production_order_sap_menu_root"
         name="Production Order SAP"
         web_icon="wms_production_order_sap,static/description/icon.png"
+        action="wms_production_order_sap.qr_production_order_sap_client"
     />
 
     <menuitem

@@ -95,7 +95,7 @@ class PmAnalysis(models.Model):
     @api.model
     def cron_synhtonize_wo_analysis(self):
         data_list = self._fetch_sap_data(
-            config_key='query_plan_as_partner_sap',
+            config_key='query_wo_analysis',
             cron_name='cron_synhtonize_wo_analysis',
         )
         if not data_list:

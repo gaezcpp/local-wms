@@ -20,7 +20,14 @@ class InheritBaseStockPicking(models.Model):
     
     def _create_backorder(self, backorder_moves=None):
         backorders = super()._create_backorder(backorder_moves=backorder_moves)
-        backorders.write({'synchronize_sap': False})
+        for backorder in backorders:
+            if backorder.picking_type_id.show_entire_packs:
+                backorder.do_unreserve()
+                backorder.action_assign()
+                # Opsi 2 (Lebih advanced): Jika action_assign terlalu berat, 
+                # panggil langsung fungsi spesifik pembentuk package_level
+                # backorder._compute_package_level_ids() # (sesuaikan dengan API Odoo 19)
+            backorder.write({'synchronize_sap': False})
         return backorders
     
     def copy(self, default=None):

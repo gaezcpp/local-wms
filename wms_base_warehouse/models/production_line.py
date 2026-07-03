@@ -14,6 +14,7 @@ class ProductionLineCustom(models.Model):
     code = fields.Char(string="Code")
     name = fields.Char(string="Name")
     sap_sync = fields.Boolean(string="SAP Sync")
+    prod_code = fields.Char(string="Prod Code")
     company_id = fields.Many2one(comodel_name='res.company', string="Company", default=lambda self: self.env.company)
     
     @api.model
@@ -86,11 +87,13 @@ class ProductionLineCustom(models.Model):
                     continue
             
             pl_name = data.get('ZKEY3') or ''
+            prod_code = data.get('ZKEY4') or ''
             
             vals = {
                 'active': True,
                 'code': code,
                 'name': pl_name,
+                'prod_code': prod_code,
                 'sap_sync': True,
                 'company_id': company_id.id,
             }
