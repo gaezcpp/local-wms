@@ -106,8 +106,8 @@ class PmAnalysis(models.Model):
         company_model = self.env['res.company'].sudo()
         
         for data in data_list:
-            grund = data.get('GRUND')
             grdtx = data.get('GRDTX')
+            grund = data.get('GRUND')
             werks = data.get('WERKS')
             
             company = company_model.search([('company_registry', '=', werks),('sync_pm', '=', True)], limit=1)
@@ -115,15 +115,15 @@ class PmAnalysis(models.Model):
                 continue
             
             vals = {
-                'name': grund,
-                'code': grdtx,
+                'name': grdtx,
+                'code': grund,
                 'company_id': company.id,
             }
             
-            existing_analysis = analysis_model.search([('code', '=', grdtx),('company_id', '=', company.id)], limit=1)
+            existing_analysis = analysis_model.search([('code', '=', grund),('company_id', '=', company.id)], limit=1)
             if not existing_analysis:
                 analysis_model.create(vals)
-                _logger.info(f"Analysis {grdtx} Created from Cron")
+                _logger.info(f"Analysis {grund} Created from Cron")
             else:
                 if self._needs_update(existing_analysis, vals):
                     existing_analysis.write(vals)

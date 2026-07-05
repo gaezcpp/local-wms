@@ -89,7 +89,7 @@
             <form string="Production Order SAP" create="0" edit="0" delete="0" duplicate="0">
                 <header>
                     <button name="action_picking_po_sap" string="GR FG" type="object" class="oe_highlight" invisible="state == 'teco'"/>
-                    <button name="action_picking_wip_po" string="GR WIP" type="object" invisible="state == 'teco'"/>
+                    <button name="action_picking_wip_po" string="GR WIP" type="object" invisible="1"/>
                     <field name="state" widget="statusbar" statusbar_visible="open,in_progress,teco"/>
                 </header>
                 <sheet>

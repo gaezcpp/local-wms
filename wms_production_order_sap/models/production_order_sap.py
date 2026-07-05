@@ -484,6 +484,7 @@ class ProductionOrderSAP(models.Model):
         return {'type': 'ir.actions.act_window_close'}
     
     def action_picking_wip_po(self):
+        raise ValidationError("WIP masih dalam proses development")
         operation_type_barcode_wip = self.env['ir.config_parameter'].sudo().get_param('operation_type_barcode_wip')
         operation_type = self.env['stock.picking.type'].sudo().search([('company_id', '=', self.company_id.id), ('barcode', '=', str(operation_type_barcode_wip))], limit=1)
         if not operation_type:
