@@ -256,7 +256,7 @@ class StockPicking(models.Model):
             if picking.po_sap_id:
                 if picking.po_sap_id.active == False:
                     raise ValidationError(f"Tidak bisa melakukan Validate karena PO SAP {picking.po_sap_id.po_number} sudah tidak Active!")
-                if picking.po_sap_id.state == 'teco' or picking.po_sap_id.status_teco == 'TECO':
+                if picking.po_sap_id.state in ('teco', 'closed') or picking.po_sap_id.status_teco == 'TECO':
                     raise ValidationError(f"Tidak bisa melakukan Validate karena PO SAP {picking.po_sap_id.po_number} sudah TECO!")
     
     def button_validate(self):

@@ -5,7 +5,17 @@ class StockPackageAFT(models.Model):
     _inherit = 'stock.package'
     
     aft_count = fields.Integer(string="AFT Count", compute='_compute_aft_count')
-    block_action_id = fields.Many2one(comodel_name='action.quality.packages', string="Block Action")
+    block_action_id = fields.Many2one(comodel_name='action.quality.packages', string="Block Action", compute='_compute_block_action_id', store=True)
+    
+    @api.depends('contained_quant_ids', 'contained_quant_ids.stock_type', 'contained_quant_ids.quantity')
+    def _compute_block_action_id(self):
+        for package in self:
+            active_quants = package.contained_quant_ids.filtered(lambda q: q.quantity > 0)
+            has_blocked = any(q.stock_type == 'BLOCKED' for q in active_quants)
+            if not active_quants or not has_blocked:
+                package.block_action_id = False
+            else:
+                package.block_action_id = package.block_action_id
     
     def _compute_aft_count(self):
         domain = [('package_id', 'in', self.ids)]

@@ -112,7 +112,7 @@ class InheritProductTemplate(models.Model):
 
         uom_name_map = {u.name: u for u in uom_model.search([])}
         category_map = {c.name: c for c in category_model.search([])}
-        warehouse_map = {(w.code, w.company_id.id): w for w in warehouse_model.search([])}
+        warehouse_map = {(w.code, w.company_id.id): w for w in warehouse_model.search([('active', '=', True)])}
 
         pending_creates = {}
         write_map = {}

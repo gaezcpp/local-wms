@@ -43,7 +43,7 @@ class InheritBaseStockPicking(models.Model):
     
     def action_confirm(self):
         for picking in self:
-            if picking.po_sap_id and (not picking.po_sap_id.active or picking.po_sap_id.status_teco == 'TECO'):
+            if picking.po_sap_id and (not picking.po_sap_id.active or picking.po_sap_id.state in ('teco', 'closed')):
                 raise ValidationError("Tidak dapat melakukan Confirm. PO SAP tidak aktif atau berstatus TECO!")
         
         res = super().action_confirm()
@@ -72,7 +72,7 @@ class InheritBaseStockPicking(models.Model):
 
     def button_validate(self):
         for picking in self:
-            if picking.po_sap_id and (not picking.po_sap_id.active or picking.po_sap_id.status_teco == 'TECO'):
+            if picking.po_sap_id and (not picking.po_sap_id.active or picking.po_sap_id.state in ('teco', 'closed')):
                 raise ValidationError("Tidak dapat melakukan Validate. PO SAP tidak aktif atau berstatus TECO!")
         
         res = super().button_validate()
@@ -109,7 +109,7 @@ class InheritBaseStockPicking(models.Model):
         res = super()._action_done()
         for picking in self:
             # picking._propagate_po_sap_to_quant() # Pindah related stock.lot
-            if picking.po_sap_id and picking.po_sap_id.state != 'teco':
+            if picking.po_sap_id and picking.po_sap_id.state not in ('teco', 'closed'):
                 picking.po_sap_id.state = 'in_progress'
         return res
     

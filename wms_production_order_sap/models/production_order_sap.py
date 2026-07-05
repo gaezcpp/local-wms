@@ -27,6 +27,7 @@ class ProductionOrderSAP(models.Model):
         ('open', 'Open'),
         ('in_progress', 'In Progress'),
         ('teco', 'TECO'),
+        ('closed', 'Closed'),
     ], string="Status", default='open', tracking=True)
     created_user = fields.Char(string="Created By", tracking=True)
     status_teco = fields.Char(string="TECO Status", tracking=True)
@@ -279,6 +280,7 @@ class ProductionOrderSAP(models.Model):
         company_model = self.env['res.company'].sudo()
         product_model = self.env['product.product'].sudo()
         uom_model = self.env['uom.uom'].sudo()
+        picking_type_model = self.env['stock.picking.type'].sudo()
         
         grouped_data = defaultdict(list)
         for row in data_list:
@@ -337,8 +339,26 @@ class ProductionOrderSAP(models.Model):
             raw_gamng = str(first.get('GAMNG') or '').strip()
             order_qty = float(raw_gamng if raw_gamng else 0.0)
             created_user = first.get('ERNAM') or ''
-            teco_status = (first.get('TECO_STATUS') or '').strip().upper()
+            # teco_status = (first.get('TECO_STATUS') or '').strip().upper()
             loekz = (first.get('LOEKZ') or '').strip()
+            txt04 = (first.get('TXT04') or '').strip()
+            
+            allowed_statuses = ['REL', 'TECO', 'CLSD', 'DLFL']
+            if not any(status in txt04 for status in allowed_statuses):
+                _logger.info(f"cron_synchronize_sap_production_order PO: {po_number} SKIPPED (Status: {txt04})")
+                continue
+            
+            status_teco = 'NOT TECO'
+            state_cron = 'open'
+            active = True
+            if 'TECO' in txt04:
+                status_teco = 'TECO'
+                state_cron = 'teco'
+            if 'CLSD' in txt04:
+                status_teco = 'TECO'
+                state_cron = 'closed'
+            if 'DLFL' in txt04:
+                active = False
             
             vals = {
                 'po_number': po_number,
@@ -350,13 +370,14 @@ class ProductionOrderSAP(models.Model):
                 'order_qty': order_qty,
                 'company_id': company_id.id if company_id else False,
                 'company_registry': company_id.company_registry if company_id else False,
-                'status_teco': teco_status,
+                'status_teco': status_teco,
                 'created_user': created_user,
                 'sap_pp': True,
-                'active': loekz != 'X',
+                'active': active,
+                'state': state_cron,
             }
             
-            prod_order = po_sap_model.search([('po_number', '=', po_number)], limit=1)
+            prod_order = po_sap_model.with_context(active_test=False).search([('po_number', '=', po_number)], limit=1)
             if not prod_order:
                 prod_order = po_sap_model.create(vals)
                 prod_order.message_post(body=f"PO SAP {prod_order.po_number} Created from Cron")
@@ -365,25 +386,23 @@ class ProductionOrderSAP(models.Model):
                 if self._needs_update(prod_order, vals):
                     prod_order.write(vals)
                     _logger.info(f"PO {prod_order.po_number} Updated")
-                
-                if teco_status == 'TECO':
-                    if prod_order.state != 'teco':
-                        prod_order.write({'state': 'teco', 'status_teco': 'TECO'})
-                else:
-                    if prod_order.state != 'teco':
-                        prod_order.write({'state': 'in_progress', 'status_teco': 'NOT TECO'})
             
             for row in rows:
                 component_code = (row.get('COMPONENT')).lstrip('0')
-                component = product_model.search([('default_code', '=', component_code),('company_id', '=', company_id.id)], limit=1)
+                component = product_model.search([('default_code', '=', component_code),('company_id', '=', company_id.id),('active', '=', True)], limit=1)
                 if not component:
                     continue
                 
-                op_type_id = False
-                for wip in component.product_wip_line_ids:
-                    if wip.product_id.id == component.id:
-                        op_type_id = wip.warehouse_id.pick_type_id.id
-                        break
+                # op_type_id = False
+                # for wip in component.product_wip_line_ids:
+                #     if wip.product_id.id == component.id:
+                #         op_type_id = wip.warehouse_id.pick_type_id.id
+                #         break
+                
+                production_picking_repack_sap = self.env['ir.config_parameter'].sudo().get_param('production_picking_repack_sap')
+                op_type_id = picking_type_model.search([('barcode', '=', str(production_picking_repack_sap)), ('active', '=', True), ('company_id', '=', self.company_id.id)], limit=1)
+                if not op_type_id:
+                    continue
                 
                 uom_component = (row.get('UOM_COMP')).strip().lower()
                 uom_comp = uom_model.search([('name', '=', uom_component)], limit=1)
@@ -404,7 +423,7 @@ class ProductionOrderSAP(models.Model):
                     'product_id': component.id,
                     'uom_id': uom_comp.id,
                     'order_qty': qty_component,
-                    'picking_type_id': op_type_id,
+                    'picking_type_id': op_type_id.id,
                 }
                 
                 if existing_line:
