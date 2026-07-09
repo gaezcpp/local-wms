@@ -5,8 +5,12 @@
         <field name="model">stock.package</field>
         <field name="inherit_id" ref="stock.stock_package_view_form"/>
         <field name="arch" type="xml">
-            <xpath expr="//field[@name='parent_package_id']" position="after">
+            <xpath expr="//field[@name='pack_date']" position="after">
+                <field name="pallet_status" readonly="1"/>
                 <field name="can_be_use" readonly="1"/>
+                <field name="is_reserved" readonly="1"/>
+            </xpath> 
+            <xpath expr="//field[@name='parent_package_id']" position="after">
             </xpath>
             <xpath expr="//field[@name='product_uom_id']" position="after">
                 <field name="bag_qty" string="Quantity" readonly="1"/>

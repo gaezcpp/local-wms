@@ -121,7 +121,7 @@ class InheritBaseStockPicking(models.Model):
                 ref_data = list(stype_data.values())[0]
                 stock_types = ['QI', 'UU', 'BLOCKED']
                 for st in stock_types:
-                    aft_exists = self.env['stock.lot.aft'].search([
+                    aft_exists = self.env['stock.lot.aft'].sudo().search([
                         ('lot_id', '=', lot.id),
                         ('stock_type', '=', st)
                     ], limit=1)
@@ -137,7 +137,7 @@ class InheritBaseStockPicking(models.Model):
                         })
 
                 for stype, vals in stype_data.items():
-                    target_aft = self.env['stock.lot.aft'].search([
+                    target_aft = self.env['stock.lot.aft'].sudo().search([
                         ('lot_id', '=', lot.id),
                         ('stock_type', '=', stype)
                     ], limit=1)

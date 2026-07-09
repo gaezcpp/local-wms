@@ -29,7 +29,7 @@ class InheritStockLocation(models.Model):
         products |= product
         _logger.info("_get_putaway_strategy PUTAWAY STRATEGY KEPANGGIL")
 
-        package_type = self.env['stock.package.type']
+        package_type = self.env['stock.package.type'].sudo()
         if package:
             package_type = package.package_type_id
         elif packaging:

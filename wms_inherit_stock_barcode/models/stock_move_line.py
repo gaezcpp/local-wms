@@ -19,6 +19,7 @@ class StockMoveLine(models.Model):
     checker_out = fields.Boolean(related='picking_id.checker_out', store=True)
     wh_category_id = fields.Many2one(comodel_name='stock.warehouse.category', string="Category")
     suggest_dest_id = fields.Many2one(comodel_name='stock.location', string="Suggest Location")
+    dummy_full_pallet = fields.Boolean(string="Dummy Full Pallet", store=False)
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -29,7 +30,6 @@ class StockMoveLine(models.Model):
             self._sync_qty_from_bag(vals)
             
         records = super().create(vals_list)
-        records._update_package_can_be_use()
         return records
 
     def write(self, vals):
@@ -39,36 +39,20 @@ class StockMoveLine(models.Model):
         self._sync_qty_from_bag(vals, records=self)
         self._validate_qty_packaging_sap(vals)
         res = super().write(vals)
-        if 'qty_done' in vals or 'bag_qty' in vals or 'result_package_id' in vals:
-            self._update_package_can_be_use()
         
-        return res
-    
-    def unlink(self):
-        packages = self.mapped('result_package_id').filtered(lambda p: p)
-        res = super().unlink()
-        for package in packages:
-            lines = self.sudo().search([('result_package_id', '=', package.id)])
-            total_pallet = sum(lines.mapped('pallet_qty'))
-            if total_pallet < 1:
-                package.sudo().write({'can_be_use': True})
         return res
 
     def _sync_qty_from_bag(self, vals, records=None):
         if 'bag_qty' not in vals:
             return
-
         bag_qty = vals.get('bag_qty')
         if not bag_qty:
             return
-
         recs = records or self
-
         for rec in recs:
             uom_bag = rec.uom_bag_id
             if not uom_bag or not uom_bag.factor:
                 continue
-
             vals['qty_done'] = bag_qty * (uom_bag.factor / 1000)
 
     @api.constrains('pallet_qty', 'picking_id')
@@ -81,7 +65,6 @@ class StockMoveLine(models.Model):
     def _validate_qty_packaging_sap(self, vals):
         if 'qty_packaging_sap' not in vals:
             return
-
         for rec in self:
             value = vals.get('qty_packaging_sap', rec.qty_packaging_sap)
             if value is None or value <= 0:
@@ -90,18 +73,14 @@ class StockMoveLine(models.Model):
     def _validate_bag_qty(self, vals, records=None):
         if 'bag_qty' not in vals:
             return
-        
         bag_qty = vals.get('bag_qty')
         if not bag_qty:
             return
-        
         recs = records or self
-        
         if not recs:
             if bag_qty != int(bag_qty):
                 raise ValidationError("Quantity BAG tidak boleh desimal! Masukkan bilangan bulat.")
             return
-        
         for rec in recs:
             if bag_qty != int(bag_qty):
                 raise ValidationError(
@@ -138,27 +117,40 @@ class StockMoveLine(models.Model):
             'checker_out',
         ]
     
-    def _update_package_can_be_use(self):
-        packages = self.mapped('result_package_id').filtered(lambda p: p)
-        for package in packages:
+    @api.constrains('pallet_qty', 'bag_qty', 'result_package_id')
+    def _check_package_capacity_limit(self):
+        for line in self:
+            if not line.result_package_id:
+                continue
+
             lines = self.sudo().search([
-                ('result_package_id', '=', package.id),
-                ('product_id', 'in', self.mapped('product_id').ids),
-                ('picking_id', 'in', self.mapped('picking_id').ids),
+                ('result_package_id', '=', line.result_package_id.id),
+                ('product_id', '=', line.product_id.id),
+                ('picking_id', '=', line.picking_id.id),
             ])
+            
             total_pallet = sum(lines.mapped('pallet_qty'))
             total_bag = sum(lines.mapped('bag_qty'))
 
-            uom_bag_name = lines[0].uom_bag_id.name if lines and lines[0].uom_bag_id else 'BAG'
-            max_bag = lines[0].uom_pallet_id.factor / lines[0].uom_bag_id.factor if lines and lines[0].uom_pallet_id and lines[0].uom_bag_id else 0
-            remaining_bag = max_bag - total_bag
-
             if total_pallet > 1:
+                uom_bag_name = lines[0].uom_bag_id.name if lines and lines[0].uom_bag_id else 'BAG'
+                try:
+                    max_bag = lines[0].uom_pallet_id.factor / lines[0].uom_bag_id.factor
+                except:
+                    max_bag = 0
+                
+                remaining_bag = max_bag - (total_bag - line.bag_qty)
                 raise ValidationError(
-                    f"{package.name} sudah melebihi UPP Pallet, "
+                    f"{line.result_package_id.name} sudah melebihi UPP Pallet, "
                     f"hanya bisa ditambah sebanyak {remaining_bag:.0f} {uom_bag_name} lagi!"
                 )
-            if total_pallet == 1:
-                package.sudo().write({'can_be_use': False})
-            else:
-                package.sudo().write({'can_be_use': False})
+                
+    def action_fill_full_pallet(self):
+        for line in self:
+            if line.uom_bag_id and line.uom_pallet_id:
+                try:
+                    max_bag = int(line.uom_pallet_id.factor / line.uom_bag_id.factor)
+                    line.bag_qty = max_bag
+                    # line._onchange_bag_qty()
+                except ZeroDivisionError:
+                    pass

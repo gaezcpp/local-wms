@@ -43,6 +43,9 @@ class InheritBaseStockPicking(models.Model):
     
     def action_confirm(self):
         for picking in self:
+            if picking.picking_type_id.production_only:
+                if not picking.po_sap_id:
+                    raise ValidationError("Tidak dapat melakukan Validate karena tidak memiliki PO SAP!")
             if picking.po_sap_id and (not picking.po_sap_id.active or picking.po_sap_id.state in ('teco', 'closed')):
                 raise ValidationError("Tidak dapat melakukan Confirm. PO SAP tidak aktif atau berstatus TECO!")
         
@@ -72,6 +75,8 @@ class InheritBaseStockPicking(models.Model):
 
     def button_validate(self):
         for picking in self:
+            if picking.picking_type_id.production_only and not picking.po_sap_id:
+                raise ValidationError(f"Tidak bisa melakukan Validate karena {picking.picking_type_id.name} membutuhkan PO SAP")
             if picking.po_sap_id and (not picking.po_sap_id.active or picking.po_sap_id.state in ('teco', 'closed')):
                 raise ValidationError("Tidak dapat melakukan Validate. PO SAP tidak aktif atau berstatus TECO!")
         

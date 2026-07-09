@@ -28,6 +28,8 @@
                 <field name="sub_system_id"/>
                 <field name="equipment_id"/>
                 <field name="sub_equipment_id"/>
+                <field name="create_date"/>
+                <field name="state"/>
                 <field name="priority"/>
                 <field name="company_id"/>
             </list>
@@ -69,7 +71,6 @@
                             <field name="create_date" force_save="1" readonly="1"/>
                         </group>
                     </group>
-                    <field name="description" readonly="1" placeholder="e.g Nomor Meja"/>
                     <notebook>
                         <page name="material" string="Material">
                             <field name="pm_wo_material_line_ids" readonly="1">

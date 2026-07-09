@@ -70,7 +70,7 @@
             </div>
 
             <div class="perf-item" t-att-title="'Quantity: ' + (state.metrics.closed || 0)">
-              <div class="perf-label">% Closed</div>
+              <div class="perf-label">% Validated</div>
               <div class="perf-value text-danger d-flex align-items-center justify-content-center gap-2">
                 <span><t t-esc="(state.metrics.pct_closed || 0).toFixed(2)"/>%</span>
                 <span style="font-weight: 400; color: #d1d5db;">|</span>

@@ -127,7 +127,7 @@ class DailyCycleCount(models.Model):
     def _get_stock_barcode_data(self):
         locations = self.env['stock.location']
         company_id = self.env.company.id
-        package_types = self.env['stock.package.type']
+        package_types = self.env['stock.package.type'].sudo()
         valid_records = self
         
         if not self:  # `self` is an empty recordset when we open the inventory adjustment.

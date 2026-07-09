@@ -14,10 +14,6 @@
                     <button name="action_hold" string="Set Hold" type="object" class="btn-danger" invisible="yellow_tag == 'hold'"/>
                     <field name="yellow_tag" force_save="1" readonly="1" widget="statusbar"/>
                 </xpath>
-                <xpath expr="//field[@name='pack_date']" position="after">
-                    <field name="pallet_status" force_save="1" readonly="1"/>
-                    <field name="is_reserved" force_save="1" readonly="1"/>
-                </xpath> 
                 <xpath expr="//field[@name='contained_quant_ids']/list/field[@name='lot_id']" position="after">
                     <field name="stock_type"/>
                 </xpath>

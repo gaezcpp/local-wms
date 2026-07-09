@@ -22,5 +22,9 @@
         <xpath expr="//button[hasclass('o_put_in_pack')]" position="attributes">
             <attribute name="t-if">false</attribute>
         </xpath>
+        <!--RETURN PRODUCT-->
+        <xpath expr="//button[hasclass('o_create_return')]" position="attributes">
+            <attribute name="t-if">false</attribute>
+        </xpath>
     </t>
 </templates>

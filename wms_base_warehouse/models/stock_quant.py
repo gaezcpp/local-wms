@@ -25,10 +25,13 @@ class StockQuant(models.Model):
             strict=strict,
             qty=qty
         )
+        
         if self.env.context.get('uu_only'):
             quants = quants.filtered(
                 lambda q: q.stock_type == 'UU' and q.package_id and q.package_id.yellow_tag == 'ready' and not q.package_id.is_reserved
             )
+
+        quants = quants.sorted(key=lambda q: 0 if q.package_id and q.package_id.pallet_status == 'eceran' else 1)
 
         return quants
     

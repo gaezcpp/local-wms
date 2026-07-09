@@ -7,6 +7,7 @@
             <search>
                 <field name="code"/>
                 <field name="name"/>
+                <field name="prod_code"/>
                 <field name="company_id"/>
             </search>
         </field>
@@ -19,6 +20,7 @@
             <list string="Production Line">
                 <field name="code"/>
                 <field name="name"/>
+                <field name="prod_code"/>
                 <field name="sap_sync"/>
                 <field name="company_id"/>
             </list>
@@ -34,6 +36,7 @@
                     <group>
                         <field name="code"/>
                         <field name="name"/>
+                <field name="prod_code"/>
                         <field name="sap_sync" force_save="1" readonly="1"/>
                         <field name="company_id" options="{'no_open': True, 'no_create': True}"/>
                     </group>

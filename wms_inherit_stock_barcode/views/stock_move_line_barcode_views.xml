@@ -9,6 +9,7 @@
             <xpath expr="//field[@name='quant_id']" position="after">
                 <field name="picking_type_id" invisible="1"/>
                 <field name="mandatory_destination" invisible="1"/>
+                <field name="dummy_full_pallet" invisible="1"/>
             </xpath>
             <xpath expr="//field[@name='qty_done']" position="attributes">
                 <attribute name="options">{'no_open': True, 'no_create': True}</attribute>
@@ -55,7 +56,6 @@
                 <attribute name="invisible">not use_expiration_date or production_only</attribute>
             </xpath> -->
             <xpath expr="//field[@name='result_package_id']" position="attributes">
-                <attribute name="required">mandatory_destination</attribute>
                 <attribute name="options">{'no_open': True, 'no_create': True}</attribute>
                 <attribute name="domain">
                     (company_id and [('company_id', 'in', [company_id] + [False])] or [('company_id', '=', False)]) + ['|', '|', ('location_id', '=', False), ('location_id', '=', location_dest_id), ('id', '=', package_id)] + [('can_be_use', '=', True)]
@@ -95,6 +95,13 @@
                     </div>
                     <div class="col-3 ps-0" groups="uom.group_uom">
                         <field name="uom_pallet_id" class="fs-6" options="{'no_open': True, 'no_create': True}" groups="uom.group_uom" widget="many2one_uom" force_save="1"/>
+                    </div>
+                </div>
+            </xpath>
+            <xpath expr="//div[@name='quantity']" position="after">
+                <div name="btn_full_pallet" class="row my-2" invisible="not production_only">
+                    <div class="col text-end">
+                        <field name="dummy_full_pallet" widget="full_pallet_button"/>
                     </div>
                 </div>
             </xpath>

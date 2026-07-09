@@ -32,7 +32,7 @@ class InheritStockQuant(models.Model):
             self._prepare_bag_pallet_vals(vals)
 
         records = super().create(vals_list)
-        records._recompute_package_pallet_status()
+        # records._recompute_package_pallet_status() # Pindah ke compute stock.package
 
         return records
     
@@ -55,55 +55,55 @@ class InheritStockQuant(models.Model):
                     vals.update(vals_to_write)
 
         res = super().write(vals)
-        self._recompute_package_pallet_status()
+        # self._recompute_package_pallet_status()
 
         return res
     
-    def _recompute_package_pallet_status(self):
-        param = self.env['ir.config_parameter'].sudo().get_param('pembagi_pallet')
-        if not param:
-            return
+    # def _recompute_package_pallet_status(self):
+    #     param = self.env['ir.config_parameter'].sudo().get_param('pembagi_pallet')
+    #     if not param:
+    #         return
 
-        try:
-            pembagi_pallet = float(param)
-        except:
-            return
+    #     try:
+    #         pembagi_pallet = float(param)
+    #     except:
+    #         return
 
-        if pembagi_pallet == 0:
-            return
+    #     if pembagi_pallet == 0:
+    #         return
 
-        packages = self.mapped('package_id').filtered(lambda p: p)
-        for pkg in packages:
-            quants = pkg.contained_quant_ids.filtered(lambda q: q.quantity > 0)
-            if not quants:
-                if pkg.pallet_status or not pkg.can_be_use:
-                    pkg.sudo().write({
-                        'pallet_status': False,
-                        'can_be_use': True,
-                    })
-                continue
+    #     packages = self.mapped('package_id').filtered(lambda p: p)
+    #     for pkg in packages:
+    #         quants = pkg.contained_quant_ids.filtered(lambda q: q.quantity > 0)
+    #         if not quants:
+    #             if pkg.pallet_status or not pkg.can_be_use:
+    #                 pkg.sudo().write({
+    #                     'pallet_status': False,
+    #                     'can_be_use': True,
+    #                 })
+    #             continue
             
-            pallet_status = 'eceran'
-            product_ids = quants.mapped('product_id')
-            if len(product_ids) == 1 and quants:
-                quant = quants[0]
-                uom_pallet = quant.product_id.uom_pallet_id
+    #         pallet_status = 'eceran'
+    #         product_ids = quants.mapped('product_id')
+    #         if len(product_ids) == 1 and quants:
+    #             quant = quants[0]
+    #             uom_pallet = quant.product_id.uom_pallet_id
 
-                if uom_pallet and quant.quantity:
-                    try:
-                        result = (uom_pallet.factor / pembagi_pallet) / quant.quantity
-                        if abs(result - 1) < 0.00001:
-                            pallet_status = 'full_pallet'
-                    except ZeroDivisionError:
-                        pass
-            if not pallet_status:
-                pallet_status = 'eceran'
+    #             if uom_pallet and quant.quantity:
+    #                 try:
+    #                     result = (uom_pallet.factor / pembagi_pallet) / quant.quantity
+    #                     if abs(result - 1) < 0.00001:
+    #                         pallet_status = 'full_pallet'
+    #                 except ZeroDivisionError:
+    #                     pass
+    #         if not pallet_status:
+    #             pallet_status = 'eceran'
             
-            if pkg.pallet_status != pallet_status:
-                pkg.sudo().write({
-                    'pallet_status': pallet_status,
-                    'can_be_use': pallet_status == 'eceran',
-                })
+    #         if pkg.pallet_status != pallet_status:
+    #             pkg.sudo().write({
+    #                 'pallet_status': pallet_status,
+    #                 'can_be_use': pallet_status == 'eceran',
+    #             })
     
     def _prepare_bag_pallet_vals(self, vals):
         product_id = vals.get('product_id')

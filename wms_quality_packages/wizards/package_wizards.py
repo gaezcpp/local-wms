@@ -67,7 +67,7 @@ class PackageWizards(models.TransientModel):
                     grouped[new_state].append(package.id)
                     updated_packages.append((package.name, old_state, final_state))
 
-        package_obj = self.env['stock.package']
+        package_obj = self.env['stock.package'].sudo()
         for state, ids in grouped.items():
             package_obj.browse(ids).write({'state': state})
 

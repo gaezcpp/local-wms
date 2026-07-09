@@ -105,6 +105,8 @@ class StockInventoryAdjustment(models.Model):
             
             if rec.location_id:
                 domain.append(('location_id', 'child_of', rec.location_id.id))
+            if rec.product_ids:
+                domain.append(('product_id', 'in', rec.product_ids.ids))
                 
             summary_stock_types = rec.summary_line_ids.mapped('stock_type')
             summary_stock_types = [s for s in summary_stock_types if s]

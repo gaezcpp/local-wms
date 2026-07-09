@@ -8,7 +8,18 @@ class InheritTaggingRecord(models.Model):
     tagging_type_notification_id = fields.Many2one(comodel_name='tagging.type.notification', string="Notification Type", tracking=True)
     notification_desc = fields.Text(string="Notification Desc", tracking=True)
     nomor_notifikasi = fields.Text(string="Nomor Notifikasi", tracking=True)
-    status = fields.Selection(selection_add=[("waiting_sap", "Waiting SAP"),('open_wo', 'Open - WO')], ondelete={'waiting_sap': 'cascade'})
+    status = fields.Selection(
+        selection_add=[
+            ("waiting_sap", "Waiting SAP"),
+            ("process_sap", "Process SAP"),
+            ('open_wo', 'Open - WO')
+        ], 
+        ondelete={
+            'waiting_sap': 'cascade',
+            'process_sap': 'cascade',
+            'open_wo': 'cascade'
+        }
+    )
     pm_work_order_id = fields.Many2one(comodel_name='pm.work.order', string="Work Order", tracking=True)
     
     @api.onchange('tagging_type_notification_id')
