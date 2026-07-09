@@ -7,32 +7,12 @@
                     Packaging: <span t-esc="line.packaging_uom_qty"/> <span t-esc="line.packaging_uom_id.name"/>
                 </span>
                 <br/>
-                
-                <!-- <t t-if="!line.checker_only or !line.checker_out">
-                    <span t-attf-class="o_barcode_scanner_qty font-monospace fs-1">
-                        <span class="qty-done"
-                            t-attf-class="{{nextExpected === 'quantity' &amp;&amp; qtyDone ? 'o_flash' : ''}} {{qtyDemand &amp;&amp; qtyDone == 0 ? env.model.zeroQtyClass(line) : ''}} {{qtyDemand &amp;&amp; qtyDone &amp;&amp; qtyDone == qtyDemand ? 'text-success' : ''}}"
-                            t-out="env.model.IsNotSet(line) ? '?' : qtyDone"/>
-                        <span t-if="env.model.displayLineQtyDemand(line)" t-out="'/' + qtyDemand"/>
-                    </span>
-                    <small t-if="props.displayUOM" class="o_line_uom text-muted ms-1" t-out="props.line.product_uom_id.name"/>
-                </t> -->
-
                 <t t-if="line.uom_bag_id">
-                    <!-- <span t-if="!line.checker_only or !line.checker_out" class="text-muted mx-2 fs-3 align-baseline">|</span> -->
                     <span class="o_barcode_scanner_qty font-monospace fs-1">
                         <span class="qty-done text-dark" t-esc="line.bag_qty ? Math.round(line.bag_qty * 100) / 100 : 0"/>
                     </span>
                     <small class="text-muted ms-1 fs-6">Bag</small>
                 </t>
-
-                <!-- <t t-if="line.uom_pallet_id">
-                    <span class="text-muted mx-2 fs-3 align-baseline">|</span>
-                    <span class="o_barcode_scanner_qty font-monospace fs-1">
-                        <span class="qty-done text-dark" t-esc="line.pallet_qty ? Math.round(line.pallet_qty * 100) / 100 : 0"/>
-                    </span>
-                    <small class="text-muted ms-1 fs-6">Pallet</small>
-                </t> -->
             </div>
         </xpath>
     </t>
@@ -54,6 +34,58 @@
                     <span class="fa fa-lg fa-trash"/>
                 </button>
             </div>
+        </xpath>
+    </t>
+
+    <t t-inherit="stock_barcode.PackageLineComponent" t-inherit-mode="extension">
+        <xpath expr="//button[@t-on-click='unpack']" position="attributes">
+            <attribute name="t-if">!env.model.record.picking_type_bypass_entire_packs</attribute>
+        </xpath>
+        <xpath expr="//button[@t-on-click='openPackage']" position="attributes">
+            <attribute name="t-if">!env.model.record.picking_type_bypass_entire_packs</attribute>
+        </xpath>
+        <xpath expr="//button[@t-on-click='unpack']" position="before">
+            <t t-foreach="sublinesToDisplay" t-as="subline" t-key="subline.virtual_id">
+                <button class="o_line_button o_edit btn btn-secondary"
+                        t-on-click="(ev) => this.editSublineQty(subline, ev)"
+                        t-att-disabled="!this.env.model.lineCanBeEdited(subline)">
+                    <i class="fa fa-pencil" role="img"/>
+                </button>
+            </t>
+        </xpath>
+
+        <!-- Tombol toggle expand/collapse, gantikan tombol pencil tunggal sebelumnya -->
+        <!-- <xpath expr="//button[@t-on-click='unpack']" position="before">
+            <button t-if="displayEditToggle"
+                    class="o_line_button o_toggle_sublines btn btn-secondary"
+                    t-on-click="toggleSublines">
+                <i class="fa" t-attf-class="fa-chevron-{{state.opened ? 'up' : 'down'}}" role="img"/>
+            </button>
+        </xpath> -->
+
+        <!-- Daftar produk dalam package, masing-masing dengan pencil sendiri -->
+        <!-- <xpath expr="//div[hasclass('o_barcode_line_details')]" position="inside">
+            <div t-if="displayEditToggle &amp;&amp; state.opened" class="o_package_content_lines mt-1">
+                <t t-foreach="sublinesToDisplay" t-as="subline" t-key="subline.virtual_id">
+                    <div class="d-flex justify-content-between align-items-center py-1 border-top">
+                        <span t-esc="subline.product_id.display_name"/>
+                        <span class="me-2">
+                            <t t-esc="env.model.getQtyDone(subline)"/> / <t t-esc="env.model.getQtyDemand(subline)"/>
+                        </span>
+                        <button class="o_line_button o_edit btn btn-secondary"
+                                t-on-click="(ev) => this.editSublineQty(subline, ev)"
+                                t-att-disabled="!this.env.model.lineCanBeEdited(subline)">
+                            <i class="fa fa-pencil" role="img"/>
+                        </button>
+                    </div>
+                </t>
+            </div>
+        </xpath> -->
+    </t>
+
+    <t t-inherit="stock_barcode.MainComponent" t-inherit-mode="extension">
+        <xpath expr="//PackageLineComponent" position="attributes">
+            <attribute name="editLine.bind">onOpenProductPage</attribute>
         </xpath>
     </t>
 

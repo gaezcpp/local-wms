@@ -53,6 +53,8 @@ Long description of module's purpose
             "wms_inherit_stock_barcode/static/src/js/quality_quantity_backorder.js",
             "wms_inherit_stock_barcode/static/src/js/duplicate_product.js",
             "wms_inherit_stock_barcode/static/src/js/daily_cycle_count.js",
+            "wms_inherit_stock_barcode/static/src/js/full_pallet_button.js",
+            "wms_inherit_stock_barcode/static/src/js/package_line_component_patch.js",
             'wms_inherit_stock_barcode/static/src/xml/stock_barcode_menu.xml',
             'wms_inherit_stock_barcode/static/src/xml/sloc_packaging_views.xml',
             'wms_inherit_stock_barcode/static/src/xml/barcode_line_component_views.xml',

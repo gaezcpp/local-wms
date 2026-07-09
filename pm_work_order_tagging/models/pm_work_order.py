@@ -603,7 +603,7 @@ class PlanMaintenanceWorkOrder(models.Model):
                 'company_id': company.id,
                 'description': ktext,
             }
-            
+            _logger.info(f"WO PREVENTIF = {wo_preventif}")
             if not wo_preventif:
                 wo_preventif = pm_wo_model.create(vals)
                 wo_preventif.message_post(body=f"PREVENTIF WORK ORDER {nomor_wo} Created from Cron")
@@ -611,57 +611,59 @@ class PlanMaintenanceWorkOrder(models.Model):
             else:
                 if self._needs_update(wo_preventif, vals):
                     wo_preventif.write(vals)
-        
-        for row in rows:
-            matnr = row.get('MATNR')
-            qty = float(row.get('BDMNG') or 0.0)
-            srvpos = row.get('SRVPOS')
-            ktext1 = row.get('KTEXT1')
             
-            sparepart = spare_part_model.search([('sku', '=', matnr), ('company_id', '=', company.id)], limit=1)
-            if not sparepart:
-                _logger.info(f"cron_synchronize_sap_preventif_work_order SPAREPART {matnr} SKIPPED")
-                continue
-            
-            existing_mat_line = wo_material_line_model.search([
-                ('pm_work_order_id', '=', wo_preventif.id),
-                ('product_sparepart_id', '=', sparepart.id),
-            ], limit=1)
-            
-            existing_jasa_line = wo_jasa_line_model.search([
-                ('pm_work_order_id', '=', wo_preventif.id),
-                ('no_service', '=', srvpos)
-            ], limit=1)
-            
-            vals_mat = {
-                'pm_work_order_id': wo_preventif.id,
-                'sequence': 1,
-                'product_sparepart_id': sparepart.id,
-                'product_material': sparepart.sku,
-                'quantity': qty,
-            }
-            
-            vals_jasa = {
-                'pm_work_order_id': wo_preventif.id,
-                'no_service': srvpos,
-                'description': ktext1,
-            }
-            
-            if not existing_mat_line:
-                wo_material_line_model.create(vals_mat)
-            else:
-                if self._needs_update(existing_mat_line, vals_mat):
-                    existing_mat_line.write({
-                        'product_sparepart_id': sparepart.id,
-                        'product_material': sparepart.sku,
-                        'quantity': qty,
-                    })
-            
-            if not existing_jasa_line:
-                wo_jasa_line_model.create(vals_jasa)
-            else:
-                if self._needs_update(existing_jasa_line, vals_jasa):
-                    existing_jasa_line.write({'description': ktext1})
+            for row in rows:
+                matnr = row.get('MATNR')
+                qty = float(row.get('BDMNG') or 0.0)
+                srvpos = row.get('SRVPOS')
+                ktext1 = row.get('KTEXT1')
+                _logger.info(f"MATNR {matnr} | SRVPOS {srvpos}")
+                
+                if matnr:
+                    sparepart = spare_part_model.search([('sku', '=', matnr), ('company_id', '=', company.id)], limit=1)
+                    if sparepart:
+                        existing_mat_line = wo_material_line_model.search([
+                            ('pm_work_order_id', '=', wo_preventif.id),
+                            ('product_sparepart_id', '=', sparepart.id),
+                        ], limit=1)
+                        
+                        vals_mat = {
+                            'pm_work_order_id': wo_preventif.id,
+                            'sequence': 1,
+                            'product_sparepart_id': sparepart.id,
+                            'product_material': sparepart.sku,
+                            'quantity': qty,
+                        }
+                        
+                        if not existing_mat_line:
+                            wo_material_line_model.create(vals_mat)
+                        else:
+                            if self._needs_update(existing_mat_line, vals_mat):
+                                existing_mat_line.write({
+                                    'product_sparepart_id': sparepart.id,
+                                    'product_material': sparepart.sku,
+                                    'quantity': qty,
+                                })
+                    else:
+                        _logger.info(f"cron_synchronize_sap_preventif_work_order SPAREPART {matnr} SKIPPED - Not Found")
+
+                if srvpos:
+                    existing_jasa_line = wo_jasa_line_model.search([
+                        ('pm_work_order_id', '=', wo_preventif.id),
+                        ('no_service', '=', srvpos)
+                    ], limit=1)
+                    
+                    vals_jasa = {
+                        'pm_work_order_id': wo_preventif.id,
+                        'no_service': srvpos,
+                        'description': ktext1,
+                    }
+                    
+                    if not existing_jasa_line:
+                        wo_jasa_line_model.create(vals_jasa)
+                    else:
+                        if self._needs_update(existing_jasa_line, vals_jasa):
+                            existing_jasa_line.write({'description': ktext1})
                     
     @api.model
     def cron_reminder_wo_draft(self):

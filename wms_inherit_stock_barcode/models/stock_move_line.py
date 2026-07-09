@@ -115,6 +115,10 @@ class StockMoveLine(models.Model):
             'qty_packaging_sap',
             'checker_only',
             'checker_out',
+            'production_line_id', 
+            'first_count', 
+            'last_count', 
+            'stock_type'
         ]
     
     @api.constrains('pallet_qty', 'bag_qty', 'result_package_id')

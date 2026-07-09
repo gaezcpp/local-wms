@@ -18,6 +18,7 @@ class InheritStockPickingType(models.Model):
     quantity_out_type_id = fields.Many2one(comodel_name='stock.picking.type', string="Quantity Type")
     mandatory_destination = fields.Boolean(string="Mandatory Destination", default=False)
     split_package = fields.Boolean(string="Split Package", default=False)
+    bypass_entire_packs = fields.Boolean(string="Bypass Entire Packs", default=False)
     
     @api.onchange('checker_only')
     def _onchange_checker_only(self):

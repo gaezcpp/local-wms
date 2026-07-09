@@ -17,6 +17,9 @@ class ProductionLineCustom(models.Model):
     prod_code = fields.Char(string="Prod Code")
     company_id = fields.Many2one(comodel_name='res.company', string="Company", default=lambda self: self.env.company)
     
+    def _get_fields_stock_barcode(self):
+        return ['id', 'code', 'name', 'prod_code']
+    
     @api.model
     def _fetch_sap_data(self, config_key, cron_name):
         icp = self.env['ir.config_parameter'].sudo()

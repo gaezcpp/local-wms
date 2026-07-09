@@ -11,6 +11,7 @@ class StockPicking(models.Model):
     checker_out = fields.Boolean(related='picking_type_id.checker_out', store=True)
     production_only = fields.Boolean(related='picking_type_id.production_only', store=True)
     detail_operation_scan = fields.Char(string="Detail Scan", store=True, compute='_compute_operation_scan')
+    picking_type_bypass_entire_packs = fields.Boolean(related='picking_type_id.bypass_entire_packs')
 
     def _get_fields_stock_barcode(self):
         res = super()._get_fields_stock_barcode()
@@ -20,7 +21,21 @@ class StockPicking(models.Model):
             res.append('checker_out')
         if 'production_only' not in res:
             res.append('production_only')
+        if 'picking_type_bypass_entire_packs' not in res:
+            res.append('picking_type_bypass_entire_packs')
         return res
+    
+    def _get_stock_barcode_data(self):
+        data = super()._get_stock_barcode_data()
+        if self.production_only:
+            production_lines = self.env['production.line'].search([
+                ('active', '=', True),
+                ('company_id', 'in', [self.company_id.id, False]),
+            ])
+            data['records']['production.line'] = production_lines.read(
+                production_lines._get_fields_stock_barcode(), load=False
+            )
+        return data
     
     @api.depends('product_packaging_ids.sloc_id')
     def _compute_sloc_filled(self):
@@ -125,7 +140,7 @@ class StockPicking(models.Model):
         }
         
     def _prepare_packaging_lines_vals(self):
-        Packaging = self.env['product.packaging.sap']
+        Packaging = self.env['product.packaging.sap'].sudo()
 
         all_moves = self.mapped('move_ids').filtered(lambda m: m.product_id)
         if not all_moves:
@@ -241,7 +256,7 @@ class StockPicking(models.Model):
                     if line.uom_pallet_id and line.uom_pallet_id.factor:
                         new_pallet_qty = qty / (line.uom_pallet_id.factor / 1000)
                         
-                    line.write({
+                    line.sudo().write({
                         'bag_qty': round(new_bag_qty),
                         'pallet_qty': new_pallet_qty
                     })
@@ -253,11 +268,10 @@ class StockPicking(models.Model):
     
     def _check_production_order_sap(self):
         for picking in self:
-            if picking.po_sap_id:
-                if picking.po_sap_id.active == False:
-                    raise ValidationError(f"Tidak bisa melakukan Validate karena PO SAP {picking.po_sap_id.po_number} sudah tidak Active!")
-                if picking.po_sap_id.state in ('teco', 'closed') or picking.po_sap_id.status_teco == 'TECO':
-                    raise ValidationError(f"Tidak bisa melakukan Validate karena PO SAP {picking.po_sap_id.po_number} sudah TECO!")
+            if picking.picking_type_id.production_only and not picking.po_sap_id:
+                raise ValidationError(f"Tidak bisa melakukan Validate karena {picking.picking_type_id.name} membutuhkan PO SAP")
+            if picking.po_sap_id and (not picking.po_sap_id.active or picking.po_sap_id.state in ('teco', 'closed')):
+                raise ValidationError("Tidak dapat melakukan Validate. PO SAP tidak aktif atau berstatus TECO!")
     
     def button_validate(self):
         self._sync_packaging_lines()
@@ -270,10 +284,8 @@ class StockPicking(models.Model):
             if product:
                 konversi = product.uom_id._compute_quantity(diff_qty, product.uom_bag_id)
             if status == 'missing':
-                _logger.info(f"Missing qty detected for {self.name}")
                 raise ValidationError("Silahkan lakukan Check Quantity untuk melanjutkan proses Validate")
             elif status == 'excess':
-                _logger.info(f"Excess qty detected for {self.name}.")
                 raise ValidationError(f"Quantity yang dimasukkan melebihi Quantity Inbound sebanyak [{konversi} {product.uom_bag_id.name}]")
             
             for move in self.move_ids:

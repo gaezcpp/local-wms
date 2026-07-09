@@ -10,8 +10,6 @@ class InheritBaseStockMoveLine(models.Model):
     last_count = fields.Float(string="Last Count")
     detail_text = fields.Char(string="Detail Text")
     production_only = fields.Boolean(string="Production Only", related='picking_type_id.production_only', store=True)
-    
-    # fields buat chriss
     sloc_name = fields.Char(related='location_dest_id.sloc_name', string="SLOC Name", store=True)
     sloc_id = fields.Many2one(comodel_name='storage.location', string="SLOC")
     production_shift_id = fields.Many2one(related='picking_id.production_shift_id', string="Shift", store=True)
