@@ -477,8 +477,8 @@ class TaggingRecord(models.Model):
                 raise UserError('Close End Date harus diisi!')
             if rec.close_start_date and rec.close_end_date:
                 start_date_aware = rec.close_start_date.replace(tzinfo=pytz.utc)
-                if start_date_aware < now:
-                    raise UserError("Work Start Date tidak boleh kurang dari hari ini")
+                # if start_date_aware < now:
+                #     raise UserError("Work Start Date tidak boleh kurang dari hari ini")
                 if rec.close_end_date < rec.close_start_date:
                     raise UserError("Work End Date tidak boleh kurang dari Work Start Date")
             if not rec.close_description:

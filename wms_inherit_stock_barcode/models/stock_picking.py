@@ -11,7 +11,7 @@ class StockPicking(models.Model):
     checker_out = fields.Boolean(related='picking_type_id.checker_out', store=True)
     production_only = fields.Boolean(related='picking_type_id.production_only', store=True)
     detail_operation_scan = fields.Char(string="Detail Scan", store=True, compute='_compute_operation_scan')
-    picking_type_bypass_entire_packs = fields.Boolean(related='picking_type_id.bypass_entire_packs')
+    picking_type_bypass_entire_packs = fields.Boolean(related='picking_type_id.bypass_entire_packs', store=True)
 
     def _get_fields_stock_barcode(self):
         res = super()._get_fields_stock_barcode()
@@ -225,16 +225,23 @@ class StockPicking(models.Model):
     
     def _check_all_result_package_id(self):
         for picking in self:
+            lines = picking.move_line_ids
+            if not lines:
+                continue
+            
             if picking.picking_type_id.mandatory_destination:
-                lines = picking.move_line_ids
-                if not lines:
-                    continue
-                
                 no_package = lines.filtered(lambda l: not l.result_package_id)
                 if no_package:
                     raise ValidationError(
                         f"Destination Package belum diisi untuk picking {picking.name}.\n\n"
                         f"Silahkan isi dahulu Destination Package pada : {', '.join(no_package.mapped('product_reference_code') or '-')}"
+                    )
+            if picking.production_only:
+                no_production_line = lines.filtered(lambda l: not l.production_line_id)
+                if no_production_line:
+                    raise ValidationError(
+                        f"Production Line belum diisi untuk picking {picking.name}.\n\n"
+                        f"Silahkan isi dahulu Production Line pada : {', '.join(no_package.mapped('product_reference_code') or '-')}"
                     )
                     
     def _sync_post_validate_quantities(self):

@@ -38,49 +38,29 @@
     </t>
 
     <t t-inherit="stock_barcode.PackageLineComponent" t-inherit-mode="extension">
-        <xpath expr="//button[@t-on-click='unpack']" position="attributes">
+        <!-- <xpath expr="//button[hasclass('o_unpack')]" position="attributes">
             <attribute name="t-if">!env.model.record.picking_type_bypass_entire_packs</attribute>
         </xpath>
-        <xpath expr="//button[@t-on-click='openPackage']" position="attributes">
+        <xpath expr="//button[hasclass('o_package_content')]" position="attributes">
             <attribute name="t-if">!env.model.record.picking_type_bypass_entire_packs</attribute>
+        </xpath> -->
+        <xpath expr="//button[hasclass('o_unpack')]" position="attributes">
+            <attribute name="t-if">false</attribute>
         </xpath>
-        <xpath expr="//button[@t-on-click='unpack']" position="before">
-            <t t-foreach="sublinesToDisplay" t-as="subline" t-key="subline.virtual_id">
-                <button class="o_line_button o_edit btn btn-secondary"
-                        t-on-click="(ev) => this.editSublineQty(subline, ev)"
-                        t-att-disabled="!this.env.model.lineCanBeEdited(subline)">
-                    <i class="fa fa-pencil" role="img"/>
-                </button>
+        <xpath expr="//button[hasclass('o_package_content')]" position="attributes">
+            <attribute name="t-if">false</attribute>
+        </xpath>
+        <xpath expr="//button[hasclass('o_unpack')]" position="before">
+            <t t-if='env.model.record.picking_type_bypass_entire_packs'>
+                <t t-foreach="sublinesToDisplay" t-as="subline" t-key="subline.virtual_id">
+                    <button class="o_line_button o_edit btn btn-secondary"
+                            t-on-click="(ev) => this.editSublineQty(subline, ev)"
+                            t-att-disabled="!this.env.model.lineCanBeEdited(subline)">
+                        <i class="fa fa-pencil" role="img"/>
+                    </button>
+                </t>
             </t>
         </xpath>
-
-        <!-- Tombol toggle expand/collapse, gantikan tombol pencil tunggal sebelumnya -->
-        <!-- <xpath expr="//button[@t-on-click='unpack']" position="before">
-            <button t-if="displayEditToggle"
-                    class="o_line_button o_toggle_sublines btn btn-secondary"
-                    t-on-click="toggleSublines">
-                <i class="fa" t-attf-class="fa-chevron-{{state.opened ? 'up' : 'down'}}" role="img"/>
-            </button>
-        </xpath> -->
-
-        <!-- Daftar produk dalam package, masing-masing dengan pencil sendiri -->
-        <!-- <xpath expr="//div[hasclass('o_barcode_line_details')]" position="inside">
-            <div t-if="displayEditToggle &amp;&amp; state.opened" class="o_package_content_lines mt-1">
-                <t t-foreach="sublinesToDisplay" t-as="subline" t-key="subline.virtual_id">
-                    <div class="d-flex justify-content-between align-items-center py-1 border-top">
-                        <span t-esc="subline.product_id.display_name"/>
-                        <span class="me-2">
-                            <t t-esc="env.model.getQtyDone(subline)"/> / <t t-esc="env.model.getQtyDemand(subline)"/>
-                        </span>
-                        <button class="o_line_button o_edit btn btn-secondary"
-                                t-on-click="(ev) => this.editSublineQty(subline, ev)"
-                                t-att-disabled="!this.env.model.lineCanBeEdited(subline)">
-                            <i class="fa fa-pencil" role="img"/>
-                        </button>
-                    </div>
-                </t>
-            </div>
-        </xpath> -->
     </t>
 
     <t t-inherit="stock_barcode.MainComponent" t-inherit-mode="extension">

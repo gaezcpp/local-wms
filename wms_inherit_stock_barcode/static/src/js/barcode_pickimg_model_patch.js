@@ -241,7 +241,7 @@ patch(BarcodePickingModel.prototype, {
 
 
     // UNTUK SCAN PRODUCTION LINE
-     _getFieldToWrite() {
+    _getFieldToWrite() {
         const fields = super._getFieldToWrite();
         if (!fields.includes("production_line_id")) {
             fields.push("production_line_id");
@@ -290,10 +290,8 @@ patch(BarcodePickingModel.prototype, {
                 if (productionLine) {
                     return this._setProductionLineOnLine(line, productionLine);
                 }
-                return this.notification.add(
-                    _t("No production line found for barcode %s", barcode),
-                    { type: "danger" }
-                );
+                const message = _t("No production line found for barcode %s", barcode);
+                return this.notification(message, { type: "danger" });
             }
 
             try {
@@ -367,9 +365,6 @@ patch(BarcodePickingModel.prototype, {
                             console.log("User membatalkan peringatan.");
                         }
                     });
-
-                } else {
-                    console.log("6. Kondisi SAMA, tidak ada popup muncul.");
                 }
             }
         }
@@ -380,7 +375,7 @@ patch(BarcodePickingModel.prototype, {
 
         if (line.id) {
             await this.save();
-            await this.orm.write("stock.move.line", [line.id], {production_line_id: productionLine.id});
+            await this.orm.write("stock.move.line", [line.id], { production_line_id: productionLine.id });
         } else {
             this._markLineAsDirty(line);
         }

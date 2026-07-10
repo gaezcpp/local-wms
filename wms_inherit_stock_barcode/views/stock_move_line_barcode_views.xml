@@ -118,7 +118,6 @@
                         <field name="production_line_id" string="Production Line Packaging" class="w-100" 
                                 placeholder="Production Line" 
                                 options="{'no_open': True, 'no_create': True}" 
-                                required="production_only"
                                 domain="[('company_id', '=', company_id)]"/>
                     </div>
                     <div class="col-6">

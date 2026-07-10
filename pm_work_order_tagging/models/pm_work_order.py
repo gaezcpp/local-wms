@@ -524,12 +524,12 @@ class PlanMaintenanceWorkOrder(models.Model):
                 raise ValidationError("Problem Handling harus diisi!")
             if not rec.photo_attachment:
                 raise ValidationError("Photo harus diisi!")
-            if rec.date_from:
-                if date_from < now:
-                    raise ValidationError("Date From tidak boleh kurang dari sekarang hari ini")
-            if rec.date_to:
-                if date_to < now:
-                    raise ValidationError("Date To tidak boleh kurang dari sekarang!")
+            # if rec.date_from:
+            #     if date_from < now:
+            #         raise ValidationError("Date From tidak boleh kurang dari sekarang hari ini")
+            # if rec.date_to:
+            #     if date_to < now:
+            #         raise ValidationError("Date To tidak boleh kurang dari sekarang!")
             if rec.date_from and rec.date_to:
                 if rec.date_to < rec.date_from:
                     raise ValidationError("Date To tidak boleh kurang dari Date From!")
