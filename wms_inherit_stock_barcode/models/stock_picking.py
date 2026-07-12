@@ -295,12 +295,12 @@ class StockPicking(models.Model):
             elif status == 'excess':
                 raise ValidationError(f"Quantity yang dimasukkan melebihi Quantity Inbound sebanyak [{konversi} {product.uom_bag_id.name}]")
             
-            for move in self.move_ids:
-                if move.state in ('cancel', 'done'):
-                    continue
-                total_bag_qty = sum(move.move_line_ids.mapped('bag_qty'))
-                if total_bag_qty <= 0.0:
-                    raise ValidationError(f"Tidak bisa melakukan Validate: Pack Quantity untuk produk {move.product_id.name} karena masih 0. ")
+            # for move in self.move_ids:
+            #     if move.state in ('cancel', 'done'):
+            #         continue
+            #     total_bag_qty = sum(move.move_line_ids.mapped('bag_qty'))
+            #     if total_bag_qty <= 0.0:
+            #         raise ValidationError(f"Tidak bisa melakukan Validate: Pack Quantity untuk produk {move.product_id.name} karena masih 0. ")
         res = super().button_validate()
         self._sync_post_validate_quantities()
         next_pickings = self.sudo().mapped('move_ids.move_dest_ids.picking_id').filtered(lambda p: p)
@@ -324,16 +324,29 @@ class StockPicking(models.Model):
         
         for move in self.move_ids:
             product = move.product_id
-            root_moves = root_picking.move_ids.filtered(lambda m: m.product_id == product)
-            total_demand = sum(root_moves.mapped('product_uom_qty'))
-            all_moves_in_chain = all_related_pickings.mapped('move_ids').filtered(lambda m: m.product_id == product)
-            total_processed = sum(all_moves_in_chain.mapped('move_line_ids.quantity'))
+            root_moves_line = root_picking.move_line_ids.filtered(lambda m: m.product_id == product)
+            total_demand = sum(root_moves_line.mapped('quantity'))
+            all_moves_in_chain = all_related_pickings.mapped('move_line_ids').filtered(lambda m: m.product_id == product)
+            total_processed = sum(all_moves_in_chain.mapped('quantity'))
             _logger.info(f"APAKAH HAS MISSING DEMAND {total_demand} | PROCESSED {total_processed}")
             if total_demand > total_processed:
                 return 'missing', product, (total_demand - total_processed)
             if total_demand < total_processed:
                 return 'excess', product, (total_processed - total_demand)
         return 'ok', None, 0.0
+        
+        # for move in self.move_ids:
+        #     product = move.product_id
+        #     root_moves = root_picking.move_ids.filtered(lambda m: m.product_id == product)
+        #     total_demand = sum(root_moves.mapped('product_uom_qty'))
+        #     all_moves_in_chain = all_related_pickings.mapped('move_ids').filtered(lambda m: m.product_id == product)
+        #     total_processed = sum(all_moves_in_chain.mapped('move_line_ids.quantity'))
+        #     _logger.info(f"APAKAH HAS MISSING DEMAND {total_demand} | PROCESSED {total_processed}")
+        #     if total_demand > total_processed:
+        #         return 'missing', product, (total_demand - total_processed)
+        #     if total_demand < total_processed:
+        #         return 'excess', product, (total_processed - total_demand)
+        # return 'ok', None, 0.0
     
     # Quantity Backorder
     # def action_create_quantity_backorder(self):

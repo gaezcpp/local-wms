@@ -37,13 +37,8 @@
         </xpath>
     </t>
 
-    <t t-inherit="stock_barcode.PackageLineComponent" t-inherit-mode="extension">
-        <!-- <xpath expr="//button[hasclass('o_unpack')]" position="attributes">
-            <attribute name="t-if">!env.model.record.picking_type_bypass_entire_packs</attribute>
-        </xpath>
-        <xpath expr="//button[hasclass('o_package_content')]" position="attributes">
-            <attribute name="t-if">!env.model.record.picking_type_bypass_entire_packs</attribute>
-        </xpath> -->
+    <!--INI YANG TANPA LINE PRODUCT-->
+    <!-- <t t-inherit="stock_barcode.PackageLineComponent" t-inherit-mode="extension">
         <xpath expr="//button[hasclass('o_unpack')]" position="attributes">
             <attribute name="t-if">false</attribute>
         </xpath>
@@ -61,7 +56,25 @@
                 </t>
             </t>
         </xpath>
-    </t>
+    </t> -->
+
+    <!--INI YANG LINE PRODUCT-->
+    <!-- <t t-inherit="stock_barcode.PackageLineComponent" t-inherit-mode="extension">\
+        <xpath expr="//div[hasclass('o_barcode_line_details')]" position="inside">
+            <div class="o_package_content_lines mt-1">
+                <t t-foreach="sublinesToDisplay" t-as="subline" t-key="subline.virtual_id">
+                    <div class="d-flex justify-content-between align-items-center py-1 border-top">
+                        <span t-esc="subline.product_id.display_name"/>
+                        <button class="o_line_button o_edit btn btn-secondary"
+                                t-on-click="(ev) => this.editSublineQty(subline, ev)"
+                                t-att-disabled="!this.env.model.lineCanBeEdited(subline)">
+                            <i class="fa fa-pencil" role="img"/>
+                        </button>
+                    </div>
+                </t>
+            </div>
+        </xpath>
+    </t> -->
 
     <t t-inherit="stock_barcode.MainComponent" t-inherit-mode="extension">
         <xpath expr="//PackageLineComponent" position="attributes">

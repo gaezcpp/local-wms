@@ -38,6 +38,10 @@ class InheritTaggingRecord(models.Model):
                 raise ValidationError("Untuk membentuk WO harus mengisi Parent Equipment terlebih dahulu!")
             if not rec.equipment_id:
                 raise ValidationError("Untuk membentuk WO harus mengisi Equipment terlebih dahulu!")
+            if not rec.tagging_type_notification_id:
+                raise ValidationError("Notification Type harus diisi untuk melanjutkan proses!")
+            if not rec.notification_desc:
+                raise ValidationError("Notification Desc harus diisi untuk melanjutkan proses!")
             
             rec.write({
                 'close_start_date': False,

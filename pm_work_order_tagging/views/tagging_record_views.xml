@@ -9,6 +9,9 @@
                 <xpath expr="//button[@name='action_set_wo']" position="attributes">
                     <attribute name="invisible">1</attribute>
                 </xpath>
+                <xpath expr="//field[@name='status']" position="attributes">
+                    <attribute name="statusbar_visible">open,validated,process_sap,open_wo,closed,rejected,cancelled</attribute>
+                </xpath>
                 <xpath expr="//button[@name='action_set_wo']" position="after">
                     <button name="action_set_create_work_order" type="object" string="Set Work Order" class="oe_highlight" invisible="status != 'validated'"/>
                 </xpath>

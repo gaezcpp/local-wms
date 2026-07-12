@@ -7,15 +7,18 @@ import { ConfirmationDialog } from "@web/core/confirmation_dialog/confirmation_d
 
 patch(BarcodePickingModel.prototype, {
 
-    _displayEntirePackage() {
-        return (
-            this.record.picking_type_entire_packs ||
-            this.record.picking_type_bypass_entire_packs
-        );
+    _createState() {
+        super._createState();
+        if (this.record.picking_type_bypass_entire_packs) {
+            this.groupingLinesEnabled = false;
+        }
     },
 
     get packageLines() {
-        if (!this._displayEntirePackage() || !this.currentState.lines.length) {
+        const shouldGroup =
+            this.record.picking_type_entire_packs &&
+            !this.record.picking_type_bypass_entire_packs;
+        if (!shouldGroup || !this.currentState.lines.length) {
             return [];
         }
         return this._getPackageLines();
@@ -23,12 +26,22 @@ patch(BarcodePickingModel.prototype, {
 
     get pageLines() {
         let lines = super.pageLines;
-        if (this._displayEntirePackage()) {
+        const shouldGroup =
+            this.record.picking_type_entire_packs &&
+            !this.record.picking_type_bypass_entire_packs;
+        if (shouldGroup) {
             lines = lines.filter(
                 (line) => !(line.package_id && line.result_package_id && line.is_entire_pack)
             );
         }
         return this._sortLine(lines);
+    },
+
+    get groupingLinesEnabled() {
+        if (this.record.picking_type_bypass_entire_packs) {
+            return false;
+        }
+        return super.groupingLinesEnabled;
     },
 
     get barcodeInfo() {
@@ -96,8 +109,10 @@ patch(BarcodePickingModel.prototype, {
                 barcodeInfo = infos.scanProductOrDestLoc;
             }
         }
-        // GANTI di sini: this._moveEntirePackage() -> this._displayEntirePackage()
-        if (!line && this._displayEntirePackage()) {
+        const shouldGroupPackage =
+            this.record.picking_type_entire_packs && !this.record.picking_type_bypass_entire_packs;
+
+        if (!line && shouldGroupPackage) {
             const packageLine = this.selectedPackageLine;
             if (packageLine) {
                 if (this._lineIsComplete(packageLine)) {
