@@ -38,7 +38,7 @@ class InheritBaseStockMoveLine(models.Model):
         if not self.production_line_id:
             return False
 
-        prod_code_rec = self.env['production.code'].search([('company_id', '=', self.company_id.id)], limit=1)
+        prod_code_rec = self.env['production.code'].sudo().search([('company_id', '=', self.company_id.id)], limit=1)
         if not prod_code_rec or not prod_code_rec.code:
             raise ValidationError("Konfigurasi Production Code (Format Lot) belum diatur untuk company ini!")
 
@@ -63,14 +63,14 @@ class InheritBaseStockMoveLine(models.Model):
         except Exception as e:
             raise ValidationError(f"Terjadi kesalahan saat memproses format Production Code: {e}")
 
-        lot = self.env['stock.lot'].search([
+        lot = self.env['stock.lot'].sudo().search([
             ('name', '=', lot_name),
             ('product_id', '=', self.move_id.product_id.id),
             ('company_id', '=', self.company_id.id)
         ], limit=1)
 
         if not lot:
-            lot = self.env['stock.lot'].search([
+            lot = self.env['stock.lot'].sudo().search([
                 ('id', '=', self.lot_id.id),
                 ('product_id', '=', self.move_id.product_id.id),
                 ('company_id', '=', self.company_id.id)
@@ -148,7 +148,7 @@ class InheritBaseStockMoveLine(models.Model):
             raise ValidationError("prod_in_move_type pada Operation Type belum disetting!")
         else:
             if vals and vals.get('picking_id'):
-                picking = self.env['stock.picking'].browse(vals['picking_id'])
+                picking = self.env['stock.picking'].sudo().browse(vals['picking_id'])
             elif self.picking_id:
                 picking = self.picking_id
             elif self.move_id and self.move_id.picking_id:
@@ -204,20 +204,4 @@ class InheritBaseStockMoveLine(models.Model):
                     )
                     
         res = super()._action_done()
-        
-        # Pindah related stock.lot
-        # for line in self:
-        #     po_sap_id = line.picking_id.po_sap_id
-        #     if not po_sap_id:
-        #         continue
-
-        #     quants = self.env['stock.quant'].sudo().search([
-        #         ('product_id', '=', line.product_id.id),
-        #         ('location_id', '=', line.location_dest_id.id),
-        #         ('lot_id', '=', line.lot_id.id if line.lot_id else False),
-        #         ('package_id', '=', line.result_package_id.id if line.result_package_id else False),
-        #         ('company_id', '=', line.company_id.id),
-        #     ])
-        #     quants.write({'po_sap_id': po_sap_id.id})
-            
         return res
