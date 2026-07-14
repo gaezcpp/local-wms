@@ -29,6 +29,7 @@ Long description of module's purpose
         'security/security.xml',
         'wizards/sloc_barcode_views.xml',
         'wizards/quality_quantity_backorder_views.xml',
+        'wizards/create_new_picking_views.xml',
         'views/product_template_views.xml',
         'views/stock_package_views.xml',
         'views/stock_picking_views.xml',

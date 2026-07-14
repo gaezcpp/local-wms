@@ -12,6 +12,11 @@
                     class="btn btn-danger" confirm="Yakin ingin melakukan Check Quantity?">
                 Check Quantity
             </button>
+            <button t-if="env.model.isCreateNewPicking()"
+                    t-on-click="env.model.createNewPicking"
+                    class="btn btn-secondary">
+                New Pick
+            </button>
         </xpath>
         <!--PEMBATASAN USER-->
         <!--HIDE BUTTON SCANNER-->
@@ -20,10 +25,6 @@
             <attribute name="t-if">false</attribute>
         </xpath> -->
         <xpath expr="//button[hasclass('o_put_in_pack')]" position="attributes">
-            <attribute name="t-if">false</attribute>
-        </xpath>
-        <!--RETURN PRODUCT-->
-        <xpath expr="//button[hasclass('o_create_return')]" position="attributes">
             <attribute name="t-if">false</attribute>
         </xpath>
     </t>

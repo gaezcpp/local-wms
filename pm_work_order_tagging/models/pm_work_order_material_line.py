@@ -11,3 +11,4 @@ class PMWorkOrderMaterialLine(models.Model):
     product_sparepart_id = fields.Many2one(comodel_name='tagging.spare_part', string="Material")
     product_material = fields.Char(string='SKU')
     quantity = fields.Float(string="Quantity")
+    bwart = fields.Char(string="Status")

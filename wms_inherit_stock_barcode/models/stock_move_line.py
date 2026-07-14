@@ -20,6 +20,7 @@ class StockMoveLine(models.Model):
     wh_category_id = fields.Many2one(comodel_name='stock.warehouse.category', string="Category")
     suggest_dest_id = fields.Many2one(comodel_name='stock.location', string="Suggest Location")
     dummy_full_pallet = fields.Boolean(string="Dummy Full Pallet", store=False)
+    create_new_picking = fields.Boolean(related='picking_id.create_new_picking', store=True)
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -59,7 +60,7 @@ class StockMoveLine(models.Model):
     def _check_pallet_qty_limit(self):
         for record in self:
             if record.picking_id and record.picking_id.picking_type_id.code != 'outgoing':
-                if record.pallet_qty > 1:
+                if record.result_package_id and record.pallet_qty > 1:
                     raise ValidationError("Quantity Pallet tidak boleh lebih dari 1!")
     
     def _validate_qty_packaging_sap(self, vals):
@@ -118,7 +119,8 @@ class StockMoveLine(models.Model):
             'production_line_id', 
             'first_count', 
             'last_count', 
-            'stock_type'
+            'stock_type',
+            'create_new_picking'
         ]
     
     @api.constrains('pallet_qty', 'bag_qty', 'result_package_id')

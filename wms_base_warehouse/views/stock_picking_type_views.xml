@@ -22,6 +22,7 @@
                     <field name="mandatory_destination"/>
                     <field name="split_package"/>
                     <field name="bypass_entire_packs"/>
+                    <field name="create_new_picking"/>
                 </xpath>
                 <xpath expr="//field[@name='return_picking_type_id']" position="after">
                     <field name="packaging_type_id"/>

@@ -27,7 +27,7 @@
                 <field name="sub_system_id"/>
                 <field name="equipment_id"/>
                 <field name="sub_equipment_id"/>
-                <field name="create_date"/>
+                <!-- <field name="create_date"/> -->
                 <field name="state"/>
                 <field name="priority"/>
                 <field name="company_id"/>
@@ -54,6 +54,7 @@
                     </h2>
                     <group>
                         <group name="pm_left">
+                            <field name="waiting_sap" readonly="1"/>
                             <field name="wo_sap" force_save="1" readonly="1"/>
                             <field name="tagging_id" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1" invisible="not tagging_id"/>
                             <field name="type_mo" force_save="1" readonly="1"/>
@@ -83,6 +84,7 @@
                                     <field name="product_sparepart_id" options="{'no_open': True, 'no_create': True}"/>
                                     <field name="product_material"/>
                                     <field name="quantity"/>
+                                    <field name="bwart"/>
                                 </list>
                                 <form create="0" edit="0" delete="0">
                                     <field name="pm_work_order_id" readonly="1" options="{'no_open': True, 'no_create': True}"/>
@@ -95,6 +97,7 @@
                                     <field name="pm_work_order_id" column_invisible="1"/>
                                     <field name="no_service"/>
                                     <field name="description"/>
+                                    <field name="bwart"/>
                                 </list>
                                 <form create="0" edit="0" delete="0">
                                     <field name="pm_work_order_id" readonly="1" options="{'no_open': True, 'no_create': True}"/>
@@ -107,7 +110,7 @@
                         <field name="need_desc" invisible="1" force_save="1" readonly="1"/>
                         <field name="date_from" readonly="state != 'draft'"/>
                         <field name="date_to" readonly="state != 'draft'"/>
-                        <field name="analysis_id" options="{'no_open': True, 'no_create': True}" domain="[('company_id', '=', company_id)]" readonly="state != 'draft'"/>
+                        <field name="analysis_id" domain="[('company_id', '=', company_id)]" readonly="state != 'draft'"/>
                         <field name="analysis" readonly="state != 'draft'" invisible="not need_desc" required="need_desc"/>
                         <field name="problem_handling" readonly="state != 'draft'"/>
                         <field name="photo_attachment" readonly="state != 'draft'"/>

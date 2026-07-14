@@ -80,6 +80,10 @@
         <xpath expr="//PackageLineComponent" position="attributes">
             <attribute name="editLine.bind">onOpenProductPage</attribute>
         </xpath>
+        <!--HIDE RETURN PRODUCT-->
+        <xpath expr="//button[hasclass('o_create_return')]" position="attributes">
+            <attribute name="t-if">false</attribute>
+        </xpath>
     </t>
 
     <t t-inherit="stock_barcode.LineDestinationLocation" t-inherit-mode="extension">

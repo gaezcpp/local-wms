@@ -12,6 +12,7 @@ class StockPicking(models.Model):
     production_only = fields.Boolean(related='picking_type_id.production_only', store=True)
     detail_operation_scan = fields.Char(string="Detail Scan", store=True, compute='_compute_operation_scan')
     picking_type_bypass_entire_packs = fields.Boolean(related='picking_type_id.bypass_entire_packs', store=True)
+    create_new_picking = fields.Boolean(related='picking_type_id.create_new_picking', store=True)
 
     def _get_fields_stock_barcode(self):
         res = super()._get_fields_stock_barcode()
@@ -23,6 +24,8 @@ class StockPicking(models.Model):
             res.append('production_only')
         if 'picking_type_bypass_entire_packs' not in res:
             res.append('picking_type_bypass_entire_packs')
+        if 'create_new_picking' not in res:
+            res.append('create_new_picking')
         return res
     
     def _get_stock_barcode_data(self):
@@ -136,6 +139,48 @@ class StockPicking(models.Model):
                     'qty': line.bag_qty,
                     'product_uom_id': line.uom_bag_id.id,
                 }) for line in self.move_ids ],
+            }
+        }
+        
+    def action_open_new_create_picking(self):
+        self.ensure_one()
+        if not self.sale_id:
+            raise ValidationError(f"Tidak bisa melakukan New Picking karena tidak ada Sale Order pada {self.name}")
+        
+        view = self.env.ref('wms_inherit_stock_barcode.view_create_new_picking_wizard_form')
+
+        lines_to_process = self.sale_id.order_line.filtered(lambda l: not l.display_type)
+        default_lines = []
+        for line in lines_to_process:
+            uom_name = (line.product_uom_id.name or '').lower()
+            if uom_name == 'kg':
+                qty_kg = line.product_uom_qty
+                if line.product_id.uom_bag_id:
+                    qty_bag = line.product_uom_id._compute_quantity(line.product_uom_qty, line.product_id.uom_bag_id)
+                else:
+                    qty_bag = 0.0
+            else:
+                qty_bag = line.product_uom_qty
+                qty_kg = line.product_uom_id._compute_quantity(line.product_uom_qty, line.product_id.uom_id)
+
+            default_lines.append((0, 0, {
+                'product_id': line.product_id.id or False,
+                'qty': qty_kg, 
+                'product_uom_id': line.product_id.uom_id.id or False,
+                'qty_pack': qty_bag, 
+                'pack_uom_id': line.product_id.uom_bag_id.id or False,
+                'company_id': line.company_id.id or False, 
+            }))
+
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'Create New Picking',
+            'res_model': 'create.new.picking',
+            'views': [(view.id, 'form')],
+            'target': 'new',
+            'context': {
+                'default_picking_id': self.id,
+                'default_line_ids': default_lines
             }
         }
         

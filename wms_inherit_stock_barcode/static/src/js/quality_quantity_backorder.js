@@ -53,4 +53,28 @@ patch(BarcodePickingModel.prototype, {
         this.trigger("refresh");
     },
 
+    async _createNewPicking() {
+        const selectedLine = this.selectedLine;
+        const lineId = selectedLine ? selectedLine.id : null;
+        console.log("Processing Create New Picking for line:", lineId);
+
+        const context = {
+            barcode_view: true,
+            active_line_id: lineId
+        };
+
+        const result = await this.orm.call(
+            this.resModel,
+            "action_open_new_create_picking",
+            [[this.resId]],
+            { context }
+        );
+
+        if (typeof result === "object" && result.type) {
+            return this.trigger("process-action", result);
+        }
+
+        this.trigger("refresh");
+    },
+
 });

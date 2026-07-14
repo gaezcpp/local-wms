@@ -51,6 +51,7 @@ class PlanMaintenanceWorkOrder(models.Model):
     preventif_inspection = fields.Boolean(string="Preventif Inspection", default=False)
     start_time = fields.Datetime(string="Start Time")
     end_time = fields.Datetime(string="End Time")
+    waiting_sap = fields.Boolean(string="Waiting SAP", default=False)
     
     @api.model_create_multi
     def create(self, vals_list):
@@ -117,9 +118,11 @@ class PlanMaintenanceWorkOrder(models.Model):
             return False
         time_str = time_str if time_str else '000000'
         try:
-            return datetime.strptime(date_str + time_str, '%Y%m%d%H%M%S')
+            local_time = datetime.strptime(date_str + time_str, '%Y%m%d%H%M%S')
+            utc_time = local_time - timedelta(hours=7)
+            return utc_time
         except ValueError as e:
-            _logger.warning(f"Gagal convert string to datetime: {date_str} {time_str}. Error: {e}")
+            _logger.warning(f"Gagal memparsing waktu SAP: {date_str} {time_str}. Error: {e}")
             return False
     
     @api.model
@@ -247,10 +250,16 @@ class PlanMaintenanceWorkOrder(models.Model):
                     if bwart == 'Z62':
                         materials_to_delete.append(sku)
                     elif bwart == 'Z61':
-                        materials_to_add_update[sku] = qty
+                        materials_to_add_update[sku] = {
+                            'qty': qty,
+                            'bwart': bwart
+                        }
 
                 if srvpos and bwart == '101':
-                    jasa_to_add_update[srvpos] = ktext1
+                    jasa_to_add_update[srvpos] = {
+                        'desc': ktext1,
+                        'bwart': bwart
+                    }
 
             if materials_to_delete:
                 lines_to_unlink = work_order.pm_wo_material_line_ids.filtered(
@@ -291,16 +300,20 @@ class PlanMaintenanceWorkOrder(models.Model):
             jasa_create_vals = []
             mat_sequence = len(work_order.pm_wo_material_line_ids)
 
-            for sku, qty in materials_to_add_update.items():
+            for sku, vals in materials_to_add_update.items():
                 product = product_dict.get(sku)
                 if not product:
                     _logger.warning(f"SKIPPED MATERIAL: {sku} pada {no_tagging} - Sparepart tidak ditemukan")
                     continue
-
+                
+                qty = vals['qty']
+                bwart_val = vals['bwart']
+                
                 if sku in existing_mat_lines:
                     existing_mat_lines[sku].write({
                         'product_material': product.sku,
                         'quantity': qty,
+                        'bwart': bwart_val,
                     })
                 else:
                     mat_sequence += 1
@@ -310,16 +323,21 @@ class PlanMaintenanceWorkOrder(models.Model):
                         'product_sparepart_id': product.id,
                         'product_material': product.sku,
                         'quantity': qty,
+                        'bwart': bwart_val,
                     })
 
-            for srvpos, desc in jasa_to_add_update.items():
+            for srvpos, vals in jasa_to_add_update.items():
+                desc = vals['desc']
+                bwart_val = vals['bwart']
+                
                 if srvpos in existing_jasa_lines:
-                    existing_jasa_lines[srvpos].write({'description': desc})
+                    existing_jasa_lines[srvpos].write({'description': desc, 'bwart': bwart_val})
                 else:
                     jasa_create_vals.append({
                         'pm_work_order_id': work_order.id,
                         'no_service': srvpos,
                         'description': desc,
+                        'bwart': bwart_val,
                     })
 
             if mat_create_vals:
@@ -359,7 +377,15 @@ class PlanMaintenanceWorkOrder(models.Model):
             if rec.date_from and rec.date_to:
                 if rec.date_to < rec.date_from:
                     raise ValidationError("Date To tidak boleh kurang dari Date From!")
-            
+        
+            for mat in rec.pm_wo_material_line_ids:
+                if not mat.bwart or mat.bwart != 'Z61':
+                    raise ValidationError(f"Material {mat.sku} masih belum dilakukan GI pada SAP")
+        
+            for jasa in rec.pm_wo_jasa_line_ids:
+                if not jasa.bwart or jasa.bwart != '101':
+                    raise ValidationError(f"Jasa dengan No Service {jasa.no_service} belum dilakukan GR pada SAP")
+        
             rec.write({'state': 'waiting_sap'})
     
     def action_close(self):
@@ -425,7 +451,7 @@ class PlanMaintenanceWorkOrder(models.Model):
             if not endtime:
                 endtime = starttime
             
-            wo_preventif = pm_wo_model.search([('wo_sap', '=', nomor_wo),('company_id', '=', company.id)], limit=1)
+            work_order = pm_wo_model.search([('wo_sap', '=', nomor_wo),('company_id', '=', company.id)], limit=1)
             vals = {
                 'wo_sap': nomor_wo,
                 'type_mo': type_mo,
@@ -440,13 +466,18 @@ class PlanMaintenanceWorkOrder(models.Model):
                 'start_time': starttime,
                 'end_time': endtime,
             }
-            if not wo_preventif:
-                wo_preventif = pm_wo_model.create(vals)
-                wo_preventif.message_post(body=f"PREVENTIF WORK ORDER {nomor_wo} Created from Cron")
-                _logger.info(f"PREVENTIF WORK ORDER Created {nomor_wo}")
+            if not work_order:
+                work_order = pm_wo_model.create(vals)
+                work_order.message_post(body=f"WORK ORDER {nomor_wo} Created from Cron")
+                _logger.info(f"WORK ORDER Created {nomor_wo}")
             else:
-                if self._needs_update(wo_preventif, vals):
-                    wo_preventif.write(vals)
+                if self._needs_update(work_order, vals):
+                    work_order.write(vals)
+            
+            materials_to_delete = []
+            materials_to_add_update = {}
+            jasa_to_add_update = {}
+            matnr_list = set()
             
             for row in rows:
                 matnr = row.get('MATNR')
@@ -454,57 +485,110 @@ class PlanMaintenanceWorkOrder(models.Model):
                 qty = float(row.get('BDMNG') or 0.0)
                 srvpos = row.get('SRVPOS')
                 ktext1 = row.get('KTEXT1')
-                _logger.info(f"MATNR {matnr} | SRVPOS {srvpos}")
+                bwart = row.get('BWART')
                 
                 if matnr:
-                    sparepart = spare_part_model.search([('sku', '=', matnr), ('company_id', '=', company.id)], limit=1)
-                    if not sparepart:
-                        sparepart = spare_part_model.create({
-                            'name': maktx,
-                            'sku': matnr,
-                            'company_id': company.id
-                        })
-                    
-                    existing_mat_line = wo_material_line_model.search([
-                        ('pm_work_order_id', '=', wo_preventif.id),
-                        ('product_sparepart_id', '=', sparepart.id),
-                    ], limit=1)
-                    
-                    vals_mat = {
-                        'pm_work_order_id': wo_preventif.id,
-                        'sequence': 1,
-                        'product_sparepart_id': sparepart.id,
-                        'product_material': sparepart.sku,
-                        'quantity': qty,
-                    }
-                    
-                    if not existing_mat_line:
-                        wo_material_line_model.create(vals_mat)
-                    else:
-                        if self._needs_update(existing_mat_line, vals_mat):
-                            existing_mat_line.write({
-                                'product_sparepart_id': sparepart.id,
-                                'product_material': sparepart.sku,
-                                'quantity': qty,
-                            })
+                    matnr_list.add(matnr)
+                    if bwart == 'Z62':
+                        materials_to_delete.append(matnr)
+                    elif bwart == 'Z61':
+                        materials_to_add_update[matnr] = {
+                            'qty': qty,
+                            'bwart': bwart
+                        }
 
-                if srvpos:
-                    existing_jasa_line = wo_jasa_line_model.search([
-                        ('pm_work_order_id', '=', wo_preventif.id),
-                        ('no_service', '=', srvpos)
-                    ], limit=1)
-                    
-                    vals_jasa = {
-                        'pm_work_order_id': wo_preventif.id,
-                        'no_service': srvpos,
-                        'description': ktext1,
+                if srvpos and bwart == '101':
+                    jasa_to_add_update[srvpos] = {
+                        'desc': ktext1,
+                        'bwart': bwart
                     }
                     
-                    if not existing_jasa_line:
-                        wo_jasa_line_model.create(vals_jasa)
-                    else:
-                        if self._needs_update(existing_jasa_line, vals_jasa):
-                            existing_jasa_line.write({'description': ktext1})
+                
+            if materials_to_delete:
+                lines_to_unlink = work_order.pm_wo_material_line_ids.filtered(
+                    lambda l: l.product_sparepart_id.sku in materials_to_delete
+                )
+                if lines_to_unlink:
+                    lines_to_unlink.unlink()
+            
+            products = spare_part_model.search([('sku', 'in', list(matnr_list)), ('company_id', '=', company.id)])
+            existing_skus = products.mapped('sku')
+            missing_skus = matnr_list - set(existing_skus)
+            if missing_skus:
+                new_product_vals = []
+                for missing_sku in missing_skus:
+                    new_product_vals.append({
+                        'name': maktx,
+                        'sku': missing_sku,
+                        'company_id': company.id
+                    })
+                
+                new_products = spare_part_model.create(new_product_vals)
+                products |= new_products
+            product_dict = {p.sku: p for p in products}
+
+            existing_mat_lines = {
+                line.product_sparepart_id.sku: line
+                for line in work_order.pm_wo_material_line_ids
+                if line.product_sparepart_id
+            }
+
+            existing_jasa_lines = {
+                line.no_service: line
+                for line in work_order.pm_wo_jasa_line_ids
+                if line.no_service
+            }
+
+            mat_create_vals = []
+            jasa_create_vals = []
+            mat_sequence = len(work_order.pm_wo_material_line_ids)
+
+            for sku, vals in materials_to_add_update.items():
+                product = product_dict.get(sku)
+                if not product:
+                    _logger.warning(f"SKIPPED MATERIAL: {sku} - Sparepart tidak ditemukan")
+                    continue
+                
+                qty = vals['qty']
+                bwart_val = vals['bwart']
+                
+                if sku in existing_mat_lines:
+                    existing_mat_lines[sku].write({
+                        'product_material': product.sku,
+                        'quantity': qty,
+                        'bwart': bwart_val
+                    })
+                else:
+                    mat_sequence += 1
+                    mat_create_vals.append({
+                        'pm_work_order_id': work_order.id,
+                        'sequence': mat_sequence,
+                        'product_sparepart_id': product.id,
+                        'product_material': product.sku,
+                        'quantity': qty,
+                        'bwart': bwart_val,
+                    })
+
+            for srvpos, vals in jasa_to_add_update.items():
+                desc = vals['desc']
+                bwart_val = vals['bwart']
+                
+                if srvpos in existing_jasa_lines:
+                    existing_jasa_lines[srvpos].write({'description': desc, 'bwart': bwart_val})
+                else:
+                    jasa_create_vals.append({
+                        'pm_work_order_id': work_order.id,
+                        'no_service': srvpos,
+                        'description': desc,
+                        'bwart': bwart_val,
+                    })
+
+            if mat_create_vals:
+                wo_material_line_model.create(mat_create_vals)
+            
+            if jasa_create_vals:
+                wo_jasa_line_model.create(jasa_create_vals)
+            
     @api.model
     def cron_synhronize_sap_preventif_inspection(self):
         data_list = self._fetch_sap_data(

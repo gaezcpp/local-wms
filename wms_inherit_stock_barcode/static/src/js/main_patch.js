@@ -44,6 +44,13 @@ patch(MainComponent.prototype, {
             };
         }
 
+        if (!this.env.model.isCreateNewPicking) {
+            this.env.model.isCreateNewPicking = () => {
+                // Gunakan opsional chaining (?) untuk menghindari error jika record sedang kosong
+                return Boolean(this.env.model.record?.create_new_picking);
+            };
+        }
+
         // existing
         if (!this.env.model.openQualityBackorder) {
             this.env.model.openQualityBackorder = () => {
@@ -54,6 +61,12 @@ patch(MainComponent.prototype, {
         if (!this.env.model.openQuantityBackorder) {
             this.env.model.openQuantityBackorder = () => {
                 return this.env.model._openQuantityBackorder();
+            };
+        }
+
+        if (!this.env.model.createNewPicking) {
+            this.env.model.createNewPicking = () => {
+                return this.env.model._createNewPicking();
             };
         }
     },
