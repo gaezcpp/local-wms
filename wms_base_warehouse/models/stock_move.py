@@ -42,7 +42,6 @@ class StockMove(models.Model):
         
         res = True
         
-        # Eksekusi assign standar berdasarkan tipe pergerakannya
         if moves_normal:
             res = super(StockMove, moves_normal)._action_assign(**kwargs) and res
         if moves_uu:
@@ -51,9 +50,6 @@ class StockMove(models.Model):
             res = super(StockMove, moves_fp_only)._action_assign(**kwargs) and res
 
         need_reassign = self.env['stock.move'].sudo()
-        
-        # PERBAIKAN DI SINI:
-        # Looping difokuskan HANYA pada moves_full_pallet, bukan moves_to_check_full (yang sebelumnya termasuk moves_uu)
         for move in moves_full_pallet:
             total_actual_pkg_qty = 0
             has_partial = False
@@ -78,7 +74,6 @@ class StockMove(models.Model):
                     else:
                         break
                 
-        # Re-assign jika ada perubahan demand
         if need_reassign:
             need_reassign._do_unreserve()
             need_reassign_uu = need_reassign & moves_uu
@@ -91,8 +86,8 @@ class StockMove(models.Model):
                 _logger.info("_action_assign Check Availability need_reassign_uu")
                 super(StockMove, need_reassign_uu.with_context(uu_only=True))._action_assign()
 
-        # Operasi tambahan lainnya
-        for line in moves_uu.move_line_ids:
+        moves_uu_to_set = moves_uu - moves_split_package
+        for line in moves_uu_to_set.move_line_ids:
             if line.package_id and not line.result_package_id:
                 _logger.info("Isi Otomatis Destination Package Untuk Scanner")
                 line.write({'result_package_id': line.package_id.id})

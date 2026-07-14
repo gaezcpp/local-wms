@@ -37,13 +37,6 @@ patch(BarcodePickingModel.prototype, {
         return this._sortLine(lines);
     },
 
-    get groupingLinesEnabled() {
-        if (this.record.picking_type_bypass_entire_packs) {
-            return false;
-        }
-        return super.groupingLinesEnabled;
-    },
-
     get barcodeInfo() {
         if (this.isCancelled || this.isDone) {
             return {

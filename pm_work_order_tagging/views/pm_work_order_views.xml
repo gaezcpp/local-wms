@@ -67,7 +67,8 @@
                             <field name="equipment_id" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1"/>
                             <field name="sub_equipment_id" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1"/>
                             <field name="company_id" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1"/>
-                            <field name="create_date" force_save="1" readonly="1"/>
+                            <field name="start_time" force_save="1" readonly="1"/>
+                            <field name="end_time" force_save="1" readonly="1" invisible="end_time == start_time"/>
                         </group>
                     </group>
                     <field name="material_only" invisible="1"/>
@@ -104,12 +105,12 @@
                     <separator string="Close Evidence" invisible="not sap_synchronize"/>
                     <group invisible="not sap_synchronize">
                         <field name="need_desc" invisible="1" force_save="1" readonly="1"/>
-                        <field name="date_from" readonly="state != 'draft' and not sap_synchronize"/>
-                        <field name="date_to" readonly="state != 'draft' and not sap_synchronize"/>
-                        <field name="analysis_id" domain="[('company_id', '=', company_id)]" readonly="state != 'draft' and not sap_synchronize"/>
-                        <field name="analysis" readonly="state != 'draft' and not sap_synchronize" invisible="not need_desc" required="need_desc"/>
-                        <field name="problem_handling" readonly="state != 'draft' and not sap_synchronize"/>
-                        <field name="photo_attachment" readonly="state != 'draft' and not sap_synchronize"/>
+                        <field name="date_from" readonly="state != 'draft'"/>
+                        <field name="date_to" readonly="state != 'draft'"/>
+                        <field name="analysis_id" options="{'no_open': True, 'no_create': True}" domain="[('company_id', '=', company_id)]" readonly="state != 'draft'"/>
+                        <field name="analysis" readonly="state != 'draft'" invisible="not need_desc" required="need_desc"/>
+                        <field name="problem_handling" readonly="state != 'draft'"/>
+                        <field name="photo_attachment" readonly="state != 'draft'"/>
                     </group>
                 </sheet>
                 <chatter/>
@@ -122,7 +123,8 @@
         <field name="model">pm.work.order</field>
         <field name="arch" type="xml">
             <calendar string="WO Calendar" create="0" edit="0" delete="0"
-                    date_start="create_date"
+                    date_start="start_time"
+                    date_stop="end_time"
                     color="wo_sap"
                     quick_create="0"
                     mode="month"

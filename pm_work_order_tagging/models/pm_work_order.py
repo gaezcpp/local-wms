@@ -49,6 +49,8 @@ class PlanMaintenanceWorkOrder(models.Model):
     material_only = fields.Boolean(string="Material Only", compute='_compute_flag_material')
     jasa_only = fields.Boolean(string="Jasa Only", compute='_compute_flag_jasa')
     preventif_inspection = fields.Boolean(string="Preventif Inspection", default=False)
+    start_time = fields.Datetime(string="Start Time")
+    end_time = fields.Datetime(string="End Time")
     
     @api.model_create_multi
     def create(self, vals_list):
@@ -109,6 +111,16 @@ class PlanMaintenanceWorkOrder(models.Model):
                     return True
 
         return False
+    
+    def _parse_string_datetime(self, date_str, time_str):
+        if not date_str or date_str == '00000000':
+            return False
+        time_str = time_str if time_str else '000000'
+        try:
+            return datetime.strptime(date_str + time_str, '%Y%m%d%H%M%S')
+        except ValueError as e:
+            _logger.warning(f"Gagal convert string to datetime: {date_str} {time_str}. Error: {e}")
+            return False
     
     @api.model
     def _fetch_sap_data(self, config_key, cron_name):
@@ -180,6 +192,10 @@ class PlanMaintenanceWorkOrder(models.Model):
             first_rec = records[0]
             wo_name = (first_rec.get('AUFNR') or "").lstrip('0')
             werks = first_rec.get('COMPANY_ID') or first_rec.get('WERKS')
+            strmn = first_rec.get('STRMN', '')
+            strur = first_rec.get('STRUR', '')
+            ltrmn = first_rec.get('LTRMN', '')
+            ltrur = first_rec.get('LTRUR', '')
 
             if not wo_name:
                 _logger.warning(f"SKIPPED: {no_tagging} - AUFNR Kosong")
@@ -197,6 +213,11 @@ class PlanMaintenanceWorkOrder(models.Model):
             if not work_order:
                 _logger.warning(f"SKIPPED: {no_tagging} - Work Order tidak ditemukan")
                 continue
+            
+            starttime = self._parse_string_datetime(strmn, strur)
+            endtime = self._parse_string_datetime(ltrmn, ltrur)
+            if not endtime:
+                endtime = starttime
 
             work_order.write({
                 'wo_sap': wo_name,
@@ -204,6 +225,8 @@ class PlanMaintenanceWorkOrder(models.Model):
                 'priority': first_rec.get('PRIOKX'),
                 'sap_synchronize': True,
                 'description': first_rec.get('KTEXT'),
+                'start_time': starttime,
+                'end_time': endtime,
             })
 
             materials_to_delete = []
@@ -317,11 +340,7 @@ class PlanMaintenanceWorkOrder(models.Model):
                 rec.need_desc = False
                 
     def action_waiting_sap(self):
-        now = self.now_jakarta()
         for rec in self:
-            date_from = rec.date_from.replace(tzinfo=pytz.utc)
-            date_to = rec.date_to.replace(tzinfo=pytz.utc)
-            
             if rec.state != 'draft' and not rec.sap_synchronize:
                 raise ValidationError(f"Status pada {rec.name} bukan Draft dan SAP Synchronize belum ceklis!")
             if not rec.date_from:
@@ -337,12 +356,6 @@ class PlanMaintenanceWorkOrder(models.Model):
                 raise ValidationError("Problem Handling harus diisi!")
             if not rec.photo_attachment:
                 raise ValidationError("Photo harus diisi!")
-            # if rec.date_from:
-            #     if date_from < now:
-            #         raise ValidationError("Date From tidak boleh kurang dari sekarang hari ini")
-            # if rec.date_to:
-            #     if date_to < now:
-            #         raise ValidationError("Date To tidak boleh kurang dari sekarang!")
             if rec.date_from and rec.date_to:
                 if rec.date_to < rec.date_from:
                     raise ValidationError("Date To tidak boleh kurang dari Date From!")
@@ -392,6 +405,10 @@ class PlanMaintenanceWorkOrder(models.Model):
             sub_equip = (first.get('EQUNR') or "").lstrip('0')
             company_registry = first.get('WERKS')
             ktext = first.get('KTEXT')
+            strmn = first.get('STRMN', '')
+            strur = first.get('STRUR', '')
+            ltrmn = first.get('LTRMN', '')
+            ltrur = first.get('LTRUR', '')
             
             company = company_model.search([('company_registry', '=', company_registry),('sync_pm', '=', True)], limit=1)
             if not company:
@@ -402,6 +419,11 @@ class PlanMaintenanceWorkOrder(models.Model):
             if not equipment:
                 _logger.info(f"Sub Equipment {sub_equip} cron_synhronize_sap_work_order skipped")
                 continue
+            
+            starttime = self._parse_string_datetime(strmn, strur)
+            endtime = self._parse_string_datetime(ltrmn, ltrur)
+            if not endtime:
+                endtime = starttime
             
             wo_preventif = pm_wo_model.search([('wo_sap', '=', nomor_wo),('company_id', '=', company.id)], limit=1)
             vals = {
@@ -415,6 +437,8 @@ class PlanMaintenanceWorkOrder(models.Model):
                 'sub_equipment_id': equipment.id,
                 'company_id': company.id,
                 'description': ktext,
+                'start_time': starttime,
+                'end_time': endtime,
             }
             if not wo_preventif:
                 wo_preventif = pm_wo_model.create(vals)
@@ -509,6 +533,10 @@ class PlanMaintenanceWorkOrder(models.Model):
             sub_equip = (first.get('EQUNR') or "").lstrip('0')
             company_registry = first.get('WERKS')
             ktext = first.get('KTEXT')
+            strmn = first.get('STRMN', '')
+            strur = first.get('STRUR', '')
+            ltrmn = first.get('LTRMN', '')
+            ltrur = first.get('LTRUR', '')
             
             company = company_model.search([('company_registry', '=', company_registry),('sync_pm', '=', True)], limit=1)
             if not company:
@@ -519,6 +547,11 @@ class PlanMaintenanceWorkOrder(models.Model):
             if not equipment:
                 _logger.info(f"Sub Equipment {sub_equip} cron_synhronize_sap_preventif_inspection skipped")
                 continue
+            
+            starttime = self._parse_string_datetime(strmn, strur)
+            endtime = self._parse_string_datetime(ltrmn, ltrur)
+            if not endtime:
+                endtime = starttime
             
             wo_preventif = pm_wo_model.search([('wo_sap', '=', nomor_wo),('company_id', '=', company.id)], limit=1)
             vals = {
@@ -533,6 +566,8 @@ class PlanMaintenanceWorkOrder(models.Model):
                 'company_id': company.id,
                 'description': ktext,
                 'preventif_inspection': True,
+                'start_time': starttime,
+                'end_time': endtime,
             }
             if not wo_preventif:
                 wo_preventif = pm_wo_model.create(vals)
