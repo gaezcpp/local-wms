@@ -20,6 +20,7 @@ class InheritStockPickingType(models.Model):
     split_package = fields.Boolean(string="Split Package", default=False)
     bypass_entire_packs = fields.Boolean(string="Bypass Entire Packs", default=False)
     create_new_picking = fields.Boolean(string="Create Picking", default=False)
+    autofill_pack_qty = fields.Boolean(string="Autofill Pack", default=False)
     
     @api.onchange('checker_only')
     def _onchange_checker_only(self):

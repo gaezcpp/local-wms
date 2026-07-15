@@ -21,6 +21,7 @@ class StockMoveLine(models.Model):
     suggest_dest_id = fields.Many2one(comodel_name='stock.location', string="Suggest Location")
     dummy_full_pallet = fields.Boolean(string="Dummy Full Pallet", store=False)
     create_new_picking = fields.Boolean(related='picking_id.create_new_picking', store=True)
+    autofill_pack_qty = fields.Boolean(related='picking_id.autofill_pack_qty', store=True)
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -120,7 +121,8 @@ class StockMoveLine(models.Model):
             'first_count', 
             'last_count', 
             'stock_type',
-            'create_new_picking'
+            'create_new_picking',
+            'autofill_pack_qty',
         ]
     
     @api.constrains('pallet_qty', 'bag_qty', 'result_package_id')

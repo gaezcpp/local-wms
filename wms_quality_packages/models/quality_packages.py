@@ -90,6 +90,17 @@ class QualityPackages(models.Model):
                 domain.append(('location_id', 'child_of', rec.lot_stock_id.id))
             if rec.action_aft_id and rec.action_aft_id.stock_type_from:
                 domain.append(('stock_type', '=', rec.action_aft_id.stock_type_from))
+            if rec.production_shift_id:
+                pickings = self.env['stock.picking'].sudo().search([('production_shift_id', '=', rec.production_shift_id.id)])
+                move_lines = self.env['stock.move.line'].sudo().search([
+                    ('picking_id', 'in', pickings.ids),
+                    ('lot_id', '!=', False)
+                ])
+                lot_ids = move_lines.mapped('lot_id').ids
+                if lot_ids:
+                    domain.append(('lot_id', 'in', lot_ids))
+                else:
+                    domain.append(('lot_id', 'in', []))
 
             quants = quant_model.search(domain)
             if not quants:

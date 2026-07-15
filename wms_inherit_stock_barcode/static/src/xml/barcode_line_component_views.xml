@@ -9,7 +9,7 @@
                 <br/>
                 <t t-if="line.uom_bag_id">
                     <span class="o_barcode_scanner_qty font-monospace fs-1">
-                        <span class="qty-done text-dark" t-esc="line.bag_qty ? Math.round(line.bag_qty * 100) / 100 : 0"/>
+                        <span class="qty-done text-dark" t-esc="computedBagQty"/>
                     </span>
                     <small class="text-muted ms-1 fs-6">Bag</small>
                 </t>

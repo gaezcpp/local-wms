@@ -23,6 +23,7 @@
                     <field name="split_package"/>
                     <field name="bypass_entire_packs"/>
                     <field name="create_new_picking"/>
+                    <field name="autofill_pack_qty"/>
                 </xpath>
                 <xpath expr="//field[@name='return_picking_type_id']" position="after">
                     <field name="packaging_type_id"/>

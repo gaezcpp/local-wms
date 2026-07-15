@@ -305,14 +305,21 @@ class InheritSaleOrderSAP(models.Model):
             nomor_polisi_desc = first.get('TRUCKNR')
             company_registry = first.get('WERKS')
             stock_warehouse = first.get('LGORT')
-            partner = first.get('KUNNR') or first.get('SHIP_TO')
+            kunnr = first.get('KUNNR') or first.get('SHIP_TO')
             sales_name = first.get('ERNAM')
             po_sap = first.get('EBELN')
             
-            partner = partner_model.search([('ref', '=', partner)], limit=1)
+            partner = partner_model.search([('ref', '=', kunnr)], limit=1)
             if not partner:
-                _logger.info(f"cron_synhronize_sap_so_sto partner {partner} skipped")
-                continue
+                _logger.info(f"cron_synchronize_sap_sale_order PARTNER {kunnr} CREATED NEW")
+                partner = partner_model.create({
+                    'ref': kunnr,
+                    'name': kunnr,
+                    'sap_synchronize': True,
+                    'type': 'contact',
+                    'company_type': 'person',
+                    'comment': "Created from cron_synchronize_sap_sale_order",
+                })
             
             company = company_model.search([('company_registry', '=', company_registry),('sync_wms', '=', True)], limit=1)
             if not company:

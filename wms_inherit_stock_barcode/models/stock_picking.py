@@ -13,6 +13,7 @@ class StockPicking(models.Model):
     detail_operation_scan = fields.Char(string="Detail Scan", store=True, compute='_compute_operation_scan')
     picking_type_bypass_entire_packs = fields.Boolean(related='picking_type_id.bypass_entire_packs', store=True)
     create_new_picking = fields.Boolean(related='picking_type_id.create_new_picking', store=True)
+    autofill_pack_qty = fields.Boolean(related='picking_type_id.autofill_pack_qty', store=True)
 
     def _get_fields_stock_barcode(self):
         res = super()._get_fields_stock_barcode()
@@ -26,10 +27,29 @@ class StockPicking(models.Model):
             res.append('picking_type_bypass_entire_packs')
         if 'create_new_picking' not in res:
             res.append('create_new_picking')
+        if 'autofill_pack_qty' not in res:
+            res.append('autofill_pack_qty')
         return res
     
     def _get_stock_barcode_data(self):
         data = super()._get_stock_barcode_data()
+        
+        # ini untuk autofill
+        move_lines = self.move_line_ids
+        products = self.move_ids.product_id | move_lines.product_id
+        extra_uoms = (
+            products.uom_bag_id
+            | products.uom_pallet_id
+            | move_lines.uom_bag_id
+            | move_lines.uom_pallet_id
+        )
+        _logger.info("EXTRA UOMS: %s", extra_uoms.ids)
+        if extra_uoms:
+            existing_uom_ids = {rec['id'] for rec in data['records'].get('uom.uom', [])}
+            new_uoms = extra_uoms.filtered(lambda u: u.id not in existing_uom_ids)
+            if new_uoms:
+                data['records']['uom.uom'] += new_uoms.read(new_uoms._get_fields_stock_barcode(), load=False)
+        
         if self.production_only:
             production_lines = self.env['production.line'].sudo().search([
                 ('active', '=', True),
