@@ -31,7 +31,7 @@ class StockPicking(models.Model):
     def _get_stock_barcode_data(self):
         data = super()._get_stock_barcode_data()
         if self.production_only:
-            production_lines = self.env['production.line'].search([
+            production_lines = self.env['production.line'].sudo().search([
                 ('active', '=', True),
                 ('company_id', 'in', [self.company_id.id, False]),
             ])
@@ -360,7 +360,7 @@ class StockPicking(models.Model):
 
         def get_all_pickings_in_chain(root):
             result = root
-            # children = self.env['stock.picking'].search([('backorder_id', '=', root.id)])
+            # children = self.env['stock.picking'].sudo().search([('backorder_id', '=', root.id)])
             # for child in children:
             #     result |= get_all_pickings_in_chain(child)
             return result
@@ -668,7 +668,7 @@ class StockPicking(models.Model):
         # 2. Semua picking dalam chain (rekursif)
         def get_all_pickings_in_chain(root):
             result = root
-            children = self.env['stock.picking'].search([('backorder_id', '=', root.id)])
+            children = self.env['stock.picking'].sudo().search([('backorder_id', '=', root.id)])
             for child in children:
                 result |= get_all_pickings_in_chain(child)
             return result
@@ -735,7 +735,7 @@ class StockPicking(models.Model):
             # =====================================================================
             lot_id_for_search = move.move_line_ids[:1].lot_id.id if move.move_line_ids else False
 
-            all_quants = self.env['stock.quant'].search([
+            all_quants = self.env['stock.quant'].sudo().search([
                 ('location_id', '=', move.location_id.id),
                 ('product_id', '=', product.id),
                 ('lot_id', '=', lot_id_for_search),

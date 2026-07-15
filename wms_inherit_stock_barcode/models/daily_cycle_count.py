@@ -132,16 +132,16 @@ class DailyCycleCount(models.Model):
         
         if not self:  # `self` is an empty recordset when we open the inventory adjustment.
             warehouse_location = self.env['stock.warehouse'].search([('company_id', '=', company_id)], limit=1).lot_stock_id
-            quant_locations = self.env['stock.location']
+            quant_locations = self.env['stock.location'].sudo()
             if self.env.user.has_group('stock.group_stock_multi_locations'):
-                quant_locations = self.env['stock.location'].search([
+                quant_locations = self.env['stock.location'].sudo().search([
                     ('usage', 'in', ['internal', 'transit']),
                     ('company_id', '=', company_id),
                 ], order='id')
             else:
                 quant_locations = warehouse_location
                 
-            valid_records = self.env['daily.cycle.count'].search([
+            valid_records = self.env['daily.cycle.count'].sudo().search([
                 ('state', '!=', 'done'),
                 '|',
                     ('user_id', '=?', self.env.user.id),
@@ -151,7 +151,7 @@ class DailyCycleCount(models.Model):
             ])
             locations = warehouse_location.child_internal_location_ids | valid_records.location_id
             if self.env.user.has_group('stock.group_tracking_lot'):
-                package_types = package_types.search([])
+                package_types = package_types.sudo().search([])
 
         data = valid_records.with_context(display_default_code=False, barcode_view=True).get_stock_barcode_data_records()
         if locations:

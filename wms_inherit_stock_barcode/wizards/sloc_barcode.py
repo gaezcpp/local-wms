@@ -16,7 +16,7 @@ class SlocBarcode(models.TransientModel):
         if not picking:
             raise ValidationError("Picking not found.")
 
-        lines = self.env['picking.packaging.line'].search([('picking_id', '=', picking.id)])
+        lines = self.env['picking.packaging.line'].sudo().search([('picking_id', '=', picking.id)])
         if not lines:
             raise ValidationError("No packaging lines found.")
 

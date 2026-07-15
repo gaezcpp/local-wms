@@ -60,15 +60,21 @@ class PlanMaintenanceWorkOrder(models.Model):
                 vals['name'] = self.env['ir.sequence'].next_by_code('pm.work.order') or _('New')
         return super().create(vals_list)
     
-    @api.depends('pm_wo_material_line_ids')
+    @api.depends('pm_wo_material_line_ids', 'pm_wo_material_line_ids.bwart')
     def _compute_flag_material(self):
         for rec in self:
-            rec.material_only = bool(rec.pm_wo_material_line_ids)
+            if rec.pm_wo_material_line_ids:
+                rec.material_only = all(line.bwart == 'Z61' for line in rec.pm_wo_material_line_ids)
+            else:
+                rec.material_only = False
 
-    @api.depends('pm_wo_jasa_line_ids')
+    @api.depends('pm_wo_jasa_line_ids', 'pm_wo_jasa_line_ids.bwart')
     def _compute_flag_jasa(self):
         for rec in self:
-            rec.jasa_only = bool(rec.pm_wo_jasa_line_ids)
+            if rec.pm_wo_jasa_line_ids:
+                rec.jasa_only = all(line.bwart == '101' for line in rec.pm_wo_jasa_line_ids)
+            else:
+                rec.jasa_only = False
     
     def today_jakarta(self):
         tz = pytz.timezone('Asia/Jakarta')
@@ -377,14 +383,15 @@ class PlanMaintenanceWorkOrder(models.Model):
             if rec.date_from and rec.date_to:
                 if rec.date_to < rec.date_from:
                     raise ValidationError("Date To tidak boleh kurang dari Date From!")
-        
-            for mat in rec.pm_wo_material_line_ids:
-                if not mat.bwart or mat.bwart != 'Z61':
-                    raise ValidationError(f"Material {mat.sku} masih belum dilakukan GI pada SAP")
-        
-            for jasa in rec.pm_wo_jasa_line_ids:
-                if not jasa.bwart or jasa.bwart != '101':
-                    raise ValidationError(f"Jasa dengan No Service {jasa.no_service} belum dilakukan GR pada SAP")
+            if not rec.preventif_inspection:
+                if not rec.material_only and not rec.jasa_only:
+                    raise ValidationError("Material atau Jasa harus valid jika bukan Preventif Inspection!")
+                for mat in rec.pm_wo_material_line_ids:
+                    if not mat.bwart or mat.bwart != 'Z61':
+                        raise ValidationError(f"Material {mat.sku} masih belum dilakukan GI pada SAP")
+                for jasa in rec.pm_wo_jasa_line_ids:
+                    if not jasa.bwart or jasa.bwart != '101':
+                        raise ValidationError(f"Jasa dengan No Service {jasa.no_service} belum dilakukan GR pada SAP")
         
             rec.write({'state': 'waiting_sap'})
     

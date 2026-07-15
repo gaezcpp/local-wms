@@ -260,7 +260,7 @@ class StockInventoryAdjustment(models.Model):
         lot_ids = valid_lines.mapped('lot_id').ids
         stock_types = list(set(valid_lines.mapped('package_status')))
         
-        existing_lot_afts = self.env['stock.lot.aft'].search([
+        existing_lot_afts = self.env['stock.lot.aft'].sudo().search([
             ('lot_id', 'in', lot_ids),
             ('stock_type', 'in', stock_types)
         ])

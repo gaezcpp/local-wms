@@ -59,7 +59,7 @@ class CreateNewPickingLine(models.TransientModel):
     _name = 'create.new.picking.line'
     _description = 'Create New Picking Line'
 
-    create_new_picking_id = fields.Many2one(comodel_name='create.new.picking', string="Wizard Reference", required=True)
+    create_new_picking_id = fields.Many2one(comodel_name='create.new.picking', string="Wizard Reference", required=True, ondelete='cascade')
     product_id = fields.Many2one(comodel_name='product.product', string="Product", required=True)
     qty = fields.Float(string="Quantity")
     product_uom_id = fields.Many2one(comodel_name='uom.uom', string="Unit")
