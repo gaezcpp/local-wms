@@ -7,14 +7,32 @@ patch(LineComponent.prototype, {
 
     get computedBagQty() {
         const line = this.props.line || this.line;
-        if (line?.isPackageLine && Array.isArray(line.lines)) {
+
+        // Berlaku untuk package line MAUPUN grouped line (produk+lot sama),
+        // keduanya sama-sama punya struktur `.lines` berisi sublines asli.
+        if (Array.isArray(line?.lines) && line.lines.length) {
             const total = line.lines.reduce(
                 (sum, subline) => sum + this._computeSingleBagQty(subline),
                 0
             );
             return Math.round(total * 100) / 100;
         }
+
         return Math.round(this._computeSingleBagQty(line) * 100) / 100;
+    },
+
+    get bagUomLabel() {
+        const line = this.props.line || this.line;
+        // Kalau grouped/package line, ambil uom_bag_id dari subline pertama
+        // (karena parent object sendiri tidak membawa field ini).
+        const sourceLine =
+            Array.isArray(line?.lines) && line.lines.length ? line.lines[0] : line;
+        const bagUomId = this._getRelationId(sourceLine?.uom_bag_id);
+        if (!bagUomId) {
+            return "";
+        }
+        const targetUom = this.env.model.cache.getRecord("uom.uom", bagUomId);
+        return targetUom?.name || "";
     },
 
     _getRelationId(value) {
@@ -39,9 +57,14 @@ patch(LineComponent.prototype, {
             return 0;
         }
         const qty = line.quantity ?? line.qty_done ?? 0;
-
-        // qty_bag = (qty * source.factor) / target.factor
         return (qty * sourceUom.factor) / targetUom.factor;
+    },
+
+    get hasBagUom() {
+        const line = this.props.line || this.line;
+        const sourceLine =
+            Array.isArray(line?.lines) && line.lines.length ? line.lines[0] : line;
+        return !!this._getRelationId(sourceLine?.uom_bag_id);
     },
 
     // Gajadi dipake ini

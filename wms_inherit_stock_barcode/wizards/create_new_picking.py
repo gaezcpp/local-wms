@@ -36,15 +36,20 @@ class CreateNewPicking(models.TransientModel):
                 'picking_id': new_picking.id,
                 'product_id': line.product_id.id,
                 'product_uom_qty': line.qty, # Demand
+                'quantity': line.qty,
                 'product_uom': line.product_uom_id.id,
+                # 'product_uom_qty': line.qty_pack, 
+                # 'quantity': line.qty_pack,
+                # 'product_uom': line.pack_uom_id.id,
                 'location_id': sales_pick_type.default_location_src_id.id,
                 'location_dest_id': sales_pick_type.default_location_dest_id.id,
                 'sale_line_id': so_line[0].id if so_line else False,
                 'company_id': self.company_id.id,
             })
             
-        new_picking.action_confirm()
-        new_picking.action_assign()
+        ctx = dict(self.env.context, bypass_adjust_demand=True)
+        new_picking.with_context(ctx).action_confirm()
+        new_picking.with_context(ctx).action_assign()
         
         return {
             'type': 'ir.actions.act_window',

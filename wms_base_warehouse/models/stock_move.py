@@ -31,9 +31,16 @@ class StockMove(models.Model):
             picking.over_delivery = over
             
     def _action_assign(self, **kwargs):
+        bypass = self.env.context.get('bypass_adjust_demand', False)
         moves_uu = self.filtered(lambda m: m.picking_id.picking_type_id.uu_only)
-        moves_full_pallet = self.filtered(lambda m: m.picking_id.picking_type_id.book_full_pallet)
-        moves_outgoing = self.filtered(lambda m: m.picking_id.picking_type_id.code == 'outgoing')
+        # moves_full_pallet = self.filtered(lambda m: m.picking_id.picking_type_id.book_full_pallet)
+        # moves_outgoing = self.filtered(lambda m: m.picking_id.picking_type_id.code == 'outgoing')
+        moves_full_pallet = self.filtered(
+            lambda m: m.picking_id.picking_type_id.book_full_pallet and not bypass
+        )
+        moves_outgoing = self.filtered(
+            lambda m: m.picking_id.picking_type_id.code == 'outgoing' and not bypass
+        )
         moves_split_package = self.filtered(lambda m: m.picking_id.picking_type_id.split_package)
         
         moves_to_check_full = moves_uu | moves_full_pallet
