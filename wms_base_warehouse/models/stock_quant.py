@@ -15,7 +15,6 @@ class StockQuant(models.Model):
     
     @api.model
     def _gather(self, product_id, location_id, lot_id=None, package_id=None, owner_id=None, strict=False, qty=None):
-        print("stock.quant _gather KEPANGGIL")
         quants = super()._gather(
             product_id,
             location_id,

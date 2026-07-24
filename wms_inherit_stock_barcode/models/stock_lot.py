@@ -20,7 +20,6 @@ class InheritStockLot(models.Model):
     
     # @api.model_create_multi
     # def create(self, vals_list):
-    #     print(f"CREATE STOCK.LOT _prepare_bag_vals KEPANGGIL\n{vals_list}")
     #     for vals in vals_list:
     #         self._prepare_bag_vals(vals)
     #     records = super().create(vals_list)
@@ -28,7 +27,6 @@ class InheritStockLot(models.Model):
 
     # def write(self, vals):
     #     res = super().write(vals)
-    #     print(f"WRITE STOCK.LOT _prepare_bag_vals KEPANGGIL\n{vals}")
     #     if 'quantity' in vals:
     #         for quant in self:
     #             if quant.lot_id:

@@ -10,7 +10,7 @@ class InheritTaggingRecord(models.Model):
     nomor_notifikasi = fields.Text(string="Nomor Notifikasi", tracking=True)
     status = fields.Selection(
         selection_add=[
-            ("waiting_sap", "Waiting SAP"),
+            ("waiting_sap", "Process SAP"),
             ("process_sap", "Process SAP"),
             ('open_wo', 'Open - WO')
         ], 
@@ -52,19 +52,19 @@ class InheritTaggingRecord(models.Model):
                 'close_photo_filename': False
             })
             rec.message_post(body="Close Evidence dikosongkan karena membuat Work Order saat Validated")
-            
-            vals = {
-                'tagging_id': rec.id,
-                'company_id': rec.company_id.id if rec.company_id else False,
-                'system_id': rec.system_id.id if rec.system_id else False,
-                'sub_system_id': rec.sub_system_id.id if rec.sub_system_id else False,
-                'equipment_id': rec.parent_equipment_id.id,
-                'sub_equipment_id': rec.equipment_id.id,
-                'state': 'draft',
-            }
-            wo = self.env['pm.work.order'].create(vals)
-            if wo:
-                rec.write({
-                    'status': 'waiting_sap',
-                    'pm_work_order_id': wo.id,
-                })
+            rec.write({'status': 'waiting_sap'})
+            # vals = {
+            #     'tagging_id': rec.id,
+            #     'company_id': rec.company_id.id if rec.company_id else False,
+            #     'system_id': rec.system_id.id if rec.system_id else False,
+            #     'sub_system_id': rec.sub_system_id.id if rec.sub_system_id else False,
+            #     'equipment_id': rec.parent_equipment_id.id,
+            #     'sub_equipment_id': rec.equipment_id.id,
+            #     'state': 'draft',
+            # }
+            # wo = self.env['pm.work.order'].create(vals)
+            # if wo:
+            #     rec.write({
+            #         'status': 'waiting_sap',
+            #         'pm_work_order_id': wo.id,
+            #     })

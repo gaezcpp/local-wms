@@ -31,10 +31,8 @@ class InheritStockPackage(models.Model):
             pembagi_pallet = float(param) if param else 0.0
         except ValueError:
             pembagi_pallet = 0.0
-        print(f"pembagi_pallet {pembagi_pallet}")
         for pkg in self:
             total_pallet_move = sum(pkg.move_line_ids.mapped('pallet_qty'))
-            print(f"total_pallet_move {total_pallet_move}")
             if total_pallet_move >= 1:
                 pkg.pallet_status = 'full_pallet'
                 pkg.can_be_use = False
@@ -54,13 +52,10 @@ class InheritStockPackage(models.Model):
 
             pallet_status = 'eceran'
             product_ids = quants.mapped('product_id')
-            print(f"product_ids {product_ids}")
             
             if len(product_ids) >= 1:
                 quant = quants[0]
                 uom_pallet = quant.product_id.product_tmpl_id.uom_pallet_id
-                print(f"uom_pallet {uom_pallet}")
-                print(f"quantt {quant.quantity}")
 
                 if uom_pallet and quant.quantity:
                     try:

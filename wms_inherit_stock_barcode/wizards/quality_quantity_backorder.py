@@ -72,12 +72,13 @@ class QualityQuantityBackorder(models.TransientModel):
                     })
                 else:
                     orig_ml.unlink()
-                    
-                if orig_move:
-                    deduct_qty = line.product_uom_id._compute_quantity(line.qty, orig_move.product_uom)
-                    new_move_qty = orig_move.product_uom_qty - deduct_qty
-                    orig_move.write({'product_uom_qty': max(0, new_move_qty)})
-                    _logger.info(f"Reducing original move {orig_move.id} demand to {max(0, new_move_qty)}")
+                
+                # Ngurangin demand  
+                # if orig_move:
+                #     deduct_qty = line.product_uom_id._compute_quantity(line.qty, orig_move.product_uom)
+                #     new_move_qty = orig_move.product_uom_qty - deduct_qty
+                #     orig_move.write({'product_uom_qty': max(0, new_move_qty)})
+                #     _logger.info(f"Reducing original move {orig_move.id} demand to {max(0, new_move_qty)}")
 
             move.move_line_ids.unlink()
             self.env['stock.move.line'].create({

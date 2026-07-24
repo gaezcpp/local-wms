@@ -21,6 +21,8 @@ class InheritStockPickingType(models.Model):
     bypass_entire_packs = fields.Boolean(string="Bypass Entire Packs", default=False)
     create_new_picking = fields.Boolean(string="Create Picking", default=False)
     autofill_pack_qty = fields.Boolean(string="Autofill Pack", default=False)
+    restrict_over_demand = fields.Boolean(string="Restrict Over Demand", default=False)
+    hide_zero_qty = fields.Boolean(string="Hide Zero Qty", default=False)
     
     @api.onchange('checker_only')
     def _onchange_checker_only(self):

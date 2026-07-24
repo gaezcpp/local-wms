@@ -1,5 +1,7 @@
 from odoo import models, fields, api
 from odoo.exceptions import ValidationError
+import logging
+_logger = logging.getLogger(__name__)
 
 
 class StockMoveLine(models.Model):
@@ -22,6 +24,8 @@ class StockMoveLine(models.Model):
     dummy_full_pallet = fields.Boolean(string="Dummy Full Pallet", store=False)
     create_new_picking = fields.Boolean(related='picking_id.create_new_picking', store=True)
     autofill_pack_qty = fields.Boolean(related='picking_id.autofill_pack_qty', store=True)
+    hide_zero_qty = fields.Boolean(related='picking_id.hide_zero_qty', store=True)
+    pallet_ke = fields.Float(string="Pallet Ke-", default=0.0)
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -30,8 +34,11 @@ class StockMoveLine(models.Model):
             
             self._validate_bag_qty(vals)
             self._sync_qty_from_bag(vals)
-            
-        records = super().create(vals_list)
+        
+        filtered_vals_list = self._filter_empty_package_lines(vals_list)
+        if not filtered_vals_list:
+            return self.browse()
+        records = super().create(filtered_vals_list)
         return records
 
     def write(self, vals):
@@ -40,9 +47,42 @@ class StockMoveLine(models.Model):
         self._validate_bag_qty(vals, records=self)
         self._sync_qty_from_bag(vals, records=self)
         self._validate_qty_packaging_sap(vals)
+        self._validate_pallet_ke(vals)
         res = super().write(vals)
         
         return res
+    
+    def _resolve_hide_zero_qty(self, vals):
+        picking_id = vals.get("picking_id")
+        if picking_id:
+            return self.env["stock.picking"].browse(picking_id).hide_zero_qty
+ 
+        move_id = vals.get("move_id")
+        if move_id:
+            move = self.env["stock.move"].browse(move_id)
+            if move.exists() and move.picking_id:
+                return move.picking_id.hide_zero_qty
+ 
+        return False
+ 
+    def _filter_empty_package_lines(self, vals_list):
+        filtered_vals = []
+        for vals in vals_list:
+            hide_zero_qty = self._resolve_hide_zero_qty(vals)
+            if not hide_zero_qty:
+                filtered_vals.append(vals)
+                continue
+ 
+            quantity = vals.get("quantity") or 0
+            reserved = vals.get("reserved_uom_qty") or 0
+            has_package = bool(vals.get("package_id"))
+ 
+            if has_package and not quantity and not reserved:
+                continue
+ 
+            filtered_vals.append(vals)
+ 
+        return filtered_vals
 
     def _sync_qty_from_bag(self, vals, records=None):
         if 'bag_qty' not in vals:
@@ -128,30 +168,31 @@ class StockMoveLine(models.Model):
     @api.constrains('pallet_qty', 'bag_qty', 'result_package_id')
     def _check_package_capacity_limit(self):
         for line in self:
-            if not line.result_package_id:
-                continue
+            if line.picking_id and line.picking_id.state not in ('done', 'cancel'):
+                if not line.result_package_id:
+                    continue
 
-            lines = self.sudo().search([
-                ('result_package_id', '=', line.result_package_id.id),
-                ('product_id', '=', line.product_id.id),
-                ('picking_id', '=', line.picking_id.id),
-            ])
-            
-            total_pallet = sum(lines.mapped('pallet_qty'))
-            total_bag = sum(lines.mapped('bag_qty'))
-
-            if total_pallet > 1:
-                uom_bag_name = lines[0].uom_bag_id.name if lines and lines[0].uom_bag_id else 'BAG'
-                try:
-                    max_bag = lines[0].uom_pallet_id.factor / lines[0].uom_bag_id.factor
-                except:
-                    max_bag = 0
+                lines = self.sudo().search([
+                    ('result_package_id', '=', line.result_package_id.id),
+                    ('product_id', '=', line.product_id.id),
+                    ('picking_id', '=', line.picking_id.id),
+                ])
                 
-                remaining_bag = max_bag - (total_bag - line.bag_qty)
-                raise ValidationError(
-                    f"{line.result_package_id.name} sudah melebihi UPP Pallet, "
-                    f"hanya bisa ditambah sebanyak {remaining_bag:.0f} {uom_bag_name} lagi!"
-                )
+                total_pallet = sum(lines.mapped('pallet_qty'))
+                total_bag = sum(lines.mapped('bag_qty'))
+
+                if total_pallet > 1:
+                    uom_bag_name = lines[0].uom_bag_id.name if lines and lines[0].uom_bag_id else 'BAG'
+                    try:
+                        max_bag = lines[0].uom_pallet_id.factor / lines[0].uom_bag_id.factor
+                    except:
+                        max_bag = 0
+                    
+                    remaining_bag = max_bag - (total_bag - line.bag_qty)
+                    raise ValidationError(
+                        f"{line.result_package_id.name} sudah melebihi UPP Pallet, "
+                        f"hanya bisa ditambah sebanyak {remaining_bag:.0f} {uom_bag_name} lagi!"
+                    )
                 
     def action_fill_full_pallet(self):
         for line in self:
@@ -162,3 +203,22 @@ class StockMoveLine(models.Model):
                     # line._onchange_bag_qty()
                 except ZeroDivisionError:
                     pass
+                
+    @api.onchange('pallet_ke')
+    def _onchange_pallet_ke(self):
+        for rec in self:
+            if rec.pallet_ke and rec.pallet_ke <= 0:
+                raise ValidationError("Pallet Ke- tidak boleh kurang dari 0")
+            
+    def _validate_pallet_ke(self, vals):
+            if 'pallet_ke' not in vals:
+                return
+            for rec in self:
+                value = vals.get('pallet_ke', rec.pallet_ke)
+                if value is None or value <= 0:
+                    raise ValidationError(f"Pallet Ke- untuk product {rec.product_id.default_code} tidak boleh kurang dari 0!")
+
+    def _synchronize_quant(self, quantity, location, action="available", in_date=False, **quants_value):
+        if action == "available" and self.pallet_ke and quantity > 0:
+            self = self.with_context(force_pallet_ke=self.pallet_ke)  # insert_pallet_ke
+        return super()._synchronize_quant(quantity, location, action=action, in_date=in_date, **quants_value)

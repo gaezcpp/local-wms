@@ -280,6 +280,7 @@ class InheritSaleOrderSAP(models.Model):
         )
         if not data_list:
             self.cron_synhronize_so_sloc_to_sloc()
+            return
 
         _logger.info(f"TOTAL DATA cron_synhronize_sap_so_sto {len(data_list)}")
         
@@ -419,7 +420,7 @@ class InheritSaleOrderSAP(models.Model):
                 _logger.info(f"SO Confirmed {nomor_do}")
         
         # sekalian jalanin sloc to sloc
-        # self.cron_synhronize_so_sloc_to_sloc()
+        self.cron_synhronize_so_sloc_to_sloc()
       
     @api.model
     def _process_auto_done_picking(self, config_key, search_field, data_key, cron_name):

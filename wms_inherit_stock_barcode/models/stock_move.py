@@ -1,6 +1,7 @@
 from odoo import models, fields, api
 from odoo.exceptions import ValidationError
 import logging
+import traceback
 _logger = logging.getLogger(__name__)
 
 class InheritStockMove(models.Model):
@@ -12,6 +13,13 @@ class InheritStockMove(models.Model):
     pallet_qty = fields.Float(string="Pallet Qty", compute="_compute_pallet_qty", store=True)
     product_packaging_id = fields.Many2one(comodel_name='product.packaging.sap', string="Product Packaging")
     qty_packaging_sap = fields.Float(string="Qty Packaging", compute='_compute_qty_packaging_sap')
+    
+    @api.model_create_multi
+    def create(self, vals_list):
+        for v in vals_list:
+            if not v.get('product_uom_qty') or v.get('product_uom_qty') <= 0:
+                _logger.info("Zero-qty move created!\n%s", ''.join(traceback.format_stack()))
+        return super().create(vals_list)
     
     # @api.model_create_multi
     # def create(self, vals_list):

@@ -23,6 +23,7 @@ Handover task dari Bayu (tagging dan maintenance)
     # always loaded
     'data': [
         'security/ir.model.access.csv',
+        'security/security.xml',
         'data/sequence.xml',
         'data/parameter.xml',
         'data/cron.xml',

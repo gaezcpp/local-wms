@@ -54,9 +54,8 @@
                     </h2>
                     <group>
                         <group name="pm_left">
-                            <field name="waiting_sap" readonly="1"/>
                             <field name="wo_sap" force_save="1" readonly="1"/>
-                            <field name="tagging_id" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1" invisible="not tagging_id"/>
+                            <field name="tagging_id" force_save="1" readonly="1" invisible="not tagging_id"/>
                             <field name="type_mo" force_save="1" readonly="1"/>
                             <field name="priority" force_save="1" readonly="1"/>
                             <field name="confirm_number" force_save="1" readonly="1" invisible="not confirm_number"/>
@@ -80,11 +79,11 @@
                             <field name="pm_wo_material_line_ids" readonly="1">
                                 <list create="0" edit="0" delete="0">
                                     <field name="pm_work_order_id" column_invisible="1"/>
-                                    <!-- <field name="sequence"/> -->
                                     <field name="product_sparepart_id" options="{'no_open': True, 'no_create': True}"/>
                                     <field name="product_material"/>
                                     <field name="quantity"/>
-                                    <field name="bwart"/>
+                                    <field name="is_gi"/>
+                                    <field name="gi_doc"/>
                                 </list>
                                 <form create="0" edit="0" delete="0">
                                     <field name="pm_work_order_id" readonly="1" options="{'no_open': True, 'no_create': True}"/>
@@ -95,9 +94,10 @@
                             <field name="pm_wo_jasa_line_ids" readonly="1">
                                 <list create="0" edit="0" delete="0">
                                     <field name="pm_work_order_id" column_invisible="1"/>
-                                    <field name="no_service"/>
-                                    <field name="description"/>
-                                    <field name="bwart"/>
+                                    <field name="material_desc"/>
+                                    <field name="sku_desc"/>
+                                    <field name="is_gr"/>
+                                    <field name="gr_doc"/>
                                 </list>
                                 <form create="0" edit="0" delete="0">
                                     <field name="pm_work_order_id" readonly="1" options="{'no_open': True, 'no_create': True}"/>
@@ -110,7 +110,8 @@
                         <field name="need_desc" invisible="1" force_save="1" readonly="1"/>
                         <field name="date_from" readonly="state != 'draft'"/>
                         <field name="date_to" readonly="state != 'draft'"/>
-                        <field name="analysis_id" domain="[('company_id', '=', company_id)]" readonly="state != 'draft'"/>
+                        <!-- <field name="analysis_id" domain="[('company_id', '=', company_id)]" readonly="state != 'draft'" context="{'default_company_id': company_id}"/> -->
+                        <field name="analysis_id" domain="['|', ('company_id', '=', company_id), ('company_id', '=', False)]" readonly="state != 'draft'"/>
                         <field name="analysis" readonly="state != 'draft'" invisible="not need_desc" required="need_desc"/>
                         <field name="problem_handling" readonly="state != 'draft'"/>
                         <field name="photo_attachment" readonly="state != 'draft'"/>

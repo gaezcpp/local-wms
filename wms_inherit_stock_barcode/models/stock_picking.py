@@ -14,6 +14,7 @@ class StockPicking(models.Model):
     picking_type_bypass_entire_packs = fields.Boolean(related='picking_type_id.bypass_entire_packs', store=True)
     create_new_picking = fields.Boolean(related='picking_type_id.create_new_picking', store=True)
     autofill_pack_qty = fields.Boolean(related='picking_type_id.autofill_pack_qty', store=True)
+    hide_zero_qty = fields.Boolean(related='picking_type_id.hide_zero_qty', store=True)
 
     def _get_fields_stock_barcode(self):
         res = super()._get_fields_stock_barcode()
@@ -29,6 +30,8 @@ class StockPicking(models.Model):
             res.append('create_new_picking')
         if 'autofill_pack_qty' not in res:
             res.append('autofill_pack_qty')
+        if 'hide_zero_qty' not in res:
+            res.append('hide_zero_qty')
         return res
     
     def _get_stock_barcode_data(self):
@@ -345,6 +348,17 @@ class StockPicking(models.Model):
             if picking.po_sap_id and (not picking.po_sap_id.active or picking.po_sap_id.state in ('teco', 'closed')):
                 raise ValidationError("Tidak dapat melakukan Validate. PO SAP tidak aktif atau berstatus TECO!")
     
+    def _fill_next_transfer_result_package(self):
+        pickings = self.filtered(
+            lambda p: p.picking_type_id.book_full_pallet
+            and p.picking_type_id.code != 'outgoing'
+            and not p.picking_type_id.split_package
+        )
+        for picking in pickings:
+            for ml in picking.move_line_ids:
+                if not ml.result_package_id:
+                    ml.write({'result_package_id': ml.package_id})
+    
     def button_validate(self):
         self._sync_packaging_lines()
         self._check_all_sloc_filled()
@@ -371,6 +385,7 @@ class StockPicking(models.Model):
         next_pickings = self.sudo().mapped('move_ids.move_dest_ids.picking_id').filtered(lambda p: p)
         if next_pickings:
             next_pickings._sync_packaging_lines()
+            next_pickings._fill_next_transfer_result_package()
         return res
     
     def _has_missing_qty(self):
@@ -731,6 +746,7 @@ class StockPicking(models.Model):
                 _logger.info("  No missing qty, skipping.")
                 continue
             
+            # Kurangin demadn
             if root_moves:
                 target_move = root_moves[0]
                 old_demand = target_move.product_uom_qty

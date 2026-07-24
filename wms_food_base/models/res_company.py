@@ -1,9 +1,9 @@
-from odoo import models, fields, api
+from odoo import models, fields
 
 
-class InhResCompany(models.Model):
+class ResCompany(models.Model):
     _inherit = 'res.company'
-    
+
     wms_type = fields.Selection([
         ('FOOD', 'FOOD'),
         ('FEED', 'FEED'),

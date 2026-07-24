@@ -13,6 +13,7 @@ class InheritStockQuant(models.Model):
     pallet_qty = fields.Float(string="Pallet Dummy")
     bag_dummy_qty = fields.Float(string="Bag Dummy")
     pallet_dummy_qty = fields.Float(string="Pallet Qty", compute='_compute_pallet_dummy_qty')
+    pallet_ke = fields.Float(string="Pallet Ke-")
 
     def _skip_custom_logic(self):
         ctx = self.env.context
@@ -30,9 +31,11 @@ class InheritStockQuant(models.Model):
 
         for vals in vals_list:
             self._prepare_bag_pallet_vals(vals)
+            pallet_ke_from_ctx = self.env.context.get('force_pallet_ke')  # insert_pallet_ke
+            if pallet_ke_from_ctx:  # insert_pallet_ke
+                vals['pallet_ke'] = pallet_ke_from_ctx  # insert_pallet_ke
 
         records = super().create(vals_list)
-        # records._recompute_package_pallet_status() # Pindah ke compute stock.package
 
         return records
     
@@ -54,56 +57,15 @@ class InheritStockQuant(models.Model):
                 if vals_to_write:
                     vals.update(vals_to_write)
 
+        # insert_pallet_ke: start
+        pallet_ke_from_ctx = self.env.context.get('force_pallet_ke')
+        if pallet_ke_from_ctx:
+            vals['pallet_ke'] = pallet_ke_from_ctx
+        # insert_pallet_ke: end
+
         res = super().write(vals)
-        # self._recompute_package_pallet_status()
 
         return res
-    
-    # def _recompute_package_pallet_status(self):
-    #     param = self.env['ir.config_parameter'].sudo().get_param('pembagi_pallet')
-    #     if not param:
-    #         return
-
-    #     try:
-    #         pembagi_pallet = float(param)
-    #     except:
-    #         return
-
-    #     if pembagi_pallet == 0:
-    #         return
-
-    #     packages = self.mapped('package_id').filtered(lambda p: p)
-    #     for pkg in packages:
-    #         quants = pkg.contained_quant_ids.filtered(lambda q: q.quantity > 0)
-    #         if not quants:
-    #             if pkg.pallet_status or not pkg.can_be_use:
-    #                 pkg.sudo().write({
-    #                     'pallet_status': False,
-    #                     'can_be_use': True,
-    #                 })
-    #             continue
-            
-    #         pallet_status = 'eceran'
-    #         product_ids = quants.mapped('product_id')
-    #         if len(product_ids) == 1 and quants:
-    #             quant = quants[0]
-    #             uom_pallet = quant.product_id.uom_pallet_id
-
-    #             if uom_pallet and quant.quantity:
-    #                 try:
-    #                     result = (uom_pallet.factor / pembagi_pallet) / quant.quantity
-    #                     if abs(result - 1) < 0.00001:
-    #                         pallet_status = 'full_pallet'
-    #                 except ZeroDivisionError:
-    #                     pass
-    #         if not pallet_status:
-    #             pallet_status = 'eceran'
-            
-    #         if pkg.pallet_status != pallet_status:
-    #             pkg.sudo().write({
-    #                 'pallet_status': pallet_status,
-    #                 'can_be_use': pallet_status == 'eceran',
-    #             })
     
     def _prepare_bag_pallet_vals(self, vals):
         product_id = vals.get('product_id')
@@ -149,12 +111,10 @@ class InheritStockQuant(models.Model):
     
     @api.onchange('bag_dummy_qty')
     def _onchange_bag_dummy_qty(self):
-        print("ONCHANGE BAG DUMMY")
         for line in self:
             if not line.bag_dummy_qty:
                 line.inventory_quantity = 0.0
                 continue
-            print("BAG DUMMY", line)
             line.inventory_quantity = line.bag_dummy_qty * (line.uom_bag_id.factor / 1000)
     
     @api.depends('inventory_quantity', 'uom_pallet_id')

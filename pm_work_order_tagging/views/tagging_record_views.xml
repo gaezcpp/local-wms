@@ -9,15 +9,19 @@
                 <xpath expr="//button[@name='action_set_wo']" position="attributes">
                     <attribute name="invisible">1</attribute>
                 </xpath>
-                <xpath expr="//field[@name='status']" position="attributes">
+                <!-- <xpath expr="//field[@name='status']" position="attributes">
                     <attribute name="statusbar_visible">open,validated,process_sap,open_wo,closed,rejected,cancelled</attribute>
+                </xpath> -->
+                <xpath expr="//field[@name='status']" position="replace">
+                    <field name="status" widget="statusbar" statusbar_visible="open,validated,process_sap,open_wo,closed,rejected,cancelled" invisible="status == 'waiting_sap'"/>
+                    <field name="status" widget="statusbar" statusbar_visible="open,validated,waiting_sap,open_wo,closed,rejected,cancelled" invisible="status != 'waiting_sap'"/>
                 </xpath>
                 <xpath expr="//button[@name='action_set_wo']" position="after">
                     <button name="action_set_create_work_order" type="object" string="Set Work Order" class="oe_highlight" invisible="status != 'validated'"/>
                 </xpath>
                 <xpath expr="//group[@name='tag_equipment']" position="before">
                     <group name="tag_notif" string="Notification" invisible="status not in ('validated','open_wo', 'waiting_sap', 'closed')">
-                        <field name="tagging_type_notification_id" options="{'no_open': True, 'no_create': True}" readonly="status not in ('validated')"/>
+                        <field name="tagging_type_notification_id" options="{'no_open': True, 'no_create': True}" readonly="status not in ('validated')" domain="[('company_id', '=', company_id)]"/>
                         <field name="notification_desc" force_save="1" readonly="1"/>
                         <field name="pm_work_order_id" readonly="1" invisible="status in ('open', 'validated', 'waiting_sap')"/>
                     </group>

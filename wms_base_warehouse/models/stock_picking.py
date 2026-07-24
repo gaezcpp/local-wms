@@ -24,9 +24,6 @@ class InheritBaseStockPicking(models.Model):
             if backorder.picking_type_id.show_entire_packs:
                 backorder.do_unreserve()
                 backorder.action_assign()
-                # Opsi 2 (Lebih advanced): Jika action_assign terlalu berat, 
-                # panggil langsung fungsi spesifik pembentuk package_level
-                # backorder._compute_package_level_ids() # (sesuaikan dengan API Odoo 19)
             backorder.write({'synchronize_sap': False})
         return backorders
     
@@ -77,7 +74,20 @@ class InheritBaseStockPicking(models.Model):
         
         return self.picking_type_id.move_type_sap == str(prod_in_move_type)
 
+    def _check_restrict_over_demand(self):
+        for picking in self:
+            if not picking.picking_type_id.restrict_over_demand:
+                continue
+
+            for move in picking.move_ids:
+                processed_qty = move.quantity
+                demand_qty = move.product_uom_qty
+
+                if processed_qty > demand_qty:
+                    raise ValidationError("Tidak bisa melanjutkan proses dikarenakan quantity melebihi demand!")
+
     def button_validate(self):
+        self._check_restrict_over_demand()
         res = super(InheritBaseStockPicking, self).button_validate()
         if isinstance(res, dict):
             return res

@@ -16,6 +16,8 @@ class PmAnalysis(models.Model):
     active = fields.Boolean(string="Active", default=True)
     company_id = fields.Many2one(comodel_name="res.company", string="Company")
     
+    
+    
     def _needs_update(self, model, vals):
         for field, new_val in vals.items():
             if field not in model._fields:

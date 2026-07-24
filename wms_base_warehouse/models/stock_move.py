@@ -29,26 +29,111 @@ class StockMove(models.Model):
                 continue
             over = any(m.quantity != m.product_uom_qty for m in picking.move_ids)
             picking.over_delivery = over
-            
+    
+    # banyak bug reserved quantity jadi ngaco
+    # def _action_assign(self, **kwargs):
+    #     bypass = self.env.context.get('bypass_adjust_demand', False)
+    #     moves_uu = self.filtered(lambda m: m.picking_id.picking_type_id.uu_only)
+    #     moves_full_pallet = self.filtered(lambda m: m.picking_id.picking_type_id.book_full_pallet and not bypass)
+    #     moves_outgoing = self.filtered(lambda m: m.picking_id.picking_type_id.code == 'outgoing' and not bypass)
+    #     moves_split_package = self.filtered(lambda m: m.picking_id.picking_type_id.split_package)
+
+    #     moves_to_check_full = moves_uu | moves_full_pallet
+    #     moves_normal = self - moves_to_check_full
+    #     moves_fp_only = moves_full_pallet - moves_uu
+
+    #     res = True
+
+    #     if moves_normal:
+    #         res = super(StockMove, moves_normal)._action_assign(**kwargs) and res
+    #     if moves_uu:
+    #         res = super(StockMove, moves_uu.with_context(uu_only=True))._action_assign(**kwargs) and res
+    #     if moves_fp_only:
+    #         res = super(StockMove, moves_fp_only)._action_assign(**kwargs) and res
+
+    #     need_reassign = self.env['stock.move'].sudo()
+    #     for move in moves_full_pallet:
+    #         total_actual_pkg_qty = 0
+    #         has_partial = False
+
+    #         for line in move.move_line_ids:
+    #             if line.package_id:
+    #                 actual_pkg_qty = sum(line.package_id.quant_ids.filtered(lambda q: q.product_id == line.product_id).mapped('quantity'))
+    #                 total_actual_pkg_qty += actual_pkg_qty
+    #                 _logger.info(f"ACTUAL PKG QTY {actual_pkg_qty} TOTAL ACTUAL PKG QTY {total_actual_pkg_qty}")
+    #                 if line.quantity < actual_pkg_qty:
+    #                     has_partial = True
+
+    #         if has_partial and move.quantity < total_actual_pkg_qty:
+    #             _logger.info("MASUK SINI HAS PARTIAL")
+    #             for line in move.move_line_ids.filtered(lambda l: l.package_id):
+    #                 actual_pkg_qty = sum(line.package_id.quant_ids.filtered(lambda q: q.product_id == line.product_id).mapped('quantity'))
+    #                 if line.quantity < actual_pkg_qty:
+    #                     line.write({'quantity': actual_pkg_qty})
+
+    #             dest_moves = move.move_dest_ids
+    #             while dest_moves:
+    #                 valid_dest = dest_moves.filtered(lambda m: m.picking_id.picking_type_id.book_full_pallet)
+    #                 if valid_dest:
+    #                     for dest_move in valid_dest:
+    #                         for dline in dest_move.move_line_ids.filtered(lambda l: l.package_id):
+    #                             d_actual = sum(dline.package_id.quant_ids.filtered(lambda q: q.product_id == dline.product_id).mapped('quantity'))
+    #                             if dline.quantity < d_actual:
+    #                                 dline.sudo().write({'quantity': d_actual})
+    #                     dest_moves = valid_dest.mapped('move_dest_ids')
+    #                 else:
+    #                     break
+
+    #     if need_reassign:
+    #         need_reassign._do_unreserve()
+    #         need_reassign_uu = need_reassign & moves_uu
+    #         need_reassign_others = need_reassign - moves_uu
+
+    #         if need_reassign_others:
+    #             _logger.info("_action_assign Check Availability need_reassign_others")
+    #             super(StockMove, need_reassign_others)._action_assign()
+    #         if need_reassign_uu:
+    #             _logger.info("_action_assign Check Availability need_reassign_uu")
+    #             super(StockMove, need_reassign_uu.with_context(uu_only=True))._action_assign()
+
+    #     moves_uu_to_set = moves_uu - moves_split_package
+    #     for line in moves_uu_to_set.move_line_ids:
+    #         if line.package_id and not line.result_package_id:
+    #             _logger.info("Isi Otomatis Destination Package Untuk Scanner")
+    #             line.write({'result_package_id': line.package_id.id})
+
+    #     for move in moves_outgoing:
+    #         _logger.info("Outgoing otomatis Adjust Demand")
+    #         if move.move_orig_ids:
+    #             orig_qty = sum(move.move_orig_ids.mapped('quantity'))
+    #             if orig_qty > 0 and move.product_uom_qty != orig_qty:
+    #                 move.write({
+    #                     'product_uom_qty': orig_qty,
+    #                     'quantity': orig_qty
+    #                 })
+
+    #     moves_to_clear_package = moves_outgoing | moves_split_package
+    #     for move in moves_to_clear_package:
+    #         _logger.info("Menghapus Destination Package (Outgoing / Split Package)")
+    #         lines_to_clear = move.move_line_ids.filtered(lambda l: l.result_package_id)
+    #         if lines_to_clear:
+    #             lines_to_clear.write({'result_package_id': False})
+
+    #     return res
+    
     def _action_assign(self, **kwargs):
         bypass = self.env.context.get('bypass_adjust_demand', False)
         moves_uu = self.filtered(lambda m: m.picking_id.picking_type_id.uu_only)
-        # moves_full_pallet = self.filtered(lambda m: m.picking_id.picking_type_id.book_full_pallet)
-        # moves_outgoing = self.filtered(lambda m: m.picking_id.picking_type_id.code == 'outgoing')
-        moves_full_pallet = self.filtered(
-            lambda m: m.picking_id.picking_type_id.book_full_pallet and not bypass
-        )
-        moves_outgoing = self.filtered(
-            lambda m: m.picking_id.picking_type_id.code == 'outgoing' and not bypass
-        )
+        moves_full_pallet = self.filtered(lambda m: m.picking_id.picking_type_id.book_full_pallet and not bypass)
+        moves_outgoing = self.filtered(lambda m: m.picking_id.picking_type_id.code == 'outgoing' and not bypass)
         moves_split_package = self.filtered(lambda m: m.picking_id.picking_type_id.split_package)
-        
+
         moves_to_check_full = moves_uu | moves_full_pallet
         moves_normal = self - moves_to_check_full
         moves_fp_only = moves_full_pallet - moves_uu
-        
+
         res = True
-        
+
         if moves_normal:
             res = super(StockMove, moves_normal)._action_assign(**kwargs) and res
         if moves_uu:
@@ -56,36 +141,66 @@ class StockMove(models.Model):
         if moves_fp_only:
             res = super(StockMove, moves_fp_only)._action_assign(**kwargs) and res
 
+        def _package_actual_qty(package, product, lot):
+            """Qty of `product` (+ `lot` if set) actually inside `package`.
+            Filtering by lot as well as product avoids double-counting when a
+            single package holds multiple lots of the same product."""
+            domain_quants = package.quant_ids.filtered(lambda q: q.product_id == product)
+            if lot:
+                domain_quants = domain_quants.filtered(lambda q: q.lot_id == lot)
+            return sum(domain_quants.mapped('quantity'))
+
         need_reassign = self.env['stock.move'].sudo()
+
         for move in moves_full_pallet:
-            total_actual_pkg_qty = 0
             has_partial = False
-            
-            for line in move.move_line_ids:
-                if line.package_id:
-                    actual_pkg_qty = sum(line.package_id.quant_ids.filtered(lambda q: q.product_id == line.product_id).mapped('quantity'))
-                    total_actual_pkg_qty += actual_pkg_qty
+
+            # Group move lines by (package, product, lot) so each physical
+            # package/lot combination is only counted once.
+            seen_keys = {}
+            for line in move.move_line_ids.filtered(lambda l: l.package_id):
+                key = (line.package_id.id, line.product_id.id, line.lot_id.id if line.lot_id else False)
+                actual_pkg_qty = _package_actual_qty(line.package_id, line.product_id, line.lot_id)
+                seen_keys[key] = actual_pkg_qty
+                _logger.info(f"ACTUAL PKG QTY {actual_pkg_qty} for key {key}")
+                if line.quantity < actual_pkg_qty:
+                    has_partial = True
+
+            total_actual_pkg_qty = sum(seen_keys.values())
+
+            if has_partial and move.quantity < total_actual_pkg_qty:
+                _logger.info("MASUK SINI HAS PARTIAL")
+                for line in move.move_line_ids.filtered(lambda l: l.package_id):
+                    actual_pkg_qty = _package_actual_qty(line.package_id, line.product_id, line.lot_id)
                     if line.quantity < actual_pkg_qty:
-                        has_partial = True
-                        
-            if has_partial and move.product_uom_qty < total_actual_pkg_qty:
-                move.write({'product_uom_qty': total_actual_pkg_qty})
+                        line.write({'quantity': actual_pkg_qty})
+
+                # This move's reservation is now stale relative to the demand
+                # adjustment above, so it needs to be unreserved and re-assigned.
                 need_reassign |= move
+
                 dest_moves = move.move_dest_ids
                 while dest_moves:
                     valid_dest = dest_moves.filtered(lambda m: m.picking_id.picking_type_id.book_full_pallet)
-                    
                     if valid_dest:
-                        valid_dest.sudo().write({'product_uom_qty': total_actual_pkg_qty})
+                        for dest_move in valid_dest:
+                            dest_has_partial = False
+                            for dline in dest_move.move_line_ids.filtered(lambda l: l.package_id):
+                                d_actual = _package_actual_qty(dline.package_id, dline.product_id, dline.lot_id)
+                                if dline.quantity < d_actual:
+                                    dline.sudo().write({'quantity': d_actual})
+                                    dest_has_partial = True
+                            if dest_has_partial:
+                                need_reassign |= dest_move
                         dest_moves = valid_dest.mapped('move_dest_ids')
                     else:
                         break
-                
+
         if need_reassign:
             need_reassign._do_unreserve()
             need_reassign_uu = need_reassign & moves_uu
             need_reassign_others = need_reassign - moves_uu
-            
+
             if need_reassign_others:
                 _logger.info("_action_assign Check Availability need_reassign_others")
                 super(StockMove, need_reassign_others)._action_assign()
@@ -98,7 +213,7 @@ class StockMove(models.Model):
             if line.package_id and not line.result_package_id:
                 _logger.info("Isi Otomatis Destination Package Untuk Scanner")
                 line.write({'result_package_id': line.package_id.id})
-                
+
         for move in moves_outgoing:
             _logger.info("Outgoing otomatis Adjust Demand")
             if move.move_orig_ids:
@@ -108,14 +223,14 @@ class StockMove(models.Model):
                         'product_uom_qty': orig_qty,
                         'quantity': orig_qty
                     })
-            
+
         moves_to_clear_package = moves_outgoing | moves_split_package
         for move in moves_to_clear_package:
             _logger.info("Menghapus Destination Package (Outgoing / Split Package)")
             lines_to_clear = move.move_line_ids.filtered(lambda l: l.result_package_id)
             if lines_to_clear:
                 lines_to_clear.write({'result_package_id': False})
-                
+
         return res
     
     def _get_new_picking_values(self):
@@ -238,6 +353,7 @@ class StockMove(models.Model):
                 'detail_text': matched_line.detail_text,
                 'qty_packaging_sap': matched_line.qty_packaging_sap,
                 'wh_category_id': matched_line.wh_category_id.id if matched_line.wh_category_id else False,
+                'pallet_ke': matched_line.pallet_ke,
             }
             
             if not is_production_only and not res.get('stock_type') and matched_line.stock_type:

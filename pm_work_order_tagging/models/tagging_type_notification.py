@@ -8,4 +8,5 @@ class TaggingTypeNotification(models.Model):
     
     name = fields.Char(string="Name")
     desc = fields.Text(string="Description")
+    company_id = fields.Many2one(comodel_name='res.company', string="Company")
     

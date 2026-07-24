@@ -9,18 +9,16 @@ class InheritIrSequence(models.Model):
         
         sale_id = self.env.context.get('sequence_sale_order_id')
         if not sale_id and self.env.context.get('active_model') == 'sale.order':
-             sale_id = self.env.context.get('active_id')
-
-        if not sale_id:
-            return prefix, suffix
+            sale_id = self.env.context.get('active_id')
         
-        sale = self.env['sale.order'].browse(sale_id)
-        if not sale.exists():
-            return prefix, suffix
+        naming = ''
+        if sale_id:
+            sale = self.env['sale.order'].browse(sale_id)
+            if sale.exists():
+                do_sap_value = sale.do_sap.strip() if sale.do_sap else ''
+                po_sap_value = sale.po_sap.strip() if sale.po_sap else ''
+                naming = do_sap_value if do_sap_value else po_sap_value
         
-        do_sap_value = sale.do_sap.strip() if sale.do_sap else ''
-        po_sap_value = sale.po_sap.strip() if sale.po_sap else ''
-        naming = do_sap_value if do_sap_value else po_sap_value
         replacements = {
             '{do_sap}': naming or '',
         }

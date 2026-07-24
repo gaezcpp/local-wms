@@ -1,0 +1,19 @@
+<odoo>
+    <data noupdate="1">
+        <record id="multi_company_pm_work_order" model="ir.rule">
+            <field name="name">Work Order multi-company</field>
+            <field name="model_id" ref="model_pm_work_order"/>
+            <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
+        </record>
+        <record id="multi_company_tagging_type_notification" model="ir.rule">
+            <field name="name">Type Notification multi-company</field>
+            <field name="model_id" ref="model_tagging_type_notification"/>
+            <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
+        </record>
+        <record id="multi_company_pm_analysis" model="ir.rule">
+            <field name="name">Type Notification multi-company</field>
+            <field name="model_id" ref="model_pm_analysis"/>
+            <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
+        </record>
+    </data>
+</odoo>
