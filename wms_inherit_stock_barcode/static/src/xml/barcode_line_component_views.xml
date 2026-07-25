@@ -18,13 +18,16 @@
     </t> -->
     <t t-inherit="stock_barcode.LineQuantity" t-inherit-mode="extension">
         <xpath expr="//span[hasclass('qty-done')]" position="attributes">
-            <attribute name="t-out">hasBagUom ? computedBagQty : (env.model.IsNotSet(line) ? '?' : qtyDone)</attribute>
+            <attribute name="t-out">hasBagUom ? computedBagQty + ' ' + bagUomLabel : (env.model.IsNotSet(line) ? '?' : qtyDone)</attribute>
         </xpath>
         <xpath expr="//span[hasclass('qty-done')]/../span[@t-if]" position="attributes">
-            <attribute name="t-if">env.model.displayLineQtyDemand(line) and !hasBagUom</attribute>
+            <attribute name="t-if">env.model.displayLineQtyDemand(line)</attribute>
+        </xpath>
+        <xpath expr="//span[hasclass('qty-done')]/../span[@t-if]" position="attributes">
+            <attribute name="t-out">hasBagUom ? '/ ' + computedBagDemand + ' ' + bagUomLabel : '/ ' + qtyDemand</attribute>
         </xpath>
         <xpath expr="//small[hasclass('o_line_uom')]" position="attributes">
-            <attribute name="t-out">hasBagUom ? bagUomLabel : props.line.product_uom_id.name</attribute>
+            <attribute name="t-if">props.displayUOM and !hasBagUom</attribute>
         </xpath>
     </t>
 

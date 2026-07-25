@@ -13,7 +13,7 @@ class InheritStockQuant(models.Model):
     pallet_qty = fields.Float(string="Pallet Dummy")
     bag_dummy_qty = fields.Float(string="Bag Dummy")
     pallet_dummy_qty = fields.Float(string="Pallet Qty", compute='_compute_pallet_dummy_qty')
-    pallet_ke = fields.Float(string="Pallet Ke-")
+    pallet_ke = fields.Integer(string="Pallet Ke-")
 
     def _skip_custom_logic(self):
         ctx = self.env.context

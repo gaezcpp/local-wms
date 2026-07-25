@@ -244,32 +244,40 @@ class PlanMaintenanceWorkOrder(models.Model):
         
         grouped_data = defaultdict(list)
         for data in data_list:
-            no_tagging = (data.get('FETXT') or '').strip()
-            if not no_tagging:
+            nomor_wo = (data.get('AUFNR') or '').strip()
+            if not nomor_wo:
                 continue
-            grouped_data[no_tagging].append(data)
+            grouped_data[nomor_wo].append(data)
             
-        for no_tagging, rows in grouped_data.items():
-            has_valid = any(
-                (row.get('RSNUM') and (row.get('KZEAR') or '').strip() == 'X') or 
-                (row.get('BANFN') and (row.get('KZABN') or '').strip() == 'X')
-                for row in rows
-            )
+        for nomor_wo, rows in grouped_data.items():
+            is_header_valid = False
+            for row in rows:
+                has_rsnum = bool((row.get('RSNUM') or '').strip())
+                has_banfn = bool((row.get('BANFN') or '').strip())
+                is_kzear_x = (row.get('KZEAR') or '').strip() == 'X'
+                is_kzabn_x = (row.get('KZABN') or '').strip() == 'X'
+                
+                row_is_valid = False
+                if has_rsnum and has_banfn:
+                    row_is_valid = is_kzear_x and is_kzabn_x
+                elif has_rsnum and not has_banfn:
+                    row_is_valid = is_kzear_x
+                elif has_banfn and not has_rsnum:
+                    row_is_valid = is_kzabn_x
+                    
+                if row_is_valid:
+                    is_header_valid = True
+                    break
             
-            has_invalid = any(
-                (row.get('RSNUM') and (row.get('KZEAR') or '').strip() != 'X') or 
-                (row.get('BANFN') and (row.get('KZABN') or '').strip() != 'X')
-                for row in rows
-            )
-            
-            is_valid_to_create_wo = has_valid and not has_invalid
-            if not is_valid_to_create_wo:
+            if not is_header_valid:
+                _logger.warning(f"AUFNR {nomor_wo} - TIDAK DIPROSES: Tidak ada satupun baris yang memenuhi syarat final (X).")
                 continue
 
             first = rows[0]
+            no_tagging = first.get('FETXT', '')
             type_mo = first.get('AUART')
             priority = first.get('PRIOKX')
-            wo_sap = (first.get('AUFNR') or "").lstrip('0')
+            wo_sap = nomor_wo.lstrip('0')
             werks = first.get('WERKS') or first.get('COMPANY_ID')
             ktext = first.get('KTEXT')
             strmn = first.get('STRMN', '')
@@ -279,12 +287,12 @@ class PlanMaintenanceWorkOrder(models.Model):
             
             company = company_model.search([('company_registry', '=', werks),('sync_pm', '=', True)], limit=1)
             if not company:
-                _logger.info(f"Company Plant {werks} cron_synhronize_sap_tagging_work_order skipped")
+                _logger.warning(f"Company Plant {werks} skipped")
                 continue
             
             tagging = tagging_model.search([('name', '=', no_tagging),('company_id', '=', company.id)], limit=1)
             if not tagging:
-                _logger.info(f"Tagging {no_tagging} cron_synhronize_sap_tagging_work_order skipped")
+                _logger.warning(f"Tagging {no_tagging} skipped")
                 continue
             
             starttime = self._parse_string_datetime(strmn, strur)
@@ -308,6 +316,7 @@ class PlanMaintenanceWorkOrder(models.Model):
                 'start_time': starttime,
                 'end_time': endtime,
             }
+            
             if not work_order:
                 work_order = pm_wo_model.create(vals)
                 work_order.message_post(body=f"WORK ORDER {wo_sap} Created from Cron")
@@ -315,19 +324,32 @@ class PlanMaintenanceWorkOrder(models.Model):
             else:
                 if self._needs_update(work_order, vals):
                     work_order.write(vals)
+                    _logger.info(f"WORK ORDER Updated {wo_sap}")
             
             for row in rows:
-                # material
+                has_rsnum = bool((row.get('RSNUM') or '').strip())
+                has_banfn = bool((row.get('BANFN') or '').strip())
+                is_kzear_x = (row.get('KZEAR') or '').strip() == 'X'
+                is_kzabn_x = (row.get('KZABN') or '').strip() == 'X'
+                
+                row_is_valid = False
+                if has_rsnum and has_banfn:
+                    row_is_valid = is_kzear_x and is_kzabn_x
+                elif has_rsnum and not has_banfn:
+                    row_is_valid = is_kzear_x
+                elif has_banfn and not has_rsnum:
+                    row_is_valid = is_kzabn_x
+                    
+                if not row_is_valid:
+                    continue
+                
                 matnr = row.get('MATNR')
                 maktx = row.get('MAKTX')
                 qty = float(row.get('ENMNG') or 0.0)
                 rsnum = row.get('RSNUM')
-                kzear = (row.get('KZEAR') or '').strip()
-                # jasa
                 txz01 = row.get('TXZ01')
                 sku_desc = row.get('SKU')
                 banfn = row.get('BANFN')
-                kzabn = (row.get('KZABN') or '').strip()
                 
                 sparepart = spare_part_model.search([
                     ('active', '=', True),
@@ -342,7 +364,7 @@ class PlanMaintenanceWorkOrder(models.Model):
                         'company_id': company.id
                     })
                 
-                if rsnum and kzear == 'X':
+                if has_rsnum and is_kzear_x:
                     existing_material = wo_material_line_model.search([
                         ('pm_work_order_id', '=', work_order.id),
                         ('product_sparepart_id', '=', sparepart.id),
@@ -363,7 +385,7 @@ class PlanMaintenanceWorkOrder(models.Model):
                         if self._needs_update(existing_material, mat_vals):
                             existing_material.write(mat_vals)
                 
-                if banfn and kzabn == 'X':
+                if has_banfn and is_kzabn_x:
                     existing_jasa = wo_jasa_line_model.search([
                         ('pm_work_order_id', '=', work_order.id),
                         ('gr_doc', '=', banfn),
@@ -414,20 +436,27 @@ class PlanMaintenanceWorkOrder(models.Model):
                 grouped_data[nomor_wo].append(row)
             
         for nomor_wo, rows in grouped_data.items():
-            has_valid = any(
-                (row.get('RSNUM') and (row.get('KZEAR') or '').strip() == 'X') or 
-                (row.get('BANFN') and (row.get('KZABN') or '').strip() == 'X')
-                for row in rows
-            )
+            is_header_valid = False
+            for row in rows:
+                has_rsnum = bool((row.get('RSNUM') or '').strip())
+                has_banfn = bool((row.get('BANFN') or '').strip())
+                is_kzear_x = (row.get('KZEAR') or '').strip() == 'X'
+                is_kzabn_x = (row.get('KZABN') or '').strip() == 'X'
+                
+                row_is_valid = False
+                if has_rsnum and has_banfn:
+                    row_is_valid = is_kzear_x and is_kzabn_x
+                elif has_rsnum and not has_banfn:
+                    row_is_valid = is_kzear_x
+                elif has_banfn and not has_rsnum:
+                    row_is_valid = is_kzabn_x
+                    
+                if row_is_valid:
+                    is_header_valid = True
+                    break
             
-            has_invalid = any(
-                (row.get('RSNUM') and (row.get('KZEAR') or '').strip() != 'X') or 
-                (row.get('BANFN') and (row.get('KZABN') or '').strip() != 'X')
-                for row in rows
-            )
-            
-            is_valid_to_create_wo = has_valid and not has_invalid
-            if not is_valid_to_create_wo:
+            if not is_header_valid:
+                _logger.warning(f"AUFNR {nomor_wo} - TIDAK DIPROSES: Tidak ada satupun baris yang memenuhi syarat final (X).")
                 continue
 
             first = rows[0]
@@ -480,6 +509,22 @@ class PlanMaintenanceWorkOrder(models.Model):
                     work_order.write(vals)
             
             for row in rows:
+                has_rsnum = bool((row.get('RSNUM') or '').strip())
+                has_banfn = bool((row.get('BANFN') or '').strip())
+                is_kzear_x = (row.get('KZEAR') or '').strip() == 'X'
+                is_kzabn_x = (row.get('KZABN') or '').strip() == 'X'
+                
+                row_is_valid = False
+                if has_rsnum and has_banfn:
+                    row_is_valid = is_kzear_x and is_kzabn_x
+                elif has_rsnum and not has_banfn:
+                    row_is_valid = is_kzear_x
+                elif has_banfn and not has_rsnum:
+                    row_is_valid = is_kzabn_x
+                    
+                if not row_is_valid:
+                    continue
+                
                 # material
                 matnr = row.get('MATNR')
                 maktx = row.get('MAKTX')
@@ -505,7 +550,7 @@ class PlanMaintenanceWorkOrder(models.Model):
                         'company_id': company.id
                     })
                 
-                if rsnum and kzear == 'X':
+                if has_rsnum and is_kzear_x:
                     existing_material = wo_material_line_model.search([
                         ('pm_work_order_id', '=', work_order.id),
                         ('product_sparepart_id', '=', sparepart.id),
@@ -526,7 +571,7 @@ class PlanMaintenanceWorkOrder(models.Model):
                         if self._needs_update(existing_material, mat_vals):
                             existing_material.write(mat_vals)
                 
-                if banfn and kzabn == 'X':
+                if has_banfn and is_kzabn_x:
                     existing_jasa = wo_jasa_line_model.search([
                         ('pm_work_order_id', '=', work_order.id),
                         ('gr_doc', '=', banfn),

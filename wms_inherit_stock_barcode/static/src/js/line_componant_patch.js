@@ -60,6 +60,33 @@ patch(LineComponent.prototype, {
         return (qty * sourceUom.factor) / targetUom.factor;
     },
 
+    _computeSingleBagDemand(line) {
+        const bagUomId = this._getRelationId(line?.uom_bag_id);
+        const productUomId = this._getRelationId(line?.product_uom_id);
+        if (!bagUomId || !productUomId) {
+            return 0;
+        }
+        const sourceUom = this.env.model.cache.getRecord("uom.uom", productUomId);
+        const targetUom = this.env.model.cache.getRecord("uom.uom", bagUomId);
+        if (!sourceUom?.factor || !targetUom?.factor) {
+            return 0;
+        }
+        const demand = line.reserved_uom_qty ?? 0;
+        return (demand * sourceUom.factor) / targetUom.factor;
+    },
+
+    get computedBagDemand() {
+        const line = this.props.line || this.line;
+        if (Array.isArray(line?.lines) && line.lines.length) {
+            const total = line.lines.reduce(
+                (sum, subline) => sum + this._computeSingleBagDemand(subline),
+                0
+            );
+            return Math.round(total * 100) / 100;
+        }
+        return Math.round(this._computeSingleBagDemand(line) * 100) / 100;
+    },
+
     get hasBagUom() {
         const line = this.props.line || this.line;
         const sourceLine =

@@ -217,12 +217,42 @@ class StockMove(models.Model):
         for move in moves_outgoing:
             _logger.info("Outgoing otomatis Adjust Demand")
             if move.move_orig_ids:
-                orig_qty = sum(move.move_orig_ids.mapped('quantity'))
+                orig_lines = move.move_orig_ids.mapped('move_line_ids')
+                orig_qty = sum(orig_lines.mapped('quantity'))
+
                 if orig_qty > 0 and move.product_uom_qty != orig_qty:
                     move.write({
                         'product_uom_qty': orig_qty,
                         'quantity': orig_qty
                     })
+
+                    # Hitung ulang demand PER LOT dari origin, bukan hanya total.
+                    lot_qty_map = {}
+                    for oline in orig_lines:
+                        key = oline.lot_id.id if oline.lot_id else False
+                        lot_qty_map[key] = lot_qty_map.get(key, 0) + oline.quantity
+
+                    # Jika ada lebih dari satu lot terlibat, komposisi lot pada
+                    # origin harus dipertahankan -- jangan biarkan removal strategy
+                    # bebas memilih lot saat re-assign.
+                    if len(lot_qty_map) > 1:
+                        move._do_unreserve()
+                        existing_lines = move.move_line_ids
+                        for lot_id, qty in lot_qty_map.items():
+                            matched_line = existing_lines.filtered(
+                                lambda l: (l.lot_id.id if l.lot_id else False) == lot_id
+                            )[:1]
+                            if matched_line:
+                                matched_line.write({'quantity': qty})
+                            else:
+                                move.write({'move_line_ids': [(0, 0, {
+                                    'product_id': move.product_id.id,
+                                    'product_uom_id': move.product_uom.id,
+                                    'location_id': move.location_id.id,
+                                    'location_dest_id': move.location_dest_id.id,
+                                    'lot_id': lot_id or False,
+                                    'quantity': qty,
+                                })]})
 
         moves_to_clear_package = moves_outgoing | moves_split_package
         for move in moves_to_clear_package:

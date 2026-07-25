@@ -28,3 +28,4 @@ class QualityPackagesSummaryLine(models.Model):
     ], string="Stock Type To")
     move_type = fields.Char(string="Move Type")
     po_sap_id = fields.Many2one(comodel_name='production.order.sap')
+    pallet_ke = fields.Integer(string="Pallet Ke-")

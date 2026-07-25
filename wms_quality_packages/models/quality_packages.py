@@ -33,6 +33,7 @@ class QualityPackages(models.Model):
     select_all = fields.Boolean(string="Select All", default=False)
     lot_stock_id = fields.Many2one(comodel_name='stock.location', string="Location Stock")
     production_shift_id = fields.Many2one(comodel_name='production.shift', string="Shift")
+    production_line_id = fields.Many2one(comodel_name='production.line', string="Production Line")
     
     @api.model_create_multi
     def create(self, vals_list):
@@ -66,6 +67,8 @@ class QualityPackages(models.Model):
     def check_availability(self):
         quant_model = self.env['stock.quant'].sudo()
         quality_line_model = self.env['quality.packages.line'].sudo()
+        pickings = self.env['stock.picking'].sudo()
+        stock_move_line = self.env['stock.move.line'].sudo()
 
         for rec in self:
             if rec.state != 'draft':
@@ -91,17 +94,20 @@ class QualityPackages(models.Model):
             if rec.action_aft_id and rec.action_aft_id.stock_type_from:
                 domain.append(('stock_type', '=', rec.action_aft_id.stock_type_from))
             if rec.production_shift_id:
-                pickings = self.env['stock.picking'].sudo().search([('production_shift_id', '=', rec.production_shift_id.id)])
-                move_lines = self.env['stock.move.line'].sudo().search([
-                    ('picking_id', 'in', pickings.ids),
-                    ('lot_id', '!=', False)
-                ])
+                pickings = pickings.search([('production_shift_id', '=', rec.production_shift_id.id)])
+                move_lines = stock_move_line.search([('picking_id', 'in', pickings.ids),('lot_id', '!=', False)])
                 lot_ids = move_lines.mapped('lot_id').ids
                 if lot_ids:
                     domain.append(('lot_id', 'in', lot_ids))
                 else:
                     domain.append(('lot_id', 'in', []))
-
+            if rec.production_line_id:
+                move_lines = stock_move_line.search([('production_line_id', '=', rec.production_line_id.id),('lot_id', '!=', False)])
+                lot_ids = move_lines.mapped('lot_id').ids
+                if lot_ids:
+                    domain.append(('lot_id', 'in', lot_ids))
+                else:
+                    domain.append(('lot_id', 'in', []))
             quants = quant_model.search(domain)
             if not quants:
                 rec.is_checked = False
@@ -123,6 +129,7 @@ class QualityPackages(models.Model):
                     'bag_qty': quant.bag_qty,
                     'uom_bag_id': quant.uom_bag_id.id or False,
                     'po_sap_id': quant.po_sap_id.id or False,
+                    'pallet_ke': quant.pallet_ke or 0,
                 })
 
             rec.is_checked = True
@@ -271,6 +278,7 @@ class QualityPackages(models.Model):
                     'stock_type_to': sap_aft.stock_type_to,
                     'move_type': sap_aft.move_type,
                     'po_sap_id': line.po_sap_id.id or False,
+                    'pallet_ke': line.pallet_ke or 0,
                 })
 
             if lines_to_create:

@@ -25,7 +25,7 @@ class StockMoveLine(models.Model):
     create_new_picking = fields.Boolean(related='picking_id.create_new_picking', store=True)
     autofill_pack_qty = fields.Boolean(related='picking_id.autofill_pack_qty', store=True)
     hide_zero_qty = fields.Boolean(related='picking_id.hide_zero_qty', store=True)
-    pallet_ke = fields.Float(string="Pallet Ke-", default=0.0)
+    pallet_ke = fields.Integer(string="Pallet Ke-", default=0)
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -165,34 +165,57 @@ class StockMoveLine(models.Model):
             'autofill_pack_qty',
         ]
     
-    @api.constrains('pallet_qty', 'bag_qty', 'result_package_id')
+    # @api.constrains('pallet_qty', 'bag_qty', 'result_package_id')
+    # def _check_package_capacity_limit(self):
+    #     for line in self:
+    #         if line.picking_id and line.picking_id.state not in ('done', 'cancel'):
+    #             if not line.result_package_id:
+    #                 continue
+
+    #             lines = self.sudo().search([
+    #                 ('result_package_id', '=', line.result_package_id.id),
+    #                 ('product_id', '=', line.product_id.id),
+    #                 ('picking_id', '=', line.picking_id.id),
+    #             ])
+                
+    #             total_pallet = sum(lines.mapped('pallet_qty'))
+    #             total_bag = sum(lines.mapped('bag_qty'))
+
+    #             if total_pallet > 1:
+    #                 uom_bag_name = lines[0].uom_bag_id.name if lines and lines[0].uom_bag_id else 'BAG'
+    #                 try:
+    #                     max_bag = lines[0].uom_pallet_id.factor / lines[0].uom_bag_id.factor
+    #                 except:
+    #                     max_bag = 0
+                    
+    #                 remaining_bag = max_bag - (total_bag - line.bag_qty)
+    #                 raise ValidationError(
+    #                     f"{line.result_package_id.name} sudah melebihi UPP Pallet, "
+    #                     f"hanya bisa ditambah sebanyak {remaining_bag:.0f} {uom_bag_name} lagi!"
+    #                 )
+    
     def _check_package_capacity_limit(self):
         for line in self:
-            if line.picking_id and line.picking_id.state not in ('done', 'cancel'):
-                if not line.result_package_id:
-                    continue
-
-                lines = self.sudo().search([
-                    ('result_package_id', '=', line.result_package_id.id),
-                    ('product_id', '=', line.product_id.id),
-                    ('picking_id', '=', line.picking_id.id),
-                ])
-                
-                total_pallet = sum(lines.mapped('pallet_qty'))
-                total_bag = sum(lines.mapped('bag_qty'))
-
-                if total_pallet > 1:
-                    uom_bag_name = lines[0].uom_bag_id.name if lines and lines[0].uom_bag_id else 'BAG'
-                    try:
-                        max_bag = lines[0].uom_pallet_id.factor / lines[0].uom_bag_id.factor
-                    except:
-                        max_bag = 0
-                    
-                    remaining_bag = max_bag - (total_bag - line.bag_qty)
-                    raise ValidationError(
-                        f"{line.result_package_id.name} sudah melebihi UPP Pallet, "
-                        f"hanya bisa ditambah sebanyak {remaining_bag:.0f} {uom_bag_name} lagi!"
-                    )
+            if not line.result_package_id:
+                continue
+            lines = self.sudo().search([
+                ('result_package_id', '=', line.result_package_id.id),
+                ('product_id', '=', line.product_id.id),
+                ('picking_id', '=', line.picking_id.id),
+            ])
+            total_pallet = sum(lines.mapped('pallet_qty'))
+            total_bag = sum(lines.mapped('bag_qty'))
+            if total_pallet > 1:
+                uom_bag_name = lines[0].uom_bag_id.name if lines and lines[0].uom_bag_id else 'BAG'
+                try:
+                    max_bag = lines[0].uom_pallet_id.factor / lines[0].uom_bag_id.factor
+                except ZeroDivisionError:
+                    max_bag = 0
+                remaining_bag = max_bag - (total_bag - line.bag_qty)
+                raise ValidationError(
+                    f"{line.result_package_id.name} sudah melebihi UPP Pallet, "
+                    f"hanya bisa ditambah sebanyak {remaining_bag:.0f} {uom_bag_name} lagi!"
+                )
                 
     def action_fill_full_pallet(self):
         for line in self:

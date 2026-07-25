@@ -386,6 +386,7 @@ class StockPicking(models.Model):
         if next_pickings:
             next_pickings._sync_packaging_lines()
             next_pickings._fill_next_transfer_result_package()
+        self.move_line_ids._check_package_capacity_limit()
         return res
     
     def _has_missing_qty(self):

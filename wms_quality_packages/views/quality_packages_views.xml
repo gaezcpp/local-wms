@@ -61,6 +61,7 @@
                             <field name="lot_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" domain="product_id and [('company_id', '=', company_id), ('product_id', '=', product_id)] or [('company_id', '=', company_id)]" string="Production Code"/>
                             <field name="location_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" domain="[('company_id', '=', company_id), ('id', 'child_of', lot_stock_id)]"/>
                             <field name="production_shift_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" domain="[('company_ids', 'in', company_id)]"/>
+                            <field name="production_line_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" domain="[('company_id', '=', company_id)]"/>
                             <field name="action_aft_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" required="1"/>
                             <field name="notes" placeholder="e.g Packages sedang rusak" readonly="state != 'draft'"/>
                             <field name="select_all" readonly="state != 'draft'" invisible="not is_checked"/>
@@ -81,6 +82,7 @@
                                     <field name="is_selected" readonly="parent.state != 'draft'" widget="boolean_toggle"/>
                                     <field name="quality_packages_id" column_invisible="1" options="{'no_open': True, 'no_create': True}" readonly="1"/>
                                     <field name="product_id" options="{'no_open': True, 'no_create': True}" readonly="1"/>
+                                    <field name="pallet_ke" readonly="1"/>
                                     <field name="package_id" options="{'no_open': True, 'no_create': True}" readonly="1"/>
                                     <field name="location_id" options="{'no_open': True, 'no_create': True}" readonly="1"/>
                                     <field name="lot_id" options="{'no_open': True, 'no_create': True}" readonly="1"/>
@@ -101,6 +103,7 @@
                                 <kanban class="o_kanban_mobile" create="0" edit="0" delete="0" duplicate="0" quick_create="0">
                                     <templates>
                                         <t t-name="card">
+                                            <field name="pallet_ke" readonly="1"/>
                                             <field name="package_id" class="fw-bold" options="{'no_open': True, 'no_create': True}"/>
                                             <field name="lot_id" options="{'no_open': True, 'no_create': True}"/>
                                             <div class="d-flex">
@@ -117,6 +120,7 @@
 								<list create="0" delete="0" edit="0">
                                     <field name="quality_packages_id" column_invisible="1" options="{'no_open': True, 'no_create': True}"/>
                                     <field name="product_id" options="{'no_open': True, 'no_create': True}"/>
+                                    <field name="pallet_ke"/>
                                     <field name="package_id" options="{'no_open': True, 'no_create': True}"/>
                                     <field name="location_id" options="{'no_open': True, 'no_create': True}"/>
                                     <field name="lot_id" options="{'no_open': True, 'no_create': True}"/>
@@ -140,6 +144,7 @@
                                 <kanban class="o_kanban_mobile" create="0" edit="0" delete="0" duplicate="0" quick_create="0">
                                     <templates>
                                         <t t-name="card">
+                                            <field name="pallet_ke" readonly="1"/>
                                             <field name="package_id" class="fw-bold" options="{'no_open': True, 'no_create': True}"/>
                                             <field name="lot_id" options="{'no_open': True, 'no_create': True}"/>
                                             <div class="d-flex">

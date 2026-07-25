@@ -19,3 +19,4 @@ class QualityPackagesLine(models.Model):
     uom_bag_id = fields.Many2one(comodel_name='uom.uom', string="Unit")
     is_selected = fields.Boolean(string="Selected")
     po_sap_id = fields.Many2one(comodel_name='production.order.sap')
+    pallet_ke = fields.Integer(string="Pallet Ke-")
