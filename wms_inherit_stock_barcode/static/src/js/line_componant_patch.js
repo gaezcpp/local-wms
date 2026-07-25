@@ -32,7 +32,7 @@ patch(LineComponent.prototype, {
             return "";
         }
         const targetUom = this.env.model.cache.getRecord("uom.uom", bagUomId);
-        return targetUom?.name || "";
+        return targetUom?.sap_name || "";
     },
 
     _getRelationId(value) {

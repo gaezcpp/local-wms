@@ -24,7 +24,7 @@
             <attribute name="t-if">env.model.displayLineQtyDemand(line)</attribute>
         </xpath>
         <xpath expr="//span[hasclass('qty-done')]/../span[@t-if]" position="attributes">
-            <attribute name="t-out">hasBagUom ? '/ ' + computedBagDemand + ' ' + bagUomLabel : '/ ' + qtyDemand</attribute>
+            <attribute name="t-out">hasBagUom ? '/' + computedBagDemand + '' + bagUomLabel : '/' + qtyDemand</attribute>
         </xpath>
         <xpath expr="//small[hasclass('o_line_uom')]" position="attributes">
             <attribute name="t-if">props.displayUOM and !hasBagUom</attribute>
