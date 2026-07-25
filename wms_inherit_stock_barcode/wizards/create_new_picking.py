@@ -32,18 +32,21 @@ class CreateNewPicking(models.TransientModel):
                 continue
             
             so_line = orig_picking.sale_id.order_line.filtered(lambda sol: sol.product_id.id == line.product_id.id)
+            so_line = so_line[:1]
             self.env['stock.move'].create({
                 'picking_id': new_picking.id,
                 'product_id': line.product_id.id,
                 'product_uom_qty': line.qty, # Demand
                 'quantity': line.qty,
                 'product_uom': line.product_uom_id.id,
-                # 'product_uom_qty': line.qty_pack, 
+                # 'product_uom_qty': line.qty_pack,
                 # 'quantity': line.qty_pack,
                 # 'product_uom': line.pack_uom_id.id,
                 'location_id': sales_pick_type.default_location_src_id.id,
                 'location_dest_id': sales_pick_type.default_location_dest_id.id,
-                'sale_line_id': so_line[0].id if so_line else False,
+                'sale_line_id': so_line.id if so_line else False,
+                'sap_seq': so_line.sap_sequence if so_line else 0,
+                'order_seq': so_line.order_seq if so_line else 0,
                 'company_id': self.company_id.id,
             })
             

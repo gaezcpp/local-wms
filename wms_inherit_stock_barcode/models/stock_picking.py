@@ -820,6 +820,10 @@ class StockPicking(models.Model):
                 'location_id': move.location_id.id,
                 'location_dest_id': new_picking.location_dest_id.id,
                 'company_id': self.company_id.id,
+                'sale_line_id': move.sale_line_id.id if move.sale_line_id else False,
+                'purchase_line_id': move.purchase_line_id.id if move.purchase_line_id else False,
+                'sap_seq': move.sap_seq,
+                'order_seq': move.order_seq,
             })
             new_move._action_confirm()
             _logger.info(f"  Move {new_move.id} confirmed. State: {new_move.state}")

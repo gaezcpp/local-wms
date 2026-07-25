@@ -44,9 +44,12 @@ class QualityQuantityBackorder(models.TransientModel):
 
         for line in self.line_ids:
             _logger.info(f"Processing line for product {line.product_id.display_name}, Qty: {line.qty}")
-            
+
             base_qty = line.product_uom_id._compute_quantity(line.qty, line.product_id.uom_id)
-            
+
+            orig_ml = line.move_line_id
+            orig_move = orig_ml.move_id if orig_ml else False
+
             move = self.env['stock.move'].create({
                 'product_id': line.product_id.id,
                 'product_uom_qty': base_qty,
@@ -55,12 +58,14 @@ class QualityQuantityBackorder(models.TransientModel):
                 'location_dest_id': new_picking.location_dest_id.id,
                 'picking_id': new_picking.id,
                 'company_id': self.company_id.id,
+                'sale_line_id': orig_move.sale_line_id.id if orig_move and orig_move.sale_line_id else False,
+                'purchase_line_id': orig_move.purchase_line_id.id if orig_move and orig_move.purchase_line_id else False,
+                'sap_seq': orig_move.sap_seq if orig_move else 0,
+                'order_seq': orig_move.order_seq if orig_move else 0,
             })
             move._action_confirm()
-            
-            if line.move_line_id:
-                orig_ml = line.move_line_id
-                orig_move = orig_ml.move_id
+
+            if orig_ml:
                 _logger.info(f"Reducing original move line {orig_ml.id}. Old Qty: {orig_ml.quantity}")
                 
                 new_orig_ml_qty = orig_ml.quantity - line.qty
@@ -95,7 +100,7 @@ class QualityQuantityBackorder(models.TransientModel):
                 'package_id': line.package_id.id if line.package_id else False, 
                 'result_package_id': line.result_package_id.id if line.result_package_id else False,
                 'production_line_id': line.production_line_id.id,
-                'stock_type': line.move_line_id.stock_type,
+                'stock_type': line.move_line_id.stock_type if line.move_line_id else 'QI',
                 'wh_category_id': line.wh_category_id.id if line.wh_category_id else False,
             })
 

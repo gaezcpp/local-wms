@@ -19,7 +19,7 @@ class SaleStockPicking(models.Model):
         visited = set()
         while backorder_id and backorder_id not in visited:
             visited.add(backorder_id)
-            parent = self.env['stock.picking'].browse(backorder_id)
+            parent = self.env['stock.picking'].sudo().browse(backorder_id)
             if parent.exists():
                 if is_valid(parent.sale_id):
                     return parent.sale_id
@@ -50,12 +50,10 @@ class SaleStockPicking(models.Model):
                 continue
             sale = self._find_sale_for_sequence(vals)
             if sale:
-                picking_type = self.env['stock.picking.type'].browse(picking_type_id)
+                picking_type = self.env['stock.picking.type'].sudo().browse(picking_type_id)
                 sequence = picking_type.sequence_id
                 if sequence:
-                    vals['name'] = sequence.with_context(
-                        sequence_sale_order_id=sale.id
-                    ).next_by_id()
+                    vals['name'] = sequence.with_context(sequence_sale_order_id=sale.id).next_by_id()
         return super().create(vals_list)
 
     def _do_sap_autofix_name(self):
@@ -69,18 +67,11 @@ class SaleStockPicking(models.Model):
             if not sequence:
                 continue
 
-            # Suffix yang SEHARUSNYA (dengan sale_id benar)
-            _, correct_suffix = sequence.with_context(
-                sequence_sale_order_id=sale.id
-            )._get_prefix_suffix()
-            # Suffix "rusak" (tanpa context sale sama sekali, ini yang
-            # kemungkinan besar terpasang saat create() gagal resolve)
-            _, broken_suffix = sequence.with_context(
-                sequence_sale_order_id=False
-            )._get_prefix_suffix()
+            _, correct_suffix = sequence.with_context(sequence_sale_order_id=sale.id)._get_prefix_suffix()
+            _, broken_suffix = sequence.with_context(sequence_sale_order_id=False)._get_prefix_suffix()
 
             if correct_suffix == broken_suffix:
-                continue  # tidak ada bedanya, tidak perlu difix
+                continue
 
             if picking.name.endswith(broken_suffix):
                 base_name = (
