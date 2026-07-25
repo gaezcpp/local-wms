@@ -33,6 +33,131 @@ patch(BarcodePickingModel.prototype, {
             this.groupingLinesEnabled = false;
         }
     },
+    
+    _snapshotStockTypeQty() {
+        const snapshot = new Map();
+        for (const line of this.currentState.lines) {
+            snapshot.set(line.virtual_id, line.qty_done || 0);
+        }
+        return snapshot;
+    },
+
+    async _enforceUUStockType(snapshot) {
+        const lines = this.currentState.lines;
+        const linesToRemove = [];
+        let blockedStockType = null;
+
+        for (const line of lines) {
+            const existedBefore = snapshot.has(line.virtual_id);
+            const prevQty = existedBefore ? snapshot.get(line.virtual_id) : 0;
+            const currQty = line.qty_done || 0;
+            if (currQty <= prevQty) {
+                continue; // Tidak ada penambahan qty pada line ini di scan kali ini.
+            }
+
+            const stockType = await this._getSourceStockType(line, {});
+            if (stockType && stockType !== "UU") {
+                blockedStockType = stockType;
+                if (existedBefore) {
+                    // Line lama (sudah ada sebelum scan ini) - cukup kembalikan qty-nya.
+                    line.qty_done = prevQty;
+                    this._markLineAsDirty(line);
+                } else {
+                    // Line baru hasil scan ini - buang sepenuhnya.
+                    linesToRemove.push(line);
+                }
+            }
+        }
+
+        for (const line of linesToRemove) {
+            const idx = this.currentState.lines.indexOf(line);
+            if (idx !== -1) {
+                this.currentState.lines.splice(idx, 1);
+            }
+            if (this.selectedLineVirtualId === line.virtual_id) {
+                this.selectedLineVirtualId = false;
+            }
+            if (this.lastScanned && this.lastScanned.packageId && line.package_id) {
+                const pkgId =
+                    line.package_id && typeof line.package_id === "object"
+                        ? line.package_id.id
+                        : line.package_id;
+                if (this.lastScanned.packageId === pkgId) {
+                    this.lastScanned.packageId = false;
+                }
+            }
+        }
+
+        if (blockedStockType) {
+            this._notifyStockTypeBlocked(blockedStockType);
+        }
+        return Boolean(blockedStockType);
+    },
+
+    _notifyStockTypeBlocked(stockType) {
+        this.notification(
+            _t(
+                "Cannot scan: stock status is '%s', only 'UU' (Unrestricted Use) stock can be scanned.",
+                stockType
+            ),
+            { type: "danger" }
+        );
+        this.trigger("update");
+    },
+
+    async _getSourceStockType(line, args) {
+        line = line || {};
+        args = args || {};
+        // Line yang sudah tersimpan/reserved sudah membawa stock_type
+        // dari quant sumbernya (lihat stock.move._prepare_move_line_vals).
+        if (line.id && typeof line.stock_type !== "undefined") {
+            return line.stock_type;
+        }
+        // Sudah pernah dicek sebelumnya untuk line (belum tersimpan) ini,
+        // hindari query ulang setiap kali qty di-increment.
+        if (typeof line.__scannedStockType !== "undefined") {
+            return line.__scannedStockType;
+        }
+
+        const getId = (val) => (val && typeof val === "object" ? val.id : val || false);
+        const productId = getId(args.product_id) || getId(line.product_id);
+        if (!productId) {
+            return false;
+        }
+        const locationId =
+            getId(args.location_id) ||
+            getId(line.location_id) ||
+            (this.location && this.location.id);
+        if (!locationId) {
+            return false;
+        }
+        const lotId = getId(args.lot_id) || getId(line.lot_id);
+        const packageId = getId(args.package_id) || getId(line.package_id);
+
+        const domain = [
+            ["product_id", "=", productId],
+            ["location_id", "=", locationId],
+        ];
+        if (lotId) {
+            domain.push(["lot_id", "=", lotId]);
+        }
+        if (packageId) {
+            domain.push(["package_id", "=", packageId]);
+        }
+
+        let stockType = false;
+        try {
+            const quants = await this.orm.searchRead("stock.quant", domain, ["stock_type"], {
+                limit: 1,
+            });
+            stockType = quants.length ? quants[0].stock_type : false;
+        } catch (error) {
+            console.error("[DEBUG] Gagal mengecek stock_type quant sumber:", error);
+            return false;
+        }
+        line.__scannedStockType = stockType;
+        return stockType;
+    },
 
     get packageLines() {
         const shouldGroup =
@@ -512,7 +637,20 @@ patch(BarcodePickingModel.prototype, {
                 : this.record.location_dest_id;
         }
 
+        // Pengecekan stock_type == 'UU' hanya berlaku kalau operation type
+        // (stock.picking.type) yang bersangkutan diaktifkan "UU Only".
+        const isUUOnly = Boolean(this.record && this.record.uu_only);
+        const stockTypeSnapshot = isUUOnly ? this._snapshotStockTypeQty() : null;
+
         await super._processBarcode(...arguments);
+
+        if (isUUOnly) {
+            const wasBlocked = await this._enforceUUStockType(stockTypeSnapshot);
+            if (wasBlocked) {
+                this.trigger("update");
+                return;
+            }
+        }
 
         console.log("========== [DEBUG RAW currentState.lines SEBELUM CLEANUP] ==========");
         this.currentState.lines.forEach((line, idx) => {

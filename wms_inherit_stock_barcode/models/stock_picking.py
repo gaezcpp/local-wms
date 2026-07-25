@@ -15,6 +15,7 @@ class StockPicking(models.Model):
     create_new_picking = fields.Boolean(related='picking_type_id.create_new_picking', store=True)
     autofill_pack_qty = fields.Boolean(related='picking_type_id.autofill_pack_qty', store=True)
     hide_zero_qty = fields.Boolean(related='picking_type_id.hide_zero_qty', store=True)
+    uu_only = fields.Boolean(related='picking_type_id.uu_only', store=True)
 
     def _get_fields_stock_barcode(self):
         res = super()._get_fields_stock_barcode()
@@ -32,6 +33,8 @@ class StockPicking(models.Model):
             res.append('autofill_pack_qty')
         if 'hide_zero_qty' not in res:
             res.append('hide_zero_qty')
+        if 'uu_only' not in res:
+            res.append('uu_only')
         return res
     
     def _get_stock_barcode_data(self):
