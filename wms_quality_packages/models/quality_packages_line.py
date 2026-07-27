@@ -20,3 +20,4 @@ class QualityPackagesLine(models.Model):
     is_selected = fields.Boolean(string="Selected")
     po_sap_id = fields.Many2one(comodel_name='production.order.sap')
     pallet_ke = fields.Integer(string="Pallet Ke-")
+    production_line_id = fields.Many2one(comodel_name='production.line', string="Line")

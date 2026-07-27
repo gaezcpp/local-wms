@@ -34,6 +34,9 @@ class InheritStockQuant(models.Model):
             pallet_ke_from_ctx = self.env.context.get('force_pallet_ke')  # insert_pallet_ke
             if pallet_ke_from_ctx:  # insert_pallet_ke
                 vals['pallet_ke'] = pallet_ke_from_ctx  # insert_pallet_ke
+            prod_line_ctx = self.env.context.get('force_production_line')
+            if prod_line_ctx:
+                vals['production_line_id'] = prod_line_ctx
 
         records = super().create(vals_list)
 
@@ -61,6 +64,9 @@ class InheritStockQuant(models.Model):
         pallet_ke_from_ctx = self.env.context.get('force_pallet_ke')
         if pallet_ke_from_ctx:
             vals['pallet_ke'] = pallet_ke_from_ctx
+        prod_line_ctx = self.env.context.get('force_production_line')
+        if prod_line_ctx:
+            vals['production_line_id'] = prod_line_ctx
         # insert_pallet_ke: end
 
         res = super().write(vals)

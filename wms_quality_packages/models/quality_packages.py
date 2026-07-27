@@ -130,6 +130,7 @@ class QualityPackages(models.Model):
                     'uom_bag_id': quant.uom_bag_id.id or False,
                     'po_sap_id': quant.po_sap_id.id or False,
                     'pallet_ke': quant.pallet_ke or 0,
+                    'production_line_id': quant.production_line_id.id or False,
                 })
 
             rec.is_checked = True
@@ -279,6 +280,7 @@ class QualityPackages(models.Model):
                     'move_type': sap_aft.move_type,
                     'po_sap_id': line.po_sap_id.id or False,
                     'pallet_ke': line.pallet_ke or 0,
+                    'production_line_id': line.production_line_id.id or False,
                 })
 
             if lines_to_create:

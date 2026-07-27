@@ -10,7 +10,7 @@ class ProductionOrderSAPLine(models.Model):
     _name = 'production.order.sap.line'
     _description = 'Production Order SAP Line'
     
-    po_sap_id = fields.Many2one(comodel_name='production.order.sap')
+    po_sap_id = fields.Many2one(comodel_name='production.order.sap', index=True)
     no_item = fields.Char(string="Seq")
     product_id = fields.Many2one(comodel_name='product.product', string="Product")
     uom_id = fields.Many2one(comodel_name='uom.uom', string="Unit")

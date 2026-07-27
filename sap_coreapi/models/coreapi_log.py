@@ -5,7 +5,7 @@ class SapCoreApiLog(models.Model):
     _description = "SAP CoreAPI Request Log"
     _order = "create_date desc"
 
-    request_id = fields.Char(index=True)
+    request_id = fields.Char()
     remote_addr = fields.Char(string="Remote Address")
     encrypted_in = fields.Text(string="Encrypted In")
     plaintext_in = fields.Text(string="Plaintext In")

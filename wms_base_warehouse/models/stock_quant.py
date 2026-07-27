@@ -11,7 +11,8 @@ class StockQuant(models.Model):
         ('QI', 'QI'),
         ('BLOCKED', 'BLOCKED'),
         ('UU', 'UU'),
-    ], string="Stock Type")
+    ], string="Stock Type", index=True)
+    production_line_id = fields.Many2one(comodel_name='production.line', string="Line")
     
     @api.model
     def _gather(self, product_id, location_id, lot_id=None, package_id=None, owner_id=None, strict=False, qty=None):

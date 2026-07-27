@@ -10,9 +10,9 @@ class ProductionChronos(models.Model):
     _inherit = ['mail.thread', 'mail.activity.mixin']
     
     name = fields.Char(string="Name", default="New")
-    po_sap_id = fields.Many2one(comodel_name='production.order.sap', string="PO SAP", tracking=True)
-    production_shift_id = fields.Many2one(comodel_name='production.shift', string="Shift", tracking=True)
-    production_line_id = fields.Many2one(comodel_name='production.line', string="Line", tracking=True)
+    po_sap_id = fields.Many2one(comodel_name='production.order.sap', string="PO SAP", tracking=True, index=True)
+    production_shift_id = fields.Many2one(comodel_name='production.shift', string="Shift", tracking=True, index=True)
+    production_line_id = fields.Many2one(comodel_name='production.line', string="Line", tracking=True, index=True)
     counter_awal = fields.Float(string="Counter Awal", tracking=True)
     counter_akhir = fields.Float(string="Counter Akhir", tracking=True)
     counter_total = fields.Float(string="Total Counter", compute='_compute_counter_total')
@@ -36,7 +36,7 @@ class ProductionChronos(models.Model):
     @api.depends('counter_awal', 'counter_akhir')
     def _compute_counter_total(self):
         for rec in self:
-            rec.counter_total = rec.counter_akhir - rec.counter_awal
+            rec.counter_total = ((rec.counter_akhir - rec.counter_awal) + 1)
     
     @api.onchange('po_sap_id', 'production_shift_id', 'production_line_id', 'company_id')
     def _onchange_is_check(self):

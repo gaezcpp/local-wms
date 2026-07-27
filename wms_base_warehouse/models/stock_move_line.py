@@ -18,7 +18,7 @@ class InheritBaseStockMoveLine(models.Model):
         ('QI', 'QI'),
         ('BLOCKED', 'BLOCKED'),
         ('UU', 'UU'),
-    ], string="Stock Type", default='QI')
+    ], string="Stock Type", default='QI', index=True)
     
     # ini dipake kalo odoo.sh salah
     def _skip_custom_logic(self):
@@ -81,6 +81,7 @@ class InheritBaseStockMoveLine(models.Model):
                     'product_id': self.move_id.product_id.id,
                     'company_id': self.company_id.id,
                     'po_sap_id': self.picking_id.po_sap_id.id if self.picking_id.po_sap_id else False,
+                    'production_line_id': self.production_line_id.id if self.production_line_id else False,
                 })
 
         return lot

@@ -152,15 +152,15 @@
                     <field name="qty_packaging_sap" placeholder="Qty Packaging SAP"/>
                 </div>
             </xpath>
-            <xpath expr="//field[@name='result_package_id']" position="after">
+            <!-- <xpath expr="//field[@name='result_package_id']" position="after">
                 <div name="pallet_ke" class="row" invisible="not production_only">
                     <div  class="text-black-50 mt-2 fs-5">
                         <span class="fa fa-archive me-1"/>
                         <label for="pallet_ke" string="Pallet Ke-" class="p-0"/>
                     </div>
-                    <field name="pallet_ke" placeholder="Pallet Ke-"/>
+                    <field name="pallet_ke" placeholder="Pallet Ke-" readonly="1"/>
                 </div>
-            </xpath>
+            </xpath> -->
         </field>
     </record>
 </odoo>

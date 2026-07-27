@@ -55,7 +55,6 @@ class StockMoveLine(models.Model):
         self._validate_bag_qty(vals, records=self)
         self._sync_qty_from_bag(vals, records=self)
         self._validate_qty_packaging_sap(vals)
-        self._validate_pallet_ke(vals)
         if {'quantity', 'bag_qty', 'qty_done'} & set(vals.keys()):
             _logger.info(
                 "[WMS-NEGQTY] stock.move.line WRITE ids=%s vals=%s before=%s",
@@ -313,22 +312,10 @@ class StockMoveLine(models.Model):
                     # line._onchange_bag_qty()
                 except ZeroDivisionError:
                     pass
-                
-    @api.onchange('pallet_ke')
-    def _onchange_pallet_ke(self):
-        for rec in self:
-            if rec.pallet_ke and rec.pallet_ke <= 0:
-                raise ValidationError("Pallet Ke- tidak boleh kurang dari 0")
-            
-    def _validate_pallet_ke(self, vals):
-            if 'pallet_ke' not in vals:
-                return
-            for rec in self:
-                value = vals.get('pallet_ke', rec.pallet_ke)
-                if value is None or value <= 0:
-                    raise ValidationError(f"Pallet Ke- untuk product {rec.product_id.default_code} tidak boleh kurang dari 0!")
 
     def _synchronize_quant(self, quantity, location, action="available", in_date=False, **quants_value):
         if action == "available" and self.pallet_ke and quantity > 0:
             self = self.with_context(force_pallet_ke=self.pallet_ke)  # insert_pallet_ke
+        if action == "available" and self.production_line_id:
+            self = self.with_context(force_production_line=self.production_line_id.id)
         return super()._synchronize_quant(quantity, location, action=action, in_date=in_date, **quants_value)

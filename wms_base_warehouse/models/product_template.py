@@ -165,7 +165,14 @@ class InheritProductTemplate(models.Model):
                 
                 if not any(c.isdigit() for c in vrkme):
                     if vrkme and vrkme != meins:
-                        uom_name = f"{vrkme} {data.get('UMREZ') or '-'}"
+                        umrez_val = float(data.get('UMREZ') or 1)
+                        umren_val = float(data.get('UMREN') or 1)
+                        hasil_bagi = umrez_val / umren_val
+                        if hasil_bagi.is_integer():
+                            dibagi = int(hasil_bagi)
+                        else:
+                            dibagi = hasil_bagi
+                        uom_name = f"{vrkme} {dibagi}"
 
                 if not uom_name:
                     continue

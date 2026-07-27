@@ -15,7 +15,7 @@ class StorageLocation(models.Model):
     
     active = fields.Boolean(string="Active", default=True)
     name = fields.Char(string="Name")
-    code = fields.Char(string="Code")
+    code = fields.Char(string="Code", index=True)
     sap_sync = fields.Boolean(string="SAP Sync")
     company_id = fields.Many2one(comodel_name='res.company', string="Company", default=lambda self: self.env.company)
     

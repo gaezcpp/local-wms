@@ -8,7 +8,6 @@ class ProductWIP(models.Model):
     _name = 'product.wip'
     _description = 'Product WIP'
     
-    
     parent_product_id = fields.Many2one(comodel_name='product.template', string="Product Temp")
     product_id = fields.Many2one(comodel_name='product.product', string="Product WIP")
     default_code = fields.Char(string="Reference")

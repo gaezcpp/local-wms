@@ -123,7 +123,7 @@
                         </group>
                     </group>
                     <notebook>
-						<page string="WIP">
+						<page string="Component">
 							<field name="po_sap_line_ids">
 								<list editable="bottom">
                                     <field name="po_sap_id" column_invisible="1" readonly="1" options="{'no_open': True, 'no_create': True}"/>

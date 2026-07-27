@@ -1,0 +1,17 @@
+<odoo>
+    <record id="view_picking_pallet_confirm_wizard_form" model="ir.ui.view">
+        <field name="name">production.pallet.wizard.form</field>
+        <field name="model">production.pallet.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Konfirmasi Pallet">
+                <group>
+                    <field name="message" widget="text" nolabel="1" readonly="1"/>
+                </group>
+                <footer>
+                    <button name="action_confirm" string="Confirm" type="object" class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

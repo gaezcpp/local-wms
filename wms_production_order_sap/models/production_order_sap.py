@@ -14,12 +14,12 @@ class ProductionOrderSAP(models.Model):
     _rec_name = 'po_number'
     _inherit = ['mail.thread', 'mail.activity.mixin']
     
-    po_number = fields.Char(string="Production Order", tracking=True)
+    po_number = fields.Char(string="Production Order", tracking=True, index=True)
     order_type = fields.Char(string="Order Type", tracking=True)
     start_date = fields.Date(string="Start Date", tracking=True)
     finish_date = fields.Date(string="Finish Date", tracking=True)
-    product_id = fields.Many2one(comodel_name='product.product', string="Product", tracking=True)
-    uom_id = fields.Many2one(comodel_name='uom.uom', string="UoM", tracking=True)
+    product_id = fields.Many2one(comodel_name='product.product', string="Product", tracking=True, index=True)
+    uom_id = fields.Many2one(comodel_name='uom.uom', string="UoM", tracking=True, index=True)
     order_qty = fields.Float(string="Order Qty", tracking=True)
     company_registry = fields.Char(string="Company Registry", tracking=True)
     company_id = fields.Many2one(comodel_name='res.company', string="Company", default=lambda self: self.env.company, tracking=True)
@@ -28,7 +28,7 @@ class ProductionOrderSAP(models.Model):
         ('in_progress', 'In Progress'),
         ('teco', 'TECO'),
         ('closed', 'Closed'),
-    ], string="Status", default='open', tracking=True)
+    ], string="Status", default='open', tracking=True, index=True)
     created_user = fields.Char(string="Created By", tracking=True)
     status_teco = fields.Char(string="TECO Status", tracking=True)
     sap_pp = fields.Boolean(string="SAP PP", default=False)
@@ -162,108 +162,6 @@ class ProductionOrderSAP(models.Model):
         data_list = res.get('data', [])
         _logger.info(f"CRON {cron_name} - TOTAL DATA: {len(data_list)}")
         return data_list
-    
-    # @api.model
-    # def cron_synchronize_sap_production_order(self):
-    #     data_list = self._fetch_sap_data(
-    #         config_key='query_production_order_sap',
-    #         cron_name='cron_synchronize_sap_production_order',
-    #     )
-    #     if not data_list:
-    #         return True
-    #     _logger.info(f"TOTAL DATA cron_synchronize_sap_production_order: {len(data_list)}")
-        
-    #     po_sap = self.env['production.order.sap'].sudo()
-    #     companies = self.env['res.company'].sudo()
-    #     product_template = self.env['product.product'].sudo()
-    #     unit_of_measure = self.env['uom.uom'].sudo()
-    #     for data in data_list:
-    #         po_number = data.get('AUFNR')
-    #         if not po_number:
-    #             continue
-            
-    #         order_type = data.get('AUART') or ''
-    #         company_registry = data.get('WERKS') or ''
-    #         if company_registry:
-    #             company_id = companies.search([
-    #                 ('company_registry', '=', company_registry),
-    #                 ('sync_wms', '=', True),
-    #             ], limit=1)
-    #             if not company_id:
-    #                 _logger.info(f"cron_synchronize_sap_production_order COMPANY: {company_registry} SKIPPED")
-    #                 continue
-            
-    #         product_code = (data.get('MATNR') or '').lstrip('0')
-    #         if product_code:
-    #             product_id = product_template.search([('default_code', '=', product_code),('company_id', '=', company_id.id)], limit=1)
-    #             if not product_id:
-    #                 _logger.info(f"cron_synchronize_sap_production_order PRODUCT: {product_code} SKIPPED")
-    #                 continue
-                
-    #         unit = data.get('GMEIN') or ''
-    #         product_uom = False
-    #         if unit.upper() != "KG":
-    #             raw_umrez = str(data.get('UMREZ') or '').strip()
-    #             uom_numerator = float(raw_umrez if raw_umrez else 0.0)
-                
-    #             raw_umren = str(data.get('UMREN') or '').strip()
-    #             uom_denominator = float(raw_umren if raw_umren else 0.0)
-                
-    #             ratio = (uom_numerator / uom_denominator) if uom_denominator else 0.0
-    #             ratio = int(ratio) if ratio.is_integer() else ratio
-    #             uom_name = f"{unit} {ratio}"
-    #             product_uom = unit_of_measure.search([('name', '=', uom_name)], limit=1)
-    #         else:
-    #             product_uom = unit_of_measure.search([('name', '=', 'kg')], limit=1)
-            
-    #         start_date = False
-    #         finish_date = False
-    #         raw_start = data.get('GSTRP')
-    #         if raw_start and len(raw_start) == 8:
-    #             start_date = datetime.strptime(raw_start, "%Y%m%d").date()
-
-    #         raw_finish = data.get('GLTRP')
-    #         if raw_finish and len(raw_finish) == 8:
-    #             finish_date = datetime.strptime(raw_finish, "%Y%m%d").date()
-            
-    #         raw_gamng = str(data.get('GAMNG') or '').strip()
-    #         order_qty = float(raw_gamng if raw_gamng else 0.0)
-    #         created_user = data.get('ERNAM') or ''
-    #         teco_status = (data.get('TECO_STATUS') or '').strip().upper()
-    #         loekz = (data.get('LOEKZ') or '').strip()
-            
-    #         vals = {
-    #             'po_number': po_number,
-    #             'order_type': order_type,
-    #             'start_date': start_date,
-    #             'finish_date': finish_date,
-    #             'product_id': product_id.id if product_id else False,
-    #             'uom_id': product_uom.id if product_uom else False,
-    #             'order_qty': order_qty,
-    #             'company_id': company_id.id if company_id else False,
-    #             'company_registry': company_id.company_registry if company_id else False,
-    #             'status_teco': teco_status,
-    #             'created_user': created_user,
-    #             'sap_pp': True,
-    #             'active': loekz != 'X',
-    #         }
-            
-    #         existing_po_sap = po_sap.search([('po_number', '=', po_number)], limit=1)
-    #         if not existing_po_sap:
-    #             new_po = po_sap.create(vals)
-    #             new_po.message_post(body=f"PO SAP {new_po.po_number} Created from Cron")
-    #             _logger.info(f"PO SAP {new_po.po_number} Created")
-    #         else:
-    #             if self._needs_update(existing_po_sap, vals):
-    #                 existing_po_sap.write(vals)
-    #                 _logger.info(f"PO {existing_po_sap.po_number} Updated")
-                
-    #             if teco_status == 'TECO':
-    #                 if existing_po_sap.state != 'teco':
-    #                     existing_po_sap.write({'state': 'teco', 'status_teco': 'TECO'})
-    #             else:
-    #                 if existing_po_sap.state != 'teco':
-    #                     existing_po_sap.write({'state': 'in_progress', 'status_teco': 'NOT TECO'})
     
     @api.model
     def cron_synchronize_sap_production_order(self):

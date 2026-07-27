@@ -6,7 +6,7 @@ class StockInventoryAdjustmentSummary(models.Model):
     _name = 'stock.inventory.adjustment.summary'
     _description = 'Summary Stock Opname'
     
-    stock_adjustment_id = fields.Many2one('stock.inventory.adjustment')
+    stock_adjustment_id = fields.Many2one('stock.inventory.adjustment', ondelete='cascade')
     product_id = fields.Many2one('product.product')
     uom_id = fields.Many2one('uom.uom')
     uom_bag_id = fields.Many2one(comodel_name='uom.uom', string="Unit")

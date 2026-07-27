@@ -7,7 +7,7 @@ _logger = logging.getLogger(__name__)
 class StockMove(models.Model):
     _inherit = 'stock.move'
     
-    sap_seq = fields.Integer(string="Seq")
+    sap_seq = fields.Integer(string="Seq", index=True)
     order_seq = fields.Integer(string="Order Seq")
     
     @api.model_create_multi
