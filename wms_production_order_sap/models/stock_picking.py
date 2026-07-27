@@ -54,7 +54,7 @@ class InheritBaseStockPicking(models.Model):
         for picking in self:
             right_now = self.now_jakarta()
             now_hour = right_now.strftime('%H%M')
-            _logger.info(f"NOW HOUR {now_hour}")
+            # _logger.info(f"NOW HOUR {now_hour}")
             prod_shift = picking.production_shift_id
             if not prod_shift:
                 all_shifts = Shift.search([])

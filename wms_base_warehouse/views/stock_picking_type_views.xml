@@ -26,6 +26,7 @@
                     <field name="autofill_pack_qty"/>
                     <field name="restrict_over_demand"/>
                     <field name="hide_zero_qty"/>
+                    <field name="hide_edit_barcode"/>
                 </xpath>
                 <xpath expr="//field[@name='return_picking_type_id']" position="after">
                     <field name="packaging_type_id"/>

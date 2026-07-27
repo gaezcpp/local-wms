@@ -14,12 +14,12 @@ class InheritStockMove(models.Model):
     product_packaging_id = fields.Many2one(comodel_name='product.packaging.sap', string="Product Packaging")
     qty_packaging_sap = fields.Float(string="Qty Packaging", compute='_compute_qty_packaging_sap')
     
-    @api.model_create_multi
-    def create(self, vals_list):
-        for v in vals_list:
-            if not v.get('product_uom_qty') or v.get('product_uom_qty') <= 0:
-                _logger.info("Zero-qty move created!\n%s", ''.join(traceback.format_stack()))
-        return super().create(vals_list)
+    # @api.model_create_multi
+    # def create(self, vals_list):
+    #     for v in vals_list:
+    #         if not v.get('product_uom_qty') or v.get('product_uom_qty') <= 0:
+    #             _logger.info("Zero-qty move created!\n%s", ''.join(traceback.format_stack()))
+    #     return super().create(vals_list)
     
     # @api.model_create_multi
     # def create(self, vals_list):
@@ -65,7 +65,7 @@ class InheritStockMove(models.Model):
             move.qty_packaging_sap = sum(move.move_line_ids.mapped('qty_packaging_sap'))
             
     def create_packaging_line(self):
-        _logger.info("create_packaging_line KEPANGGIL")
+        # _logger.info("create_packaging_line KEPANGGIL")
         Packaging = self.env['product.packaging.sap']
         PickingPackaging = self.env['picking.packaging.line']
         pickings = self.mapped('picking_id').filtered(lambda p: p)

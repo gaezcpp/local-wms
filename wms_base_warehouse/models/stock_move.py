@@ -30,8 +30,67 @@ class StockMove(models.Model):
             over = any(m.quantity != m.product_uom_qty for m in picking.move_ids)
             picking.over_delivery = over
     
-    # banyak bug reserved quantity jadi ngaco
+    def _get_pkg_reserved_qty_elsewhere(self, line):
+        """Qty dari package/product `line` yang sudah direserve oleh move line
+        LAIN (move/picking berbeda) yang belum done/cancel. Dipakai supaya
+        force-bump full-pallet tidak menulis reserved_quantity melebihi
+        quantity on-hand saat package yang sama dipakai lebih dari satu
+        move/picking sekaligus."""
+        domain = [
+            ('package_id', '=', line.package_id.id),
+            ('product_id', '=', line.product_id.id),
+            ('id', '!=', line.id),
+            ('state', 'not in', ['done', 'cancel']),
+        ]
+        return sum(self.env['stock.move.line'].sudo().search(domain).mapped('quantity'))
+
+    def _force_full_pallet_line(self, line):
+        """Bump `line.quantity` ke qty fisik pallet, dibatasi oleh qty yang
+        belum direserve move/picking lain untuk package yang sama.
+        Return True kalau bump tidak bisa mencapai full qty pallet karena
+        package sedang dipakai (contended) -- caller harus re-assign move
+        ini lewat jalur normal Odoo supaya cari quant/package lain."""
+        actual_pkg_qty = sum(line.package_id.quant_ids.filtered(
+            lambda q: q.product_id == line.product_id).mapped('quantity'))
+        if line.quantity >= actual_pkg_qty:
+            return False
+
+        reserved_elsewhere = self._get_pkg_reserved_qty_elsewhere(line)
+        available_for_line = actual_pkg_qty - reserved_elsewhere
+
+        if available_for_line <= line.quantity:
+            _logger.warning(
+                "book_full_pallet: package %s sudah direserve move line lain "
+                "(reserved_elsewhere=%s dari actual=%s), tidak bisa bump line %s (move %s)",
+                line.package_id.display_name, reserved_elsewhere, actual_pkg_qty,
+                line.id, line.move_id.id,
+            )
+            return True
+
+        target_qty = min(available_for_line, actual_pkg_qty)
+        _logger.info(
+            "[WMS-NEGQTY] _force_full_pallet_line line=%s move=%s picking=%s(id=%s) "
+            "move_demand=%s old_line_qty=%s -> new_line_qty=%s actual_pkg_qty=%s "
+            "reserved_elsewhere=%s",
+            line.id, line.move_id.id, line.move_id.picking_id.name, line.move_id.picking_id.id,
+            line.move_id.product_uom_qty, line.quantity, target_qty, actual_pkg_qty,
+            reserved_elsewhere,
+        )
+        line.sudo().write({'quantity': target_qty})
+        return target_qty < actual_pkg_qty
+
     def _action_assign(self, **kwargs):
+        for move in self:
+            _logger.info(
+                "[WMS-NEGQTY] _action_assign IN move=%s picking=%s(id=%s) type=%s(id=%s) "
+                "product=%s demand=%s current_qty=%s state=%s sale=%s",
+                move.id, move.picking_id.name, move.picking_id.id,
+                move.picking_id.picking_type_id.name, move.picking_id.picking_type_id.id,
+                move.product_id.default_code or move.product_id.name,
+                move.product_uom_qty, move.quantity, move.state,
+                move.sale_line_id.order_id.name if move.sale_line_id else False,
+            )
+
         bypass = self.env.context.get('bypass_adjust_demand', False)
         moves_uu = self.filtered(lambda m: m.picking_id.picking_type_id.uu_only)
         moves_full_pallet = self.filtered(lambda m: m.picking_id.picking_type_id.book_full_pallet and not bypass)
@@ -60,16 +119,15 @@ class StockMove(models.Model):
                 if line.package_id:
                     actual_pkg_qty = sum(line.package_id.quant_ids.filtered(lambda q: q.product_id == line.product_id).mapped('quantity'))
                     total_actual_pkg_qty += actual_pkg_qty
-                    _logger.info(f"ACTUAL PKG QTY {actual_pkg_qty} TOTAL ACTUAL PKG QTY {total_actual_pkg_qty}")
+                    # _logger.info(f"ACTUAL PKG QTY {actual_pkg_qty} TOTAL ACTUAL PKG QTY {total_actual_pkg_qty}")
                     if line.quantity < actual_pkg_qty:
                         has_partial = True
 
             if has_partial and move.quantity < total_actual_pkg_qty:
-                _logger.info("MASUK SINI HAS PARTIAL")
+                # _logger.info("MASUK SINI HAS PARTIAL")
                 for line in move.move_line_ids.filtered(lambda l: l.package_id):
-                    actual_pkg_qty = sum(line.package_id.quant_ids.filtered(lambda q: q.product_id == line.product_id).mapped('quantity'))
-                    if line.quantity < actual_pkg_qty:
-                        line.write({'quantity': actual_pkg_qty})
+                    if self._force_full_pallet_line(line):
+                        need_reassign |= move
 
                 dest_moves = move.move_dest_ids
                 while dest_moves:
@@ -77,9 +135,8 @@ class StockMove(models.Model):
                     if valid_dest:
                         for dest_move in valid_dest:
                             for dline in dest_move.move_line_ids.filtered(lambda l: l.package_id):
-                                d_actual = sum(dline.package_id.quant_ids.filtered(lambda q: q.product_id == dline.product_id).mapped('quantity'))
-                                if dline.quantity < d_actual:
-                                    dline.sudo().write({'quantity': d_actual})
+                                if self._force_full_pallet_line(dline):
+                                    need_reassign |= dest_move
                         dest_moves = valid_dest.mapped('move_dest_ids')
                     else:
                         break
@@ -90,16 +147,16 @@ class StockMove(models.Model):
             need_reassign_others = need_reassign - moves_uu
 
             if need_reassign_others:
-                _logger.info("_action_assign Check Availability need_reassign_others")
+                # _logger.info("_action_assign Check Availability need_reassign_others")
                 super(StockMove, need_reassign_others)._action_assign()
             if need_reassign_uu:
-                _logger.info("_action_assign Check Availability need_reassign_uu")
+                # _logger.info("_action_assign Check Availability need_reassign_uu")
                 super(StockMove, need_reassign_uu.with_context(uu_only=True))._action_assign()
 
         moves_uu_to_set = moves_uu - moves_split_package
         for line in moves_uu_to_set.move_line_ids:
             if line.package_id and not line.result_package_id:
-                _logger.info("Isi Otomatis Destination Package Untuk Scanner")
+                # _logger.info("Isi Otomatis Destination Package Untuk Scanner")
                 line.write({'result_package_id': line.package_id.id})
 
         # for move in moves_outgoing:
@@ -115,10 +172,20 @@ class StockMove(models.Model):
         # moves_to_clear_package = moves_outgoing | moves_split_package
         moves_to_clear_package = moves_split_package
         for move in moves_to_clear_package:
-            _logger.info("Menghapus Destination Package (Outgoing / Split Package)")
+            # _logger.info("Menghapus Destination Package (Outgoing / Split Package)")
             lines_to_clear = move.move_line_ids.filtered(lambda l: l.result_package_id)
             if lines_to_clear:
                 lines_to_clear.write({'result_package_id': False})
+
+        for move in self:
+            _logger.info(
+                "[WMS-NEGQTY] _action_assign OUT move=%s picking=%s(id=%s) demand=%s "
+                "current_qty=%s state=%s lines=%s",
+                move.id, move.picking_id.name, move.picking_id.id,
+                move.product_uom_qty, move.quantity, move.state,
+                [(l.id, l.quantity, l.lot_id.name if l.lot_id else False,
+                  l.package_id.name if l.package_id else False) for l in move.move_line_ids],
+            )
 
         return res
     
@@ -316,6 +383,19 @@ class StockMove(models.Model):
         return picking and picking.picking_type_id.move_type_sap == str(prod_in_move_type)
     
     def _action_done(self, **kwargs):
+        for move in self:
+            _logger.info(
+                "[WMS-NEGQTY] _action_done IN move=%s picking=%s(id=%s) type=%s(id=%s) "
+                "product=%s demand=%s quantity=%s lines=%s",
+                move.id, move.picking_id.name, move.picking_id.id,
+                move.picking_id.picking_type_id.name, move.picking_id.picking_type_id.id,
+                move.product_id.default_code or move.product_id.name,
+                move.product_uom_qty, move.quantity,
+                [(l.id, l.quantity, l.bag_qty, l.lot_id.name if l.lot_id else False,
+                  l.location_id.complete_name, l.location_dest_id.complete_name)
+                 for l in move.move_line_ids],
+            )
+
         res = super()._action_done(**kwargs)
         for move in res:
             for line in move.move_line_ids:

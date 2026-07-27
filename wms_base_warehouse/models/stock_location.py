@@ -27,7 +27,7 @@ class InheritStockLocation(models.Model):
         self = self._check_access_putaway()
         products = self.env.context.get('products', self.env['product.product'])
         products |= product
-        _logger.info("_get_putaway_strategy PUTAWAY STRATEGY KEPANGGIL")
+        # _logger.info("_get_putaway_strategy PUTAWAY STRATEGY KEPANGGIL")
 
         package_type = self.env['stock.package.type'].sudo()
         if package:

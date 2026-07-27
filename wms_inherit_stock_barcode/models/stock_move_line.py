@@ -1,5 +1,6 @@
 from odoo import models, fields, api
 from odoo.exceptions import ValidationError
+from odoo.tools import float_compare
 import logging
 _logger = logging.getLogger(__name__)
 
@@ -31,26 +32,101 @@ class StockMoveLine(models.Model):
     def create(self, vals_list):
         for vals in vals_list:
             vals['outermost_result_package_id'] = False
-            
+
             self._validate_bag_qty(vals)
             self._sync_qty_from_bag(vals)
-        
+
         filtered_vals_list = self._filter_empty_package_lines(vals_list)
         if not filtered_vals_list:
+            _logger.info("[WMS-NEGQTY] stock.move.line create DROPPED ALL (hide_zero_qty) vals_list=%s", vals_list)
             return self.browse()
         records = super().create(filtered_vals_list)
+        _logger.info(
+            "[WMS-NEGQTY] stock.move.line CREATE result=%s",
+            [(r.id, r.move_id.id, r.picking_id.id if r.picking_id else False,
+              r.quantity, r.bag_qty, r.lot_id.name if r.lot_id else False) for r in records],
+        )
+        records._validate_lot_availability()
         return records
 
     def write(self, vals):
         vals['outermost_result_package_id'] = False
-        
+
         self._validate_bag_qty(vals, records=self)
         self._sync_qty_from_bag(vals, records=self)
         self._validate_qty_packaging_sap(vals)
         self._validate_pallet_ke(vals)
+        if {'quantity', 'bag_qty', 'qty_done'} & set(vals.keys()):
+            _logger.info(
+                "[WMS-NEGQTY] stock.move.line WRITE ids=%s vals=%s before=%s",
+                self.ids, vals,
+                [(r.id, r.quantity, r.bag_qty) for r in self],
+            )
         res = super().write(vals)
-        
+
+        if {'quantity', 'bag_qty', 'qty_done'} & set(vals.keys()):
+            self._validate_lot_availability()
+
         return res
+
+    def _validate_lot_availability(self):
+        """[WMS-NEGQTY] Cegah quantity satu move.line melebihi stok LOT
+        spesifik yang benar-benar ada di lokasi sumbernya. Setiap move.line
+        terikat ke satu lot tertentu -- kalau user menulis quantity yang
+        merepresentasikan total gabungan beberapa lot (mis. hasil tombol
+        "fulfill" pada tampilan yang meng-grup beberapa lot jadi satu baris,
+        lihat groupKey() di stock_barcode core yang grouping berdasarkan
+        product+location TANPA lot) ke satu line berlot tunggal, itu salah:
+        line itu akan mencatat lot A seolah sebanyak qty gabungan, padahal
+        fisik lot A di lokasi itu jauh lebih sedikit -- baru ketahuan
+        belakangan sebagai stock.quant minus (root cause asli kasus ini).
+        Divalidasi terhadap stock.quant on-hand dikurangi reservasi line
+        lain (state belum done/cancel) untuk lot+lokasi yang sama, ditambah
+        qty yang sudah direservasi line ini sendiri sebelumnya."""
+        if self.env.context.get('skip_over_demand_check'):
+            return
+
+        precision = self.env['decimal.precision'].precision_get('Product Unit of Measure')
+        for line in self:
+            if not line.lot_id or not line.location_id or line.state in ('done', 'cancel'):
+                continue
+            picking_type = line.picking_id.picking_type_id if line.picking_id else False
+            if not picking_type or not picking_type.restrict_over_demand:
+                continue
+
+            domain = [
+                ('product_id', '=', line.product_id.id),
+                ('lot_id', '=', line.lot_id.id),
+                ('location_id', '=', line.location_id.id),
+            ]
+            quant_domain = domain + [
+                ('package_id', '=', line.package_id.id if line.package_id else False),
+            ]
+            on_hand = sum(self.env['stock.quant'].sudo().search(quant_domain).mapped('quantity'))
+
+            other_lines = self.env['stock.move.line'].sudo().search(domain + [
+                ('id', '!=', line.id),
+                ('state', 'not in', ('done', 'cancel')),
+            ])
+            reserved_by_others = sum(other_lines.mapped('quantity'))
+            available_for_line = on_hand - reserved_by_others
+
+            if float_compare(line.quantity, available_for_line, precision_digits=precision) > 0:
+                _logger.info(
+                    "[WMS-NEGQTY] _validate_lot_availability BLOCKED line=%s move=%s "
+                    "picking=%s(id=%s) product=%s lot=%s location=%s on_hand=%s "
+                    "reserved_by_others=%s available=%s attempted_qty=%s",
+                    line.id, line.move_id.id, line.picking_id.name, line.picking_id.id,
+                    line.product_id.display_name, line.lot_id.name, line.location_id.complete_name,
+                    on_hand, reserved_by_others, available_for_line, line.quantity,
+                )
+                raise ValidationError(
+                    f"Quantity {line.quantity} yang diinput untuk lot '{line.lot_id.name}' "
+                    f"({line.product_id.display_name}) di picking {line.picking_id.name} "
+                    f"melebihi stok lot tersebut yang tersedia di lokasi "
+                    f"'{line.location_id.complete_name}' (tersedia: {available_for_line}). "
+                    f"Input quantity sesuai qty milik lot ini saja, jangan total gabungan lot lain."
+                )
     
     def _resolve_hide_zero_qty(self, vals):
         picking_id = vals.get("picking_id")
@@ -95,7 +171,18 @@ class StockMoveLine(models.Model):
             uom_bag = rec.uom_bag_id
             if not uom_bag or not uom_bag.factor:
                 continue
-            vals['qty_done'] = bag_qty * (uom_bag.factor / 1000)
+            computed_qty = bag_qty * (uom_bag.factor / 1000)
+            vals['qty_done'] = computed_qty
+            _logger.info(
+                "[WMS-NEGQTY] _sync_qty_from_bag line=%s move=%s picking=%s(id=%s) "
+                "bag_qty=%s uom_bag_factor=%s computed_quantity=%s "
+                "vals_has_quantity_key=%s vals_quantity_value=%s current_line_quantity=%s",
+                rec.id, rec.move_id.id,
+                rec.picking_id.name if rec.picking_id else False,
+                rec.picking_id.id if rec.picking_id else False,
+                bag_qty, uom_bag.factor, computed_qty,
+                'quantity' in vals, vals.get('quantity'), rec.quantity,
+            )
 
     @api.constrains('pallet_qty', 'picking_id')
     def _check_pallet_qty_limit(self):

@@ -16,6 +16,7 @@ class StockPicking(models.Model):
     autofill_pack_qty = fields.Boolean(related='picking_type_id.autofill_pack_qty', store=True)
     hide_zero_qty = fields.Boolean(related='picking_type_id.hide_zero_qty', store=True)
     uu_only = fields.Boolean(related='picking_type_id.uu_only', store=True)
+    hide_edit_barcode = fields.Boolean(related='picking_type_id.hide_edit_barcode', store=True)
 
     def _get_fields_stock_barcode(self):
         res = super()._get_fields_stock_barcode()
@@ -35,6 +36,8 @@ class StockPicking(models.Model):
             res.append('hide_zero_qty')
         if 'uu_only' not in res:
             res.append('uu_only')
+        if 'hide_edit_barcode' not in res:
+            res.append('hide_edit_barcode')
         return res
     
     def _get_stock_barcode_data(self):
@@ -49,7 +52,7 @@ class StockPicking(models.Model):
             | move_lines.uom_bag_id
             | move_lines.uom_pallet_id
         )
-        _logger.info("EXTRA UOMS: %s", extra_uoms.ids)
+        # _logger.info("EXTRA UOMS: %s", extra_uoms.ids)
         if extra_uoms:
             existing_uom_ids = {rec['id'] for rec in data['records'].get('uom.uom', [])}
             new_uoms = extra_uoms.filtered(lambda u: u.id not in existing_uom_ids)
@@ -412,7 +415,7 @@ class StockPicking(models.Model):
             total_demand = sum(root_moves_line.mapped('quantity'))
             all_moves_in_chain = all_related_pickings.mapped('move_line_ids').filtered(lambda m: m.product_id == product)
             total_processed = sum(all_moves_in_chain.mapped('quantity'))
-            _logger.info(f"APAKAH HAS MISSING DEMAND {total_demand} | PROCESSED {total_processed}")
+            # _logger.info(f"APAKAH HAS MISSING DEMAND {total_demand} | PROCESSED {total_processed}")
             if total_demand > total_processed:
                 return 'missing', product, (total_demand - total_processed)
             if total_demand < total_processed:
@@ -692,17 +695,17 @@ class StockPicking(models.Model):
     # Quantity Backorder
     def action_create_quantity_backorder(self):
         self.ensure_one()
-        _logger.info(f"=== START action_create_quantity_backorder for {self.name} ===")
+        # _logger.info(f"=== START action_create_quantity_backorder for {self.name} ===")
 
         if not (self.checker_only or self.checker_out):
-            _logger.info(f"NOT CHECKER ONLY {self.checker_only} atau CHECKER OUT {self.checker_out} SKIPPED")
+            # _logger.info(f"NOT CHECKER ONLY {self.checker_only} atau CHECKER OUT {self.checker_out} SKIPPED")
             return
 
         # 1. Root picking
         root_picking = self
         while root_picking.backorder_id:
             root_picking = root_picking.backorder_id
-        _logger.info(f"Root picking: {root_picking.name}")
+        # _logger.info(f"Root picking: {root_picking.name}")
 
         # 2. Semua picking dalam chain (rekursif)
         def get_all_pickings_in_chain(root):
@@ -713,16 +716,16 @@ class StockPicking(models.Model):
             return result
 
         all_related_pickings = get_all_pickings_in_chain(root_picking)
-        _logger.info(f"All pickings in chain: {[(p.name, p.state) for p in all_related_pickings]}")
+        # _logger.info(f"All pickings in chain: {[(p.name, p.state) for p in all_related_pickings]}")
 
         for move in self.move_ids:
             product = move.product_id
-            _logger.info(f"--- Processing product: {product.name} ---")
+            # _logger.info(f"--- Processing product: {product.name} ---")
 
             # Demand
             root_moves = root_picking.move_ids.filtered(lambda m: m.product_id == product)
             demand = sum(root_moves.mapped('product_uom_qty'))
-            _logger.info(f"  Demand: {demand}")
+            # _logger.info(f"  Demand: {demand}")
 
             # Hitung total processed
             all_moves_in_chain = all_related_pickings.mapped('move_ids').filtered(lambda m: m.product_id == product)
@@ -732,22 +735,22 @@ class StockPicking(models.Model):
                 ml_qty_sum = sum(m.move_line_ids.mapped('quantity'))
                 if m.state == 'done':
                     total_done += m.quantity
-                    _logger.info(f"    [DONE] Move {m.id} | {m.picking_id.name} | qty: {m.quantity}")
+                    # _logger.info(f"    [DONE] Move {m.id} | {m.picking_id.name} | qty: {m.quantity}")
                 elif m.state not in ('cancel',):
                     total_in_progress += ml_qty_sum
-                    _logger.info(
-                        f"    [IN-PROGRESS] Move {m.id} | {m.picking_id.name} "
-                        f"| state: {m.state} | ml_qty: {ml_qty_sum}"
-                    )
+                    # _logger.info(
+                    #     f"    [IN-PROGRESS] Move {m.id} | {m.picking_id.name} "
+                    #     f"| state: {m.state} | ml_qty: {ml_qty_sum}"
+                    # )
 
             missing_qty = demand - (total_done + total_in_progress)
-            _logger.info(
-                f"  SUMMARY → demand: {demand} | done: {total_done} "
-                f"| in_progress: {total_in_progress} | missing: {missing_qty}"
-            )
+            # _logger.info(
+            #     f"  SUMMARY → demand: {demand} | done: {total_done} "
+            #     f"| in_progress: {total_in_progress} | missing: {missing_qty}"
+            # )
 
             if missing_qty <= 0:
-                _logger.info("  No missing qty, skipping.")
+                # _logger.info("  No missing qty, skipping.")
                 continue
             
             # Kurangin demadn
@@ -755,10 +758,10 @@ class StockPicking(models.Model):
                 target_move = root_moves[0]
                 old_demand = target_move.product_uom_qty
                 new_demand = max(old_demand - missing_qty, 0.0)
-                _logger.info(
-                    f"  Mengurangi demand root move {target_move.id} ({product.name}): "
-                    f"{old_demand} -> {new_demand} (dialihkan ke backorder: {missing_qty})"
-                )
+                # _logger.info(
+                #     f"  Mengurangi demand root move {target_move.id} ({product.name}): "
+                #     f"{old_demand} -> {new_demand} (dialihkan ke backorder: {missing_qty})"
+                # )
                 target_move.write({'product_uom_qty': new_demand})
 
             qty_type = False
@@ -781,15 +784,15 @@ class StockPicking(models.Model):
                 ('lot_id', '=', lot_id_for_search),
                 ('quantity', '>', 0),
             ])
-            _logger.info(f"  Semua quant di source location {move.location_id.name}:")
+            # _logger.info(f"  Semua quant di source location {move.location_id.name}:")
             for q in all_quants:
                 avail = q.quantity - q.reserved_quantity
-                _logger.info(
-                    f"    Quant {q.id} | pkg: {q.package_id.name if q.package_id else 'None'} "
-                    f"(id:{q.package_id.id if q.package_id else '-'}) "
-                    f"| qty: {q.quantity} | reserved: {q.reserved_quantity} "
-                    f"| available: {avail}"
-                )
+                # _logger.info(
+                #     f"    Quant {q.id} | pkg: {q.package_id.name if q.package_id else 'None'} "
+                #     f"(id:{q.package_id.id if q.package_id else '-'}) "
+                #     f"| qty: {q.quantity} | reserved: {q.reserved_quantity} "
+                #     f"| available: {avail}"
+                # )
 
             # Filter: hanya yang benar-benar available (belum penuh direservasi)
             usable_quants = sorted(
@@ -798,10 +801,10 @@ class StockPicking(models.Model):
                 reverse=True,
             )
 
-            _logger.info(
-                f"  Quant yang available (qty-reserved > 0): "
-                f"{[(q.id, q.package_id.id if q.package_id else None, round(q.quantity - q.reserved_quantity, 2)) for q in usable_quants]}"
-            )
+            # _logger.info(
+            #     f"  Quant yang available (qty-reserved > 0): "
+            #     f"{[(q.id, q.package_id.id if q.package_id else None, round(q.quantity - q.reserved_quantity, 2)) for q in usable_quants]}"
+            # )
 
             # Buat picking baru
             new_picking = self.env['stock.picking'].create({
@@ -813,7 +816,7 @@ class StockPicking(models.Model):
                 'origin': f"{root_picking.name} - Qty Remaining",
                 'po_sap_id': self.po_sap_id.id if self.po_sap_id else False,
             })
-            _logger.info(f"  Created new picking: {new_picking.name}")
+            # _logger.info(f"  Created new picking: {new_picking.name}")
 
             new_move = self.env['stock.move'].create({
                 'picking_id': new_picking.id,
@@ -829,11 +832,11 @@ class StockPicking(models.Model):
                 'order_seq': move.order_seq,
             })
             new_move._action_confirm()
-            _logger.info(f"  Move {new_move.id} confirmed. State: {new_move.state}")
+            # _logger.info(f"  Move {new_move.id} confirmed. State: {new_move.state}")
 
             # Hapus auto-generated move_line
             if new_move.move_line_ids:
-                _logger.info(f"  Unlinking {len(new_move.move_line_ids)} auto move_line(s)")
+                # _logger.info(f"  Unlinking {len(new_move.move_line_ids)} auto move_line(s)")
                 new_move.move_line_ids.unlink()
 
             # =====================================================================
@@ -870,22 +873,22 @@ class StockPicking(models.Model):
                     'take_qty': take_qty,
                     'avail_was': avail,
                 })
-                _logger.info(
-                    f"  Created move_line {ml.id}: ambil {take_qty} dari quant {q.id} "
-                    f"(pkg: {q.package_id.name if q.package_id else 'None'}, "
-                    f"avail was: {avail})"
-                )
+                # _logger.info(
+                #     f"  Created move_line {ml.id}: ambil {take_qty} dari quant {q.id} "
+                #     f"(pkg: {q.package_id.name if q.package_id else 'None'}, "
+                #     f"avail was: {avail})"
+                # )
                 remaining -= take_qty
 
-            _logger.info(f"  Move lines created: {created_lines}")
-            _logger.info(f"  Remaining unassigned after quant loop: {remaining}")
+            # _logger.info(f"  Move lines created: {created_lines}")
+            # _logger.info(f"  Remaining unassigned after quant loop: {remaining}")
 
             if remaining > 0:
-                _logger.error(
-                    f"  KRITIS: Tidak ada quant tersedia untuk {remaining} qty! "
-                    f"Total available dari semua quant: "
-                    f"{sum(q.quantity - q.reserved_quantity for q in all_quants)}"
-                )
+                # _logger.error(
+                #     f"  KRITIS: Tidak ada quant tersedia untuk {remaining} qty! "
+                #     f"Total available dari semua quant: "
+                #     f"{sum(q.quantity - q.reserved_quantity for q in all_quants)}"
+                # )
                 raise UserError(
                     f"Tidak cukup stok tersedia untuk membuat Qty Backorder.\n"
                     f"Produk: {product.display_name}\n"
@@ -894,47 +897,47 @@ class StockPicking(models.Model):
                 )
 
             # Validasi
-            _logger.info(f"  Attempting button_validate() on {new_picking.name}...")
+            # _logger.info(f"  Attempting button_validate() on {new_picking.name}...")
             try:
                 result = new_picking.with_context(
                     skip_backorder=True,
                     skip_immediate=True,
                     skip_sms=True,
                 ).button_validate()
-                _logger.info(
-                    f"  button_validate() returned: {result} | State: {new_picking.state}"
-                )
+                # _logger.info(
+                #     f"  button_validate() returned: {result} | State: {new_picking.state}"
+                # )
             except Exception as e:
                 _logger.error(f"  button_validate() FAILED: {e}")
                 raise
 
             if new_picking.state != 'done':
-                _logger.warning(
-                    f"  {new_picking.name} masih {new_picking.state}. "
-                    f"Fallback: move._action_done()..."
-                )
+                # _logger.warning(
+                #     f"  {new_picking.name} masih {new_picking.state}. "
+                #     f"Fallback: move._action_done()..."
+                # )
                 try:
                     new_move.with_context(
                         skip_backorder=True,
                         skip_immediate=True,
                     )._action_done()
-                    _logger.info(
-                        f"  move._action_done() selesai. "
-                        f"Move: {new_move.state} | Picking: {new_picking.state}"
-                    )
+                    # _logger.info(
+                    #     f"  move._action_done() selesai. "
+                    #     f"Move: {new_move.state} | Picking: {new_picking.state}"
+                    # )
                 except Exception as e2:
                     _logger.error(f"  move._action_done() FAILED: {e2}")
                     raise
 
-            _logger.info(
-                f"  FINAL: {new_picking.name} state={new_picking.state} | "
-                f"move state={new_move.state}"
-            )
+            # _logger.info(
+            #     f"  FINAL: {new_picking.name} state={new_picking.state} | "
+            #     f"move state={new_move.state}"
+            # )
 
             if new_picking.state != 'done':
                 raise UserError(f"Picking {new_picking.name} gagal divalidasi otomatis.")
 
-        _logger.info(f"=== END action_create_quantity_backorder for {self.name} ===")
+        # _logger.info(f"=== END action_create_quantity_backorder for {self.name} ===")
 
         return {
             "type": "ir.actions.client",

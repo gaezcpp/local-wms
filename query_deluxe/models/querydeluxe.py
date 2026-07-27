@@ -1,3 +1,6 @@
+import io
+import csv
+import base64
 from odoo import api, fields, models, exceptions, _
 
 
@@ -96,3 +99,56 @@ class QueryDeluxe(models.Model):
                     </table>
                     """.format(header_html, body_html)
             record.update(vals)
+
+    def action_download_csv(self):
+        """
+        Fungsi untuk mengeksekusi query dan mengunduh hasilnya dalam format CSV.
+        """
+        # Pastikan hanya satu record yang diproses
+        self.ensure_one() 
+        
+        if not self.name:
+            raise exceptions.UserError(_("Tidak ada query yang dieksekusi."))
+
+        # 1. Ambil data dari fungsi bawaan Anda
+        headers, datas = self._get_result_from_query(self.name)
+
+        if not headers and not datas:
+            raise exceptions.UserError(_("Query tidak menghasilkan data untuk diunduh."))
+
+        # 2. Buat file CSV di dalam memori
+        output = io.StringIO()
+        writer = csv.writer(output, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+
+        # Tulis Header
+        if headers:
+            writer.writerow(headers)
+            
+        # Tulis Data (Baris per Baris)
+        for data in datas:
+            # Ubah nilai None menjadi string kosong agar format CSV rapi
+            row = ['' if val is None else str(val) for val in data]
+            writer.writerow(row)
+
+        csv_content = output.getvalue()
+        output.close()
+
+        # 3. Encode data CSV ke format Base64 yang dibutuhkan Odoo Attachment
+        csv_base64 = base64.b64encode(csv_content.encode('utf-8'))
+
+        # 4. Buat Attachment di Odoo
+        attachment = self.env['ir.attachment'].create({
+            'name': 'query_result.csv',
+            'type': 'binary',
+            'datas': csv_base64,
+            'res_model': self._name,
+            'res_id': self.id,
+            'mimetype': 'text/csv'
+        })
+
+        # 5. Kembalikan action URL untuk memicu unduhan di browser
+        return {
+            'type': 'ir.actions.act_url',
+            'url': f'/web/content/{attachment.id}?download=true',
+            'target': 'self',
+        }

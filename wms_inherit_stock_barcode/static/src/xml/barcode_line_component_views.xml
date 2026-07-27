@@ -24,10 +24,22 @@
             <attribute name="t-if">env.model.displayLineQtyDemand(line)</attribute>
         </xpath>
         <xpath expr="//span[hasclass('qty-done')]/../span[@t-if]" position="attributes">
-            <attribute name="t-out">hasBagUom ? '/' + computedBagDemand + '' + bagUomLabel : '/' + qtyDemand</attribute>
+            <attribute name="t-out">hasBagUom ? '/' + computedBagDemand + ' ' + bagUomLabel : '/' + qtyDemand</attribute>
         </xpath>
         <xpath expr="//small[hasclass('o_line_uom')]" position="attributes">
             <attribute name="t-if">props.displayUOM and !hasBagUom</attribute>
+        </xpath>
+    </t>
+
+    <t t-inherit="stock_barcode.LineUpperButtons" t-inherit-mode="extension">
+        <xpath expr="//button[hasclass('o_edit')]" position="attributes">
+            <attribute name="t-if">!displayToggleBtn and !env.model.record.hide_edit_barcode</attribute>
+        </xpath>
+    </t>
+
+    <t t-inherit="stock_barcode.LineLot" t-inherit-mode="extension">
+        <xpath expr="//button[hasclass('o_edit')]" position="attributes">
+            <attribute name="t-if">!displayToggleBtn and !env.model.record.hide_edit_barcode</attribute>
         </xpath>
     </t>
 
