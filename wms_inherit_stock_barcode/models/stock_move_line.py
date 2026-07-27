@@ -38,14 +38,10 @@ class StockMoveLine(models.Model):
 
         filtered_vals_list = self._filter_empty_package_lines(vals_list)
         if not filtered_vals_list:
-            _logger.info("[WMS-NEGQTY] stock.move.line create DROPPED ALL (hide_zero_qty) vals_list=%s", vals_list)
+            _logger.info(f"[GRGI] move.line create DROPPED ALL (hide_zero_qty) count={len(vals_list)}")
             return self.browse()
         records = super().create(filtered_vals_list)
-        _logger.info(
-            "[WMS-NEGQTY] stock.move.line CREATE result=%s",
-            [(r.id, r.move_id.id, r.picking_id.id if r.picking_id else False,
-              r.quantity, r.bag_qty, r.lot_id.name if r.lot_id else False) for r in records],
-        )
+        _logger.info(f"[GRGI] move.line CREATE ids={records.ids} qty={records.mapped('quantity')}")
         records._validate_lot_availability()
         return records
 
@@ -56,11 +52,7 @@ class StockMoveLine(models.Model):
         self._sync_qty_from_bag(vals, records=self)
         self._validate_qty_packaging_sap(vals)
         if {'quantity', 'bag_qty', 'qty_done'} & set(vals.keys()):
-            _logger.info(
-                "[WMS-NEGQTY] stock.move.line WRITE ids=%s vals=%s before=%s",
-                self.ids, vals,
-                [(r.id, r.quantity, r.bag_qty) for r in self],
-            )
+            _logger.info(f"[GRGI] move.line WRITE ids={self.ids} vals={vals}")
         res = super().write(vals)
 
         if {'quantity', 'bag_qty', 'qty_done'} & set(vals.keys()):
@@ -69,19 +61,6 @@ class StockMoveLine(models.Model):
         return res
 
     def _validate_lot_availability(self):
-        """[WMS-NEGQTY] Cegah quantity satu move.line melebihi stok LOT
-        spesifik yang benar-benar ada di lokasi sumbernya. Setiap move.line
-        terikat ke satu lot tertentu -- kalau user menulis quantity yang
-        merepresentasikan total gabungan beberapa lot (mis. hasil tombol
-        "fulfill" pada tampilan yang meng-grup beberapa lot jadi satu baris,
-        lihat groupKey() di stock_barcode core yang grouping berdasarkan
-        product+location TANPA lot) ke satu line berlot tunggal, itu salah:
-        line itu akan mencatat lot A seolah sebanyak qty gabungan, padahal
-        fisik lot A di lokasi itu jauh lebih sedikit -- baru ketahuan
-        belakangan sebagai stock.quant minus (root cause asli kasus ini).
-        Divalidasi terhadap stock.quant on-hand dikurangi reservasi line
-        lain (state belum done/cancel) untuk lot+lokasi yang sama, ditambah
-        qty yang sudah direservasi line ini sendiri sebelumnya."""
         if self.env.context.get('skip_over_demand_check'):
             return
 
@@ -112,12 +91,9 @@ class StockMoveLine(models.Model):
 
             if float_compare(line.quantity, available_for_line, precision_digits=precision) > 0:
                 _logger.info(
-                    "[WMS-NEGQTY] _validate_lot_availability BLOCKED line=%s move=%s "
-                    "picking=%s(id=%s) product=%s lot=%s location=%s on_hand=%s "
-                    "reserved_by_others=%s available=%s attempted_qty=%s",
-                    line.id, line.move_id.id, line.picking_id.name, line.picking_id.id,
-                    line.product_id.display_name, line.lot_id.name, line.location_id.complete_name,
-                    on_hand, reserved_by_others, available_for_line, line.quantity,
+                    f"[GRGI] lot_availability BLOCKED line={line.id} picking={line.picking_id.name} "
+                    f"lot={line.lot_id.name} on_hand={on_hand} available={available_for_line} "
+                    f"attempted={line.quantity}"
                 )
                 raise ValidationError(
                     f"Quantity {line.quantity} yang diinput untuk lot '{line.lot_id.name}' "
@@ -173,14 +149,8 @@ class StockMoveLine(models.Model):
             computed_qty = bag_qty * (uom_bag.factor / 1000)
             vals['qty_done'] = computed_qty
             _logger.info(
-                "[WMS-NEGQTY] _sync_qty_from_bag line=%s move=%s picking=%s(id=%s) "
-                "bag_qty=%s uom_bag_factor=%s computed_quantity=%s "
-                "vals_has_quantity_key=%s vals_quantity_value=%s current_line_quantity=%s",
-                rec.id, rec.move_id.id,
-                rec.picking_id.name if rec.picking_id else False,
-                rec.picking_id.id if rec.picking_id else False,
-                bag_qty, uom_bag.factor, computed_qty,
-                'quantity' in vals, vals.get('quantity'), rec.quantity,
+                f"[GRGI] sync_qty_from_bag line={rec.id} picking={rec.picking_id.name} "
+                f"bag_qty={bag_qty} -> qty={computed_qty} (was {rec.quantity})"
             )
 
     @api.constrains('pallet_qty', 'picking_id')

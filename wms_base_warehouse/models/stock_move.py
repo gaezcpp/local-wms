@@ -60,21 +60,15 @@ class StockMove(models.Model):
 
         if available_for_line <= line.quantity:
             _logger.warning(
-                "book_full_pallet: package %s sudah direserve move line lain "
-                "(reserved_elsewhere=%s dari actual=%s), tidak bisa bump line %s (move %s)",
-                line.package_id.display_name, reserved_elsewhere, actual_pkg_qty,
-                line.id, line.move_id.id,
+                f"[GRGI] full_pallet_line BLOCKED pkg={line.package_id.display_name} "
+                f"reserved_elsewhere={reserved_elsewhere} actual={actual_pkg_qty} line={line.id}"
             )
             return True
 
         target_qty = min(available_for_line, actual_pkg_qty)
         _logger.info(
-            "[WMS-NEGQTY] _force_full_pallet_line line=%s move=%s picking=%s(id=%s) "
-            "move_demand=%s old_line_qty=%s -> new_line_qty=%s actual_pkg_qty=%s "
-            "reserved_elsewhere=%s",
-            line.id, line.move_id.id, line.move_id.picking_id.name, line.move_id.picking_id.id,
-            line.move_id.product_uom_qty, line.quantity, target_qty, actual_pkg_qty,
-            reserved_elsewhere,
+            f"[GRGI] full_pallet_line line={line.id} picking={line.move_id.picking_id.name} "
+            f"qty {line.quantity}->{target_qty} actual_pkg={actual_pkg_qty}"
         )
         line.sudo().write({'quantity': target_qty})
         return target_qty < actual_pkg_qty
@@ -82,13 +76,9 @@ class StockMove(models.Model):
     def _action_assign(self, **kwargs):
         for move in self:
             _logger.info(
-                "[WMS-NEGQTY] _action_assign IN move=%s picking=%s(id=%s) type=%s(id=%s) "
-                "product=%s demand=%s current_qty=%s state=%s sale=%s",
-                move.id, move.picking_id.name, move.picking_id.id,
-                move.picking_id.picking_type_id.name, move.picking_id.picking_type_id.id,
-                move.product_id.default_code or move.product_id.name,
-                move.product_uom_qty, move.quantity, move.state,
-                move.sale_line_id.order_id.name if move.sale_line_id else False,
+                f"[GRGI] _action_assign IN move={move.id} picking={move.picking_id.name} "
+                f"type={move.picking_id.picking_type_id.name} product={move.product_id.default_code} "
+                f"demand={move.product_uom_qty} qty={move.quantity} state={move.state}"
             )
 
         bypass = self.env.context.get('bypass_adjust_demand', False)
@@ -178,13 +168,10 @@ class StockMove(models.Model):
                 lines_to_clear.write({'result_package_id': False})
 
         for move in self:
+            lines = [(l.id, l.quantity, l.lot_id.name) for l in move.move_line_ids]
             _logger.info(
-                "[WMS-NEGQTY] _action_assign OUT move=%s picking=%s(id=%s) demand=%s "
-                "current_qty=%s state=%s lines=%s",
-                move.id, move.picking_id.name, move.picking_id.id,
-                move.product_uom_qty, move.quantity, move.state,
-                [(l.id, l.quantity, l.lot_id.name if l.lot_id else False,
-                  l.package_id.name if l.package_id else False) for l in move.move_line_ids],
+                f"[GRGI] _action_assign OUT move={move.id} picking={move.picking_id.name} "
+                f"demand={move.product_uom_qty} qty={move.quantity} state={move.state} lines={lines}"
             )
 
         return res
@@ -384,16 +371,11 @@ class StockMove(models.Model):
     
     def _action_done(self, **kwargs):
         for move in self:
+            lines = [(l.id, l.quantity, l.lot_id.name, l.location_dest_id.complete_name) for l in move.move_line_ids]
             _logger.info(
-                "[WMS-NEGQTY] _action_done IN move=%s picking=%s(id=%s) type=%s(id=%s) "
-                "product=%s demand=%s quantity=%s lines=%s",
-                move.id, move.picking_id.name, move.picking_id.id,
-                move.picking_id.picking_type_id.name, move.picking_id.picking_type_id.id,
-                move.product_id.default_code or move.product_id.name,
-                move.product_uom_qty, move.quantity,
-                [(l.id, l.quantity, l.bag_qty, l.lot_id.name if l.lot_id else False,
-                  l.location_id.complete_name, l.location_dest_id.complete_name)
-                 for l in move.move_line_ids],
+                f"[GRGI] _action_done IN move={move.id} picking={move.picking_id.name} "
+                f"type={move.picking_id.picking_type_id.name} product={move.product_id.default_code} "
+                f"demand={move.product_uom_qty} qty={move.quantity} lines={lines}"
             )
 
         res = super()._action_done(**kwargs)

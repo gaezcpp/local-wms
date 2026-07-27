@@ -385,6 +385,11 @@ class StockPicking(models.Model):
         return result
 
     def button_validate(self):
+        for picking in self:
+            _logger.info(
+                f"[GRGI] button_validate picking={picking.name} checker_in={picking.checker_only} "
+                f"checker_out={picking.checker_out} state={picking.state}"
+            )
         self._sync_packaging_lines()
         self._check_all_sloc_filled()
         self._check_all_result_package_id()
@@ -394,11 +399,12 @@ class StockPicking(models.Model):
             konversi = False
             if product:
                 konversi = product.uom_id._compute_quantity(diff_qty, product.uom_bag_id)
+            _logger.info(f"[GRGI] button_validate checker qty status={status} product={product.default_code if product else False} diff={diff_qty}")
             if status == 'missing':
                 raise ValidationError("Silahkan lakukan Check Quantity untuk melanjutkan proses Validate")
             elif status == 'excess':
                 raise ValidationError(f"Quantity yang dimasukkan melebihi Quantity Inbound sebanyak [{konversi} {product.uom_bag_id.name}]")
-            
+
         res = super().button_validate()
         if not isinstance(res, dict):
             self._sync_post_validate_quantities()
@@ -478,6 +484,8 @@ class StockPicking(models.Model):
 
         if not (self.checker_only or self.checker_out):
             return
+
+        _logger.info(f"[GRGI] qty_backorder START picking={self.name}")
 
         # 1. Root picking
         root_picking = self
@@ -627,7 +635,7 @@ class StockPicking(models.Model):
                     skip_sms=True,
                 ).button_validate()
             except Exception as e:
-                _logger.error(f"  button_validate() FAILED: {e}")
+                _logger.error(f"[GRGI] qty_backorder picking={new_picking.name} button_validate FAILED: {e}")
                 raise
 
             if new_picking.state != 'done':
@@ -637,7 +645,7 @@ class StockPicking(models.Model):
                         skip_immediate=True,
                     )._action_done()
                 except Exception as e2:
-                    _logger.error(f"  move._action_done() FAILED: {e2}")
+                    _logger.error(f"[GRGI] qty_backorder picking={new_picking.name} _action_done FAILED: {e2}")
                     raise
 
             if new_picking.state != 'done':
