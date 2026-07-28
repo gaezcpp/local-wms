@@ -27,11 +27,9 @@ class StockQuant(models.Model):
         )
         
         if self.env.context.get('uu_only'):
-            before = len(quants)
             quants = quants.filtered(
                 lambda q: q.stock_type == 'UU' and q.package_id and q.package_id.yellow_tag == 'ready' and not q.package_id.is_reserved
             )
-            _logger.info(f"[GRGI] _gather uu_only product={product_id.default_code} {before}->{len(quants)} quants")
 
         quants = quants.sorted(key=lambda q: 0 if q.package_id and q.package_id.pallet_status == 'eceran' else 1)
 
@@ -157,7 +155,6 @@ class StockQuant(models.Model):
             old_type = old_values.get(quant.id)
             new_type = quant.stock_type
             if old_type != new_type and quant.package_id:
-                _logger.info(f"[GRGI] quant stock_type quant={quant.id} product={quant.product_id.default_code} {old_type}->{new_type}")
                 message_body = f"Update Stock Type: Produk {quant.product_id.display_name} telah diubah dari [{old_type or '-'}] menjadi [{new_type}]."
                 quant.package_id.message_post(body=message_body)
     

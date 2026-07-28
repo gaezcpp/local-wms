@@ -16,7 +16,6 @@ class QualityQuantityBackorder(models.TransientModel):
     
     def action_create_backorder_from_qq(self):
         self.ensure_one()
-        _logger.info(f"[GRGI] QQ backorder START picking={self.picking_id.name or None}")
 
         if not self.picking_type_id:
             raise UserError("Operation Type wajib diisi!")
@@ -40,11 +39,8 @@ class QualityQuantityBackorder(models.TransientModel):
             'backorder_id': self.picking_id.id if self.picking_id else False,
             'po_sap_id': self.picking_id.po_sap_id.id if self.picking_id.po_sap_id else False,
         })
-        _logger.info(f"[GRGI] QQ backorder new_picking={new_picking.name}")
 
         for line in self.line_ids:
-            _logger.info(f"[GRGI] QQ backorder line product={line.product_id.default_code} qty={line.qty}")
-
             base_qty = line.product_uom_id._compute_quantity(line.qty, line.product_id.uom_id)
 
             orig_ml = line.move_line_id
@@ -66,8 +62,6 @@ class QualityQuantityBackorder(models.TransientModel):
             move._action_confirm()
 
             if orig_ml:
-                _logger.info(f"[GRGI] QQ backorder reduce orig_ml={orig_ml.id} old_qty={orig_ml.quantity}")
-
                 new_orig_ml_qty = orig_ml.quantity - line.qty
                 new_orig_ml_qty_pack = orig_ml.bag_qty - line.qty_pack
                 if new_orig_ml_qty > 0:
@@ -108,9 +102,7 @@ class QualityQuantityBackorder(models.TransientModel):
         new_picking.action_confirm()
         if new_picking.state == 'assigned':
             new_picking.with_context(skip_backorder=True).button_validate()
-            _logger.info(f"[GRGI] QQ backorder picking={new_picking.name} validated")
         else:
-            _logger.warning(f"[GRGI] QQ backorder picking={new_picking.name} state={new_picking.state} force done")
             new_picking.action_done()
         
         return {

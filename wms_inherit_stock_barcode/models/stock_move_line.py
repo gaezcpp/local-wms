@@ -38,11 +38,9 @@ class StockMoveLine(models.Model):
 
         filtered_vals_list = self._filter_empty_package_lines(vals_list)
         if not filtered_vals_list:
-            _logger.info(f"[GRGI] move.line create DROPPED ALL (hide_zero_qty) count={len(vals_list)}")
             return self.browse()
         records = super().create(filtered_vals_list)
-        _logger.info(f"[GRGI] move.line CREATE ids={records.ids} qty={records.mapped('quantity')}")
-        records._validate_lot_availability()
+        # records._validate_lot_availability()
         return records
 
     def write(self, vals):
@@ -51,57 +49,55 @@ class StockMoveLine(models.Model):
         self._validate_bag_qty(vals, records=self)
         self._sync_qty_from_bag(vals, records=self)
         self._validate_qty_packaging_sap(vals)
-        if {'quantity', 'bag_qty', 'qty_done'} & set(vals.keys()):
-            _logger.info(f"[GRGI] move.line WRITE ids={self.ids} vals={vals}")
         res = super().write(vals)
 
-        if {'quantity', 'bag_qty', 'qty_done'} & set(vals.keys()):
-            self._validate_lot_availability()
+        # if {'quantity', 'bag_qty', 'qty_done'} & set(vals.keys()):
+        #     self._validate_lot_availability()
 
         return res
 
-    def _validate_lot_availability(self):
-        if self.env.context.get('skip_over_demand_check'):
-            return
+    # def _validate_lot_availability(self):
+    #     if self.env.context.get('skip_over_demand_check'):
+    #         return
 
-        precision = self.env['decimal.precision'].precision_get('Product Unit of Measure')
-        for line in self:
-            if not line.lot_id or not line.location_id or line.state in ('done', 'cancel'):
-                continue
-            picking_type = line.picking_id.picking_type_id if line.picking_id else False
-            if not picking_type or not picking_type.restrict_over_demand:
-                continue
+    #     precision = self.env['decimal.precision'].precision_get('Product Unit of Measure')
+    #     for line in self:
+    #         if not line.lot_id or not line.location_id or line.state in ('done', 'cancel'):
+    #             continue
+    #         picking_type = line.picking_id.picking_type_id if line.picking_id else False
+    #         if not picking_type or not picking_type.restrict_over_demand:
+    #             continue
 
-            domain = [
-                ('product_id', '=', line.product_id.id),
-                ('lot_id', '=', line.lot_id.id),
-                ('location_id', '=', line.location_id.id),
-            ]
-            quant_domain = domain + [
-                ('package_id', '=', line.package_id.id if line.package_id else False),
-            ]
-            on_hand = sum(self.env['stock.quant'].sudo().search(quant_domain).mapped('quantity'))
+    #         domain = [
+    #             ('product_id', '=', line.product_id.id),
+    #             ('lot_id', '=', line.lot_id.id),
+    #             ('location_id', '=', line.location_id.id),
+    #         ]
+    #         quant_domain = domain + [
+    #             ('package_id', '=', line.package_id.id if line.package_id else False),
+    #         ]
+    #         on_hand = sum(self.env['stock.quant'].sudo().search(quant_domain).mapped('quantity'))
 
-            other_lines = self.env['stock.move.line'].sudo().search(domain + [
-                ('id', '!=', line.id),
-                ('state', 'not in', ('done', 'cancel')),
-            ])
-            reserved_by_others = sum(other_lines.mapped('quantity'))
-            available_for_line = on_hand - reserved_by_others
+    #         other_lines = self.env['stock.move.line'].sudo().search(domain + [
+    #             ('id', '!=', line.id),
+    #             ('state', 'not in', ('done', 'cancel')),
+    #         ])
+    #         reserved_by_others = sum(other_lines.mapped('quantity'))
+    #         available_for_line = on_hand - reserved_by_others
 
-            if float_compare(line.quantity, available_for_line, precision_digits=precision) > 0:
-                _logger.info(
-                    f"[GRGI] lot_availability BLOCKED line={line.id} picking={line.picking_id.name} "
-                    f"lot={line.lot_id.name} on_hand={on_hand} available={available_for_line} "
-                    f"attempted={line.quantity}"
-                )
-                raise ValidationError(
-                    f"Quantity {line.quantity} yang diinput untuk lot '{line.lot_id.name}' "
-                    f"({line.product_id.display_name}) di picking {line.picking_id.name} "
-                    f"melebihi stok lot tersebut yang tersedia di lokasi "
-                    f"'{line.location_id.complete_name}' (tersedia: {available_for_line}). "
-                    f"Input quantity sesuai qty milik lot ini saja, jangan total gabungan lot lain."
-                )
+    #         if float_compare(line.quantity, available_for_line, precision_digits=precision) > 0:
+    #             _logger.info(
+    #                 f"[GRGI] lot_availability BLOCKED line={line.id} picking={line.picking_id.name} "
+    #                 f"lot={line.lot_id.name} on_hand={on_hand} available={available_for_line} "
+    #                 f"attempted={line.quantity}"
+    #             )
+    #             raise ValidationError(
+    #                 f"Quantity {line.quantity} yang diinput untuk lot '{line.lot_id.name}' "
+    #                 f"({line.product_id.display_name}) di picking {line.picking_id.name} "
+    #                 f"melebihi stok lot tersebut yang tersedia di lokasi "
+    #                 f"'{line.location_id.complete_name}' (tersedia: {available_for_line}). "
+    #                 f"Input quantity sesuai qty milik lot ini saja, jangan total gabungan lot lain."
+    #             )
     
     def _resolve_hide_zero_qty(self, vals):
         picking_id = vals.get("picking_id")
@@ -148,10 +144,6 @@ class StockMoveLine(models.Model):
                 continue
             computed_qty = bag_qty * (uom_bag.factor / 1000)
             vals['qty_done'] = computed_qty
-            _logger.info(
-                f"[GRGI] sync_qty_from_bag line={rec.id} picking={rec.picking_id.name} "
-                f"bag_qty={bag_qty} -> qty={computed_qty} (was {rec.quantity})"
-            )
 
     @api.constrains('pallet_qty', 'picking_id')
     def _check_pallet_qty_limit(self):

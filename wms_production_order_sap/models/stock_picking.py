@@ -54,7 +54,6 @@ class InheritBaseStockPicking(models.Model):
         for picking in self:
             right_now = self.now_jakarta()
             now_hour = right_now.strftime('%H%M')
-            # _logger.info(f"NOW HOUR {now_hour}")
             prod_shift = picking.production_shift_id
             if not prod_shift:
                 all_shifts = Shift.search([])
@@ -113,16 +112,6 @@ class InheritBaseStockPicking(models.Model):
     def _action_done(self):
         res = super()._action_done()
         for picking in self:
-            # picking._propagate_po_sap_to_quant() # Pindah related stock.lot
             if picking.po_sap_id and picking.po_sap_id.state not in ('teco', 'closed'):
                 picking.po_sap_id.state = 'in_progress'
         return res
-    
-    # isi po_sap_id di stock.quant
-    # Pindah related stock.lot
-    # def _propagate_po_sap_to_quant(self):
-    #     for picking in self.filtered(lambda p: p.po_sap_id and p.state == 'done'):
-    #         quants = picking.move_line_ids.mapped('quant_id')
-    #         quants = quants.filtered(lambda q: not q.po_sap_id)
-    #         if quants:
-    #             quants.write({'po_sap_id': picking.po_sap_id.id})

@@ -76,15 +76,6 @@ class InheritBaseStockPicking(models.Model):
 
     def _check_restrict_over_demand(self):
         for picking in self:
-            if picking.picking_type_id.restrict_over_demand:
-                for move in picking.move_ids:
-                    _logger.info(
-                        f"[GRGI] restrict_over_demand check picking={picking.name} "
-                        f"type={picking.picking_type_id.name} move={move.id} "
-                        f"product={move.product_id.default_code} demand={move.product_uom_qty} "
-                        f"processed={move.quantity}"
-                    )
-
             if not picking.picking_type_id.restrict_over_demand:
                 continue
 
@@ -96,11 +87,6 @@ class InheritBaseStockPicking(models.Model):
                     raise ValidationError("Tidak bisa melanjutkan proses dikarenakan quantity melebihi demand!")
 
     def button_validate(self):
-        for picking in self:
-            _logger.info(
-                f"[GRGI] button_validate picking={picking.name} "
-                f"type={picking.picking_type_id.name} state={picking.state}"
-            )
         self._check_restrict_over_demand()
         res = super(InheritBaseStockPicking, self).button_validate()
         if isinstance(res, dict):

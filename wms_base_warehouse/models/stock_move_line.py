@@ -111,7 +111,6 @@ class InheritBaseStockMoveLine(models.Model):
             if rec._is_gr_prod():
                 lot = rec._get_or_create_lot()
                 if lot:
-                    _logger.info(f"[GRGI] move.line create GR line={rec.id} picking={rec.picking_id.name} lot={lot.name}")
                     rec.with_context(skip_lot_aft=True).write({'lot_id': lot.id})
         return records
 
@@ -135,10 +134,6 @@ class InheritBaseStockMoveLine(models.Model):
                 
                 dest_quants = self.env['stock.quant'].sudo().search(domain)
                 if dest_quants:
-                    _logger.info(
-                        f"[GRGI] move.line write GR line={rec.id} picking={rec.picking_id.name} "
-                        f"stock_type={rec.stock_type} quants={dest_quants.ids}"
-                    )
                     dest_quants.write({'stock_type': rec.stock_type})
             
             trigger_fields = {'production_line_id', 'expiration_date'}
@@ -169,10 +164,6 @@ class InheritBaseStockMoveLine(models.Model):
             picking_type = line.picking_id.picking_type_code
             if picking_type == 'outgoing' and line.lot_id:
                 lot = line.lot_id
-                _logger.info(
-                    f"[GRGI] move.line _action_done GI line={line.id} picking={line.picking_id.name} "
-                    f"lot={lot.name} qty_done={line.qty_done}"
-                )
 
                 qty_to_reduce = line.qty_done
                 bag_to_reduce = line.bag_qty
