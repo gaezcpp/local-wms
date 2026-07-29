@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- NOTE: view_stock_quant_tree_editable and
+             view_stock_quant_tree_inventory_editable (the "Locations" /
+             "Physical Inventory" reports) are opened as standalone action
+             windows, never nested inside a form. Odoo evaluates
+             column_invisible / list-root create-edit-delete / header button
+             invisible against the list's own scope, which has no bound
+             record and no "parent" in a standalone list (core's own arch for
+             these two views never references "parent." either). There is no
+             supported way to make those conditional on wms_type per record,
+             so the FEED-only stock_type/bag_qty/uom_bag_id/po_sap_id columns
+             and the FEED lockdown of these two reports stay as-is for both
+             FEED and FOOD: a cosmetic-only gap (extra visible columns),
+             not a functional one. -->
+
+        <!-- Counters wms_inherit_stock_barcode/views/stock_quant_views.xml:
+             inherit_stock_quant_barcode (stock_barcode.stock_quant_barcode):
+             a single-record form (the barcode app's quant detail popup), so
+             plain "wms_type" resolves fine here (per-record, not per-column). -->
+        <record model="ir.ui.view" id="food_inherit_stock_quant_barcode">
+            <field name="name">food.inherit.stock.quant.barcode</field>
+            <field name="model">stock.quant</field>
+            <field name="inherit_id" ref="wms_inherit_stock_barcode.inherit_stock_quant_barcode"/>
+            <field name="priority">99</field>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='inventory_quantity']" position="before">
+                    <field name="wms_type" invisible="1"/>
+                </xpath>
+                <xpath expr="//field[@name='inventory_quantity']" position="attributes">
+                    <attribute name="readonly">wms_type != 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//div[@name='quantity']//field[@name='product_uom_id']" position="attributes">
+                    <attribute name="readonly">wms_type != 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//div[@name='bag_quantity']" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//div[@name='pallet_quantity']" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                </xpath>
+            </field>
+        </record>
+    </data>
+</odoo>

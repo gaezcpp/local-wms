@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Counters wms_base_warehouse/views/stock_picking_views.xml:
+             inherit_base_stock_picking_form (stock.view_picking_form).
+             For a FOOD company, every attribute below is restored to the
+             exact condition core Odoo uses (see odoo/addons/stock/views/
+             stock_picking_views.xml); for FEED it stays exactly as before. -->
+        <record model="ir.ui.view" id="food_inherit_base_stock_picking_form">
+            <field name="name">food.inherit.base.stock.picking.form</field>
+            <field name="model">stock.picking</field>
+            <field name="inherit_id" ref="wms_base_warehouse.inherit_base_stock_picking_form"/>
+            <field name="priority">99</field>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='partner_id']" position="attributes">
+                    <attribute name="readonly">(wms_type == 'FOOD' and state in ['cancel', 'done']) or wms_type != 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='picking_type_id']" position="attributes">
+                    <attribute name="readonly">(wms_type == 'FOOD' and state in ('done', 'cancel')) or wms_type != 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='scheduled_date']" position="attributes">
+                    <attribute name="readonly">(wms_type == 'FOOD' and not is_date_editable) or wms_type != 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='origin']" position="attributes">
+                    <attribute name="readonly">(wms_type == 'FOOD' and state in ['cancel', 'done']) or wms_type != 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='over_delivery']" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='production_shift_id']" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='synchronize_sap']" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='synchronize_sap']" position="after">
+                    <!-- Explicit, hidden: the client's expression evaluator only
+                         resolves field names that are actually declared/fetched
+                         in this view, so every invisible/readonly/column_invisible
+                         condition below that reads "wms_type" needs this. -->
+                    <field name="wms_type" invisible="1"/>
+                </xpath>
+                <xpath expr="//field[@name='sap_seq']" position="attributes">
+                    <attribute name="column_invisible">parent.wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='order_seq']" position="attributes">
+                    <attribute name="column_invisible">parent.wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='sloc_to']" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='location_dest_id'][@groups='stock.group_stock_multi_locations']" position="attributes">
+                    <attribute name="readonly">(wms_type == 'FOOD' and state == 'done') or wms_type != 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='location_dest_id'][@groups='!stock.group_stock_multi_locations']" position="attributes">
+                    <attribute name="readonly">(wms_type == 'FOOD' and state == 'done') or wms_type != 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//button[@name='action_put_in_pack']" position="attributes">
+                    <attribute name="invisible">(wms_type == 'FOOD' and state in ('draft', 'done', 'cancel')) or wms_type != 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='move_ids']" position="attributes">
+                    <attribute name="readonly">(wms_type == 'FOOD' and state == 'done' and is_locked) or wms_type != 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='move_ids']/list" position="attributes">
+                    <!-- column_invisible/list-level attrs evaluate against the
+                         list's own scope, not the row's data, so they must use
+                         "parent." to reach the picking (same as parent.state
+                         elsewhere in this list): a bare "wms_type" here
+                         raises "Name 'wms_type' is not defined" client-side. -->
+                    <attribute name="create">parent.wms_type == 'FOOD'</attribute>
+                    <attribute name="edit">parent.wms_type == 'FOOD'</attribute>
+                    <attribute name="delete">parent.wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='move_ids']/list" position="inside">
+                    <control>
+                        <create string="Add a Product" invisible="parent.wms_type != 'FOOD'"/>
+                    </control>
+                </xpath>
+            </field>
+        </record>
+
+        <!-- Counters wms_inherit_stock_barcode/views/stock_picking_views.xml:
+             inherit_stock_picking_form_views (stock.view_picking_form). -->
+        <record model="ir.ui.view" id="food_inherit_stock_picking_form_views">
+            <field name="name">food.inherit.stock.picking.form</field>
+            <field name="model">stock.picking</field>
+            <field name="inherit_id" ref="wms_inherit_stock_barcode.inherit_stock_picking_form_views"/>
+            <field name="priority">99</field>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='product_uom']" position="attributes">
+                    <attribute name="readonly">(wms_type == 'FOOD' and state != 'draft' and not additional) or wms_type != 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='product_uom']" position="after">
+                    <field name="wms_type" column_invisible="1"/>
+                </xpath>
+                <xpath expr="//field[@name='quantity']" position="attributes">
+                    <attribute name="readonly">(wms_type == 'FOOD' and not is_quantity_done_editable) or wms_type != 'FOOD'</attribute>
+                </xpath>
+                <!-- column_invisible evaluates against the list's own scope,
+                     not the row's data, so it must use "parent." (matching
+                     the existing parent.state usage) rather than a bare
+                     "wms_type" reference to this row's own field. -->
+                <xpath expr="//field[@name='bag_qty']" position="attributes">
+                    <attribute name="column_invisible">parent.state=='draft' or parent.wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='uom_bag_id']" position="attributes">
+                    <attribute name="column_invisible">parent.state=='draft' or parent.wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='pallet_qty']" position="attributes">
+                    <attribute name="column_invisible">parent.state=='draft' or parent.wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='uom_pallet_id']" position="attributes">
+                    <attribute name="column_invisible">parent.state=='draft' or parent.wms_type == 'FOOD'</attribute>
+                </xpath>
+            </field>
+        </record>
+
+        <!-- Counters wms_inherit_stock_barcode/views/stock_picking_views.xml:
+             inherit_stock_barcode_picking_view_kanban (stock_barcode kanban card). -->
+        <record model="ir.ui.view" id="food_inherit_stock_barcode_picking_view_kanban">
+            <field name="name">food.inherit.stock.barcode.picking.kanban</field>
+            <field name="model">stock.picking</field>
+            <field name="inherit_id" ref="wms_inherit_stock_barcode.inherit_stock_barcode_picking_view_kanban"/>
+            <field name="priority">99</field>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='name']" position="before">
+                    <field name="wms_type"/>
+                </xpath>
+                <xpath expr="//div[@t-if='record.detail_operation_scan.raw_value']" position="attributes">
+                    <attribute name="t-if">record.detail_operation_scan.raw_value and record.wms_type.raw_value != 'FOOD'</attribute>
+                </xpath>
+            </field>
+        </record>
+
+        <!-- Counters wms_production_order_sap/views/stock_picking_views.xml:
+             inherit_production_order_form_views (stock.view_picking_form). -->
+        <record model="ir.ui.view" id="food_inherit_production_order_form_views">
+            <field name="name">food.inherit.production.order.stock.picking.form</field>
+            <field name="model">stock.picking</field>
+            <field name="inherit_id" ref="wms_production_order_sap.inherit_production_order_form_views"/>
+            <field name="priority">99</field>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='po_sap_id']" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                </xpath>
+            </field>
+        </record>
+    </data>
+</odoo>

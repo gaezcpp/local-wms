@@ -1,10 +1,14 @@
-from odoo import api, models
+from odoo import api, fields, models
 from odoo.addons.wms_base_warehouse.models.stock_quant import StockQuant as _WbwStockQuant
 from odoo.addons.wms_inherit_stock_barcode.models.stock_quant import InheritStockQuant as _SbStockQuant
 
 
 class FoodStockQuant(models.Model):
     _inherit = 'stock.quant'
+
+    # Related, non-stored: lets the views below decide per-record whether to
+    # show the FEED-customized arch or the plain Odoo one.
+    wms_type = fields.Selection(related='company_id.wms_type', string="WMS Type", store=True, index=True)
 
     @api.model
     def _gather(self, product_id, location_id, lot_id=None, package_id=None, owner_id=None, strict=False, qty=None):

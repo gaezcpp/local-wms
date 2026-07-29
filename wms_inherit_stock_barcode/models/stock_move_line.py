@@ -35,6 +35,7 @@ class StockMoveLine(models.Model):
 
             self._validate_bag_qty(vals)
             self._sync_qty_from_bag(vals)
+            # self._clear_destination_pallet(vals)
 
         filtered_vals_list = self._filter_empty_package_lines(vals_list)
         if not filtered_vals_list:
@@ -49,6 +50,7 @@ class StockMoveLine(models.Model):
         self._validate_bag_qty(vals, records=self)
         self._sync_qty_from_bag(vals, records=self)
         self._validate_qty_packaging_sap(vals)
+        # self._clear_destination_pallet(vals, records=self)
         res = super().write(vals)
 
         # if {'quantity', 'bag_qty', 'qty_done'} & set(vals.keys()):
@@ -98,6 +100,20 @@ class StockMoveLine(models.Model):
     #                 f"'{line.location_id.complete_name}' (tersedia: {available_for_line}). "
     #                 f"Input quantity sesuai qty milik lot ini saja, jangan total gabungan lot lain."
     #             )
+    
+    def _clear_destination_pallet(self, vals, records=None):
+        picking_id = vals.get('picking_id')
+        if picking_id:
+            picking = self.env['stock.picking'].sudo().browse(picking_id)
+            if picking and picking.picking_type_id.split_package:
+                vals['result_package_id'] = False
+                return # Langsung keluar jika sudah diset
+
+        if records:
+            for rec in records:
+                if rec.picking_id and rec.picking_id.picking_type_id.split_package:
+                    vals['result_package_id'] = False
+                    break # Cukup set sekali saja di vals karena vals berlaku untuk semua record di batch ini
     
     def _resolve_hide_zero_qty(self, vals):
         picking_id = vals.get("picking_id")

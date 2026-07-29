@@ -5,6 +5,10 @@ import BarcodePickingModel from "@stock_barcode/models/barcode_picking_model";
 import { _t } from "@web/core/l10n/translation";
 import { ConfirmationDialog } from "@web/core/confirmation_dialog/confirmation_dialog";
 
+function getRelId(val) {
+    return val && typeof val === "object" ? val.id : val || false;
+}
+
 function isUnreservedSurplusLine(line, debugLabel) {
     const result = Boolean(
         line &&
@@ -33,7 +37,7 @@ patch(BarcodePickingModel.prototype, {
             this.groupingLinesEnabled = false;
         }
     },
-    
+
     _snapshotStockTypeQty() {
         const snapshot = new Map();
         for (const line of this.currentState.lines) {
@@ -59,11 +63,9 @@ patch(BarcodePickingModel.prototype, {
             if (stockType && stockType !== "UU") {
                 blockedStockType = stockType;
                 if (existedBefore) {
-                    // Line lama (sudah ada sebelum scan ini) - cukup kembalikan qty-nya.
                     line.qty_done = prevQty;
                     this._markLineAsDirty(line);
                 } else {
-                    // Line baru hasil scan ini - buang sepenuhnya.
                     linesToRemove.push(line);
                 }
             }
@@ -108,13 +110,9 @@ patch(BarcodePickingModel.prototype, {
     async _getSourceStockType(line, args) {
         line = line || {};
         args = args || {};
-        // Line yang sudah tersimpan/reserved sudah membawa stock_type
-        // dari quant sumbernya (lihat stock.move._prepare_move_line_vals).
         if (line.id && typeof line.stock_type !== "undefined") {
             return line.stock_type;
         }
-        // Sudah pernah dicek sebelumnya untuk line (belum tersimpan) ini,
-        // hindari query ulang setiap kali qty di-increment.
         if (typeof line.__scannedStockType !== "undefined") {
             return line.__scannedStockType;
         }
@@ -181,16 +179,7 @@ patch(BarcodePickingModel.prototype, {
             );
         }
 
-        // --- Sembunyikan line surplus yang sudah di-merge ke sibling ---
-        // --- Sembunyikan line surplus (qty 0 hasil merge) HANYA kalau
-        // picking_type_id.hide_zero_qty diaktifkan. Kalau field ini false,
-        // tampilan berjalan seperti bawaan Odoo (tidak ada filter tambahan).
         if (this.record.hide_zero_qty) {
-            // Hanya sembunyikan line yang EKSPLISIT sudah di-merge
-            // (__isSurplusSkip). Line yang match pola surplus tapi TIDAK
-            // ada sibling untuk di-merge (lihat _cleanupPackageSplitRemainder)
-            // sengaja dibiarkan tampil - jadi jangan pakai deteksi generik
-            // isUnreservedSurplusLine di sini lagi.
             lines = lines.filter((line) => !line.__isSurplusSkip);
         }
 
@@ -199,11 +188,7 @@ patch(BarcodePickingModel.prototype, {
 
     get groupedLines() {
         const originalGroups = super.groupedLines;
-        console.log("========== [DEBUG groupedLines] START ==========");
-        console.log("[DEBUG] Jumlah originalGroups:", originalGroups.length);
         originalGroups.forEach((group, groupIndex) => {
-            console.log(`[DEBUG] Group #${groupIndex} package_id:`, group.package_id, "virtual_ids:", group.virtual_ids);
-            console.log(`[DEBUG] Group #${groupIndex} AGGREGATE -> qty_done:${group.qty_done}, quantity:${group.quantity}, reserved_uom_qty:${group.reserved_uom_qty}`);
             if (Array.isArray(group.lines)) {
                 group.lines.forEach((subLine, subIndex) => {
                     console.log(
@@ -218,11 +203,8 @@ patch(BarcodePickingModel.prototype, {
                         }, null, 2)
                     );
                 });
-            } else {
-                console.log(`[DEBUG] Group #${groupIndex} TIDAK punya nested lines (raw line langsung)`);
             }
         });
-        console.log("========== [DEBUG groupedLines] END ==========");
         return originalGroups;
     },
 
@@ -239,22 +221,16 @@ patch(BarcodePickingModel.prototype, {
     },
 
     async _cleanupPackageSplitRemainder() {
-        // GATE: kalau picking_type ini tidak mengaktifkan hide_zero_qty,
-        // jangan lakukan merge sama sekali - biarkan behavior native Odoo
-        // (2 line terpisah tetap ada, tidak digabung).
         if (!this.record.hide_zero_qty) {
-            console.log("[DEBUG] _cleanupPackageSplitRemainder: hide_zero_qty OFF, skip merge");
             return;
         }
         if (!this.currentState || !this.currentState.lines) {
-            console.log("[DEBUG] _cleanupPackageSplitRemainder: currentState/lines tidak ada, skip");
             return;
         }
         const lines = this.currentState.lines;
         const surplusLines = lines.filter(
             (line) => !line.__isSurplusSkip && isUnreservedSurplusLine(line, "cleanup")
         );
-        console.log(`[DEBUG] _cleanupPackageSplitRemainder: ditemukan ${surplusLines.length} line surplus untuk di-merge`);
 
         let didMerge = false;
 
@@ -277,60 +253,26 @@ patch(BarcodePickingModel.prototype, {
             if (sibling) {
                 const before = sibling.qty_done || 0;
                 sibling.qty_done = before + (surplus.qty_done || 0);
-                console.log(
-                    `[DEBUG] MERGE: sibling id:${sibling.id} qty_done ${before} -> ${sibling.qty_done} ` +
-                    `(menyerap surplus id:${surplus.id || "New"} qty_done:${surplus.qty_done})`
-                );
                 this._markLineAsDirty(sibling);
                 didMerge = true;
 
-                // Surplus sudah dipindahkan ke sibling - baru sekarang aman
-                // dinolkan & ditandai supaya tidak tampil/terkirim lagi.
                 surplus.qty_done = 0;
                 surplus.reserved_uom_qty = 0;
                 surplus.__isSurplusSkip = true;
-            } else {
-                // TIDAK ada sibling untuk merge -> JANGAN sentuh line ini.
-                // Biarkan tetap tampil dan tetap bisa diproses normal
-                // (qty_done tetap seperti hasil scan), karena tidak ada
-                // duplikat yang perlu digabung - user perlu melihat &
-                // memproses qty ini secara manual.
-                console.log(
-                    `[DEBUG] MERGE: tidak ada sibling cocok untuk surplus id:${surplus.id || "New"} ` +
-                    `package:${surplusPackageId} qty_done:${surplus.qty_done} - ` +
-                    `line DIBIARKAN APA ADANYA (tetap tampil, tidak di-hide)`
-                );
             }
         }
 
-        // PENTING: persist ke backend SEKARANG, jangan tunggu validate.
-        // Kalau tidak di-save di sini, perubahan qty_done sibling cuma hidup
-        // di memory - begitu user keluar dari barcode view tanpa validate,
-        // DB tetap punya angka lama, dan saat masuk lagi core akan
-        // membentuk ulang split 2 line dari data DB yang belum ter-update.
-        // Catatan: backend (stock.move.line.create()) sudah punya guard
-        // sendiri berdasarkan hide_zero_qty juga, jadi line kosong tidak
-        // akan tersimpan permanen apapun yang terjadi di sini.
         if (didMerge) {
-            console.log("[DEBUG] _cleanupPackageSplitRemainder: memanggil save() untuk persist merge ke backend");
             await this.save();
         }
     },
 
     _getSaveLineCommand(...args) {
-        // Defensif: kita tidak 100% yakin urutan/bentuk argumen method ini
-        // di versi 19-mu (bisa saja (line), (id, line), atau (line, extra)).
-        // Cari argumen yang terlihat seperti objek line (punya properti id
-        // atau virtual_id) daripada mengasumsikan args[0] pasti line-nya.
         const line = args.find(
             (a) => a && typeof a === "object" && ("virtual_id" in a || "package_id" in a)
         );
 
         if (this.record.hide_zero_qty && line && line.__isSurplusSkip) {
-            console.log(
-                `[DEBUG] _getSaveLineCommand: SKIP line surplus id:${line.id} ` +
-                `virtual_id:${line.virtual_id} (tidak dikirim ke backend)`
-            );
             return null;
         }
         return super._getSaveLineCommand(...args);
@@ -564,7 +506,6 @@ patch(BarcodePickingModel.prototype, {
 
     _findProductionLineByCode(barcode) {
         const productionLineCache = this.cache.dbIdCache?.["production.line"] || {};
-        console.log("productionLineCache", productionLineCache)
         return Object.values(productionLineCache).find((pl) => pl.code === barcode);
     },
 
@@ -579,25 +520,56 @@ patch(BarcodePickingModel.prototype, {
         return null;
     },
 
+    async _processPackage(barcodeData) {
+        const isSplitPackage = Boolean(this.record && this.record.split_package);
+        const recPackage = barcodeData && barcodeData.package;
+        if (isSplitPackage && recPackage) {
+            const currentLine = this.selectedLine || this.lastScannedLine;
+            // Core (`_processPackage` in barcode_picking_model.js) only treats a
+            // scanned package as a *destination* for the current line when that
+            // package is empty or already sitting at the line's destination
+            // location; otherwise it treats it as a brand new *source* package
+            // and creates extra line(s) for its own content. For split_package
+            // operation types the destination pallet is very often an existing,
+            // non-empty pallet (e.g. consolidating several partial pickings onto
+            // one pallet), so that guard is wrong here: as long as there is a
+            // line still awaiting a destination package (`result_package_id`
+            // was cleared by the split_package logic below/in `_processBarcode`)
+            // and the scanned package differs from that line's source package,
+            // always assign it as the destination via the same helper core uses
+            // (`_assignEmptyPackage`), regardless of the scanned package's own
+            // stock content.
+            if (
+                currentLine &&
+                currentLine.package_id &&
+                !currentLine.result_package_id &&
+                getRelId(currentLine.package_id) !== recPackage.id
+            ) {
+                await this._assignEmptyPackage(currentLine, recPackage);
+                barcodeData.stopped = true;
+                this.lastScanned.packageId = recPackage.id;
+                this.trigger("update");
+                return;
+            }
+        }
+        return super._processPackage(...arguments);
+    },
+
     async _processBarcode(barcode) {
-        console.log("[DEBUG] _processBarcode Override Triggered:", barcode);
         let lineBeforeScan = this.selectedLine || this.lastScannedLine;
         if (!lineBeforeScan && this.currentState && this.currentState.lines && this.currentState.lines.length > 0) {
             lineBeforeScan = this.currentState.lines[0];
         }
         const isProductionOnly = this.record && this.record.production_only;
-        console.log("[DEBUG] isProductionOnly:", isProductionOnly);
 
         if (isProductionOnly) {
             const line = this._lineAwaitingProductionLine;
             if (line) {
                 const productionLine = this._findProductionLineByCode(barcode);
                 if (productionLine) {
-                    console.log("[DEBUG] production_line ditemukan, set ke line:", productionLine);
                     return this._setProductionLineOnLine(line, productionLine);
                 }
                 const message = _t("No production line found for barcode %s", barcode);
-                console.log("[DEBUG] production_line TIDAK ditemukan untuk barcode:", barcode);
                 return this.notification(message, { type: "danger" });
             }
             try {
@@ -606,11 +578,9 @@ patch(BarcodePickingModel.prototype, {
                     [["name", "=", barcode]],
                     ["location_id", "name"]
                 );
-                console.log("[DEBUG] scannedPackages:", scannedPackages);
                 if (scannedPackages.length > 0) {
                     const pkg = scannedPackages[0];
                     if (pkg.location_id && pkg.location_id.length > 0) {
-                        console.warn(`[DEBUG] Scan Ditolak: Package ${pkg.name} sudah memiliki lokasi:`, pkg.location_id);
                         this.dialogService.add(ConfirmationDialog, {
                             title: _t("Scan Ditolak!"),
                             body: `Lokasi pada Pallet ${pkg.name} sudah terisi (${pkg.location_id[1]}), silahkan gunakan Pallet lain.`,
@@ -637,8 +607,6 @@ patch(BarcodePickingModel.prototype, {
                 : this.record.location_dest_id;
         }
 
-        // Pengecekan stock_type == 'UU' hanya berlaku kalau operation type
-        // (stock.picking.type) yang bersangkutan diaktifkan "UU Only".
         const isUUOnly = Boolean(this.record && this.record.uu_only);
         const stockTypeSnapshot = isUUOnly ? this._snapshotStockTypeQty() : null;
 
@@ -652,26 +620,58 @@ patch(BarcodePickingModel.prototype, {
             }
         }
 
-        console.log("========== [DEBUG RAW currentState.lines SEBELUM CLEANUP] ==========");
-        this.currentState.lines.forEach((line, idx) => {
-            console.log(`[RAW] Line#${idx}`, JSON.stringify({
-                id: line.id,
-                virtual_id: line.virtual_id,
-                package_id: line.package_id ? (line.package_id.id ?? line.package_id) : null,
-                result_package_id: line.result_package_id ? (line.result_package_id.id ?? line.result_package_id) : null,
-                qty_done: line.qty_done,
-                quantity: line.quantity,
-                reserved_uom_qty: line.reserved_uom_qty,
-                picked: line.picked,
-            }, null, 2));
-        });
-        console.log("========== [DEBUG RAW END] ==========");
+        const isSplitPackage = Boolean(this.record && this.record.split_package);
+        if (isSplitPackage) {
+            const getId = getRelId;
+            // A source package scan (`_processPackage` in core) initially sets
+            // `result_package_id` to the very same package as `package_id` for
+            // every line it creates. For `split_package` operation types this is
+            // never a valid end-state (the destination must be a different,
+            // explicitly-scanned package), so every line left in that state -
+            // not just the last one touched by this particular scan - must be
+            // reset. This also covers the case where the scanned source package
+            // contains several quants (several products/lots): core creates one
+            // line per quant and all of them need the same reset, otherwise some
+            // lines keep `result_package_id == package_id` and never get fixed.
+            const linesToReset = (this.currentState.lines || []).filter((line) => {
+                const resultPkgId = getId(line.result_package_id);
+                const sourcePkgId = getId(line.package_id);
+                return resultPkgId && sourcePkgId && resultPkgId === sourcePkgId;
+            });
 
-        // FIX: sebelumnya method ini dipanggil dengan nama
-        // "_cleanupPackageSplitRemainderForProcessing" yang TIDAK PERNAH
-        // didefinisikan -> akan throw TypeError setiap kali barcode diproses.
-        // Nama method yang benar (satu-satunya yang didefinisikan di patch
-        // ini) adalah _cleanupPackageSplitRemainder.
+            if (linesToReset.length) {
+                for (const line of linesToReset) {
+                    line.result_package_id = false;
+                    this._markLineAsDirty(line);
+                }
+                // Core's `_processPackage` decides whether the next scanned
+                // package barcode is a *destination* for the currently worked
+                // on line (`_assignEmptyPackage`, updates the line in place) or
+                // a brand new *source* package (creates extra lines) based on
+                // `this.selectedLine || this.lastScannedLine`. After a source
+                // package scan, core itself clears `selectedLineVirtualId`
+                // (see `_processPackage`'s "create new lines" branch), and
+                // clicking a grouped package row only updates
+                // `lastScanned.packageId` (`selectPackageLine`), never
+                // `selectedLineVirtualId`. Without explicitly re-selecting the
+                // line here, the model's selection state stays inconsistent,
+                // so a later click doesn't reliably make `this.selectedLine`
+                // point at the line that needs a destination package, and the
+                // next package scan can be wrongly treated as a new source
+                // package instead of a destination for the existing line.
+                // Re-selecting through the same helper core uses for line
+                // selection (`_selectLine`) keeps the model's internal state
+                // consistent with what core expects.
+                const currentSelection = this.selectedLine;
+                const lineToSelect =
+                    (currentSelection &&
+                        linesToReset.some((l) => l.virtual_id === currentSelection.virtual_id) &&
+                        currentSelection) ||
+                    linesToReset[linesToReset.length - 1];
+                this._selectLine(lineToSelect);
+            }
+        }
+
         await this._cleanupPackageSplitRemainder();
 
         const lastScan = this.scanHistory[0];
@@ -680,12 +680,10 @@ patch(BarcodePickingModel.prototype, {
             if (notifLocation) {
                 const scannedLocation = lastScan.destLocation;
                 if (oldExpectedLocId && oldExpectedLocId !== scannedLocation.id) {
-                    console.log("[DEBUG] Kondisi SCAN LOKASI BEDA");
                     this.dialogService.add(ConfirmationDialog, {
                         title: _t("Peringatan: Lokasi Berbeda!"),
                         body: _t("Anda melakukan scan pada lokasi %s, yang mana tidak sesuai dengan Store To awal. Apakah Anda yakin ingin melanjutkan?", scannedLocation.display_name),
                         confirm: async () => {
-                            console.log("[DEBUG] User mengkonfirmasi perubahan lokasi.");
                             if (lineBeforeScan && typeof lineBeforeScan.id === 'number') {
                                 try {
                                     await this.orm.write("stock.move.line", [lineBeforeScan.id], {

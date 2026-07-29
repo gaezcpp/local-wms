@@ -53,7 +53,7 @@
                     <group>
                         <group name="pc_left">
                             <field name="po_sap_id" readonly="state != 'draft'" required="1" options="{'no_open': True, 'no_create': True}" domain="[('active', '=', True),('company_id', '=', company_id)]"/>
-                            <field name="production_shift_id" readonly="state != 'draft'" required="1" options="{'no_open': True, 'no_create': True}" domain="[('company_id', '=', company_id)]"/>
+                            <field name="production_shift_id" readonly="state != 'draft'" required="1" options="{'no_open': True, 'no_create': True}" domain="[('company_ids', 'in', company_id)]"/>
                             <field name="production_line_id" readonly="state != 'draft'" required="1" options="{'no_open': True, 'no_create': True}" domain="[('company_id', '=', company_id)]"/>
                             <field name="company_id" required="1" readonly="1" options="{'no_open': True, 'no_create': True}"/>
                         </group>

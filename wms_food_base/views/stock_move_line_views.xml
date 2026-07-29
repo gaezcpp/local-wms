@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Counters wms_base_warehouse/views/stock_move_line_views.xml -->
+        <record model="ir.ui.view" id="food_inherit_base_stock_move_line_operation_tree_views">
+            <field name="name">food.base.inherit.stock.move.line.tree</field>
+            <field name="model">stock.move.line</field>
+            <field name="inherit_id" ref="wms_base_warehouse.inherit_base_stock_move_line_operation_tree_views"/>
+            <field name="priority">99</field>
+            <field name="arch" type="xml">
+                <!-- column_invisible evaluates against the list's own scope,
+                     not the row's data, so it must use "parent." to reach the
+                     move (a bare "wms_type" raises "Name 'wms_type' is not
+                     defined" client-side). This tree is only ever embedded
+                     inside a stock.move's own move_line_ids, so "parent" here
+                     is always that move. -->
+                <xpath expr="//field[@name='production_line_id']" position="attributes">
+                    <attribute name="column_invisible">parent.wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='detail_text']" position="attributes">
+                    <attribute name="column_invisible">parent.wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='sloc_id']" position="attributes">
+                    <attribute name="column_invisible">parent.wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='stock_type']" position="attributes">
+                    <attribute name="column_invisible">parent.wms_type == 'FOOD'</attribute>
+                </xpath>
+            </field>
+        </record>
+
+        <!-- Counters wms_inherit_stock_barcode/views/stock_move_line_views.xml -->
+        <record model="ir.ui.view" id="food_inherit_stock_move_line_operation_tree_views">
+            <field name="name">food.inherit.stock.move.line.tree</field>
+            <field name="model">stock.move.line</field>
+            <field name="inherit_id" ref="wms_inherit_stock_barcode.inherit_stock_move_line_operation_tree_views"/>
+            <field name="priority">99</field>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='bag_qty']" position="attributes">
+                    <attribute name="column_invisible">parent.wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='uom_bag_id']" position="attributes">
+                    <attribute name="column_invisible">parent.wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='wh_category_id']" position="attributes">
+                    <attribute name="column_invisible">parent.wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='suggest_dest_id']" position="attributes">
+                    <attribute name="column_invisible">parent.wms_type == 'FOOD'</attribute>
+                </xpath>
+            </field>
+        </record>
+
+        <!-- Counters wms_inherit_stock_barcode/views/stock_move_line_views.xml:
+             inherit_view_move_line_form (stock.view_move_line_form, "Detailed
+             Operations" popup) — hides the FEED-only bag qty row. -->
+        <record model="ir.ui.view" id="food_inherit_view_move_line_form">
+            <field name="name">food.inherit.view.move.line.form</field>
+            <field name="model">stock.move.line</field>
+            <field name="inherit_id" ref="wms_inherit_stock_barcode.inherit_view_move_line_form"/>
+            <field name="priority">99</field>
+            <field name="arch" type="xml">
+                <xpath expr="//label[@for='bag_qty']" position="before">
+                    <field name="wms_type" invisible="1"/>
+                </xpath>
+                <xpath expr="//label[@for='bag_qty']" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//label[@for='bag_qty']/following-sibling::div[@class='o_row'][1]" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                </xpath>
+            </field>
+        </record>
+    </data>
+</odoo>

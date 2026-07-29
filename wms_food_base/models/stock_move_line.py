@@ -1,10 +1,14 @@
-from odoo import api, models
+from odoo import api, fields, models
 from odoo.addons.wms_base_warehouse.models.stock_move_line import InheritBaseStockMoveLine as _WbwStockMoveLine
 from odoo.addons.wms_inherit_stock_barcode.models.stock_move_line import StockMoveLine as _SbStockMoveLine
 
 
 class FoodStockMoveLine(models.Model):
     _inherit = 'stock.move.line'
+
+    # Related, non-stored: lets the views below decide per-record whether to
+    # show the FEED-customized arch or the plain Odoo one.
+    wms_type = fields.Selection(related='picking_id.wms_type', string="WMS Type", store=True, index=True)
 
     # wms_base_warehouse is the innermost FEED customization for create/write,
     # so jumping past it also skips wms_inherit_stock_barcode's create/write.

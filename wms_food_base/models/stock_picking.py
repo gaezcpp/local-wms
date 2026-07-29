@@ -1,4 +1,4 @@
-from odoo import api, models
+from odoo import api, fields, models
 from odoo.addons.wms_base_warehouse.models.stock_picking import InheritBaseStockPicking as _WbwStockPicking
 from odoo.addons.wms_production_order_sap.models.stock_picking import InheritBaseStockPicking as _PosStockPicking
 from odoo.addons.wms_sale_order_sap.models.stock_picking import SaleStockPicking as _SosStockPicking
@@ -6,6 +6,10 @@ from odoo.addons.wms_sale_order_sap.models.stock_picking import SaleStockPicking
 
 class FoodStockPicking(models.Model):
     _inherit = 'stock.picking'
+
+    # Related, non-stored: lets the views below decide per-record whether to
+    # show the FEED-customized arch or the plain Odoo one.
+    wms_type = fields.Selection(related='company_id.wms_type', string="WMS Type", store=True, index=True)
 
     # NOTE: every method below is customized for FEED by one or more of
     # wms_base_warehouse / wms_inherit_stock_barcode / wms_production_order_sap /
@@ -55,14 +59,16 @@ class FoodStockPicking(models.Model):
         return super(FoodStockPicking, self).copy(default)
 
     def _action_done(self):
+        # NOTE: stock.picking._action_done() returns a plain bool (True), not
+        # a recordset, so results must be combined with `and`, not `|=`.
         food = self.filtered(lambda p: p.company_id.wms_type == 'FOOD')
         other = self - food
 
-        res = self.browse()
+        res = True
         if food:
-            res |= super(_PosStockPicking, food)._action_done()
+            res = super(_PosStockPicking, food)._action_done() and res
         if other:
-            res |= super(FoodStockPicking, other)._action_done()
+            res = super(FoodStockPicking, other)._action_done() and res
         return res
 
     @api.model_create_multi

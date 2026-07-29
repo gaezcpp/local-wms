@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Counters wms_base_warehouse/views/stock_move_views.xml:
+             inherit_stock_move_operations_views (stock.view_stock_move_operations,
+             the "Add a Product" / move detail dialog). -->
+        <record model="ir.ui.view" id="food_inherit_stock_move_operations_views">
+            <field name="name">food.inherit.stock.move.operations.form</field>
+            <field name="model">stock.move</field>
+            <field name="inherit_id" ref="wms_base_warehouse.inherit_stock_move_operations_views"/>
+            <field name="priority">99</field>
+            <field name="arch" type="xml">
+                <xpath expr="//form" position="inside">
+                    <field name="wms_type" invisible="1"/>
+                </xpath>
+                <xpath expr="//form" position="attributes">
+                    <attribute name="create">wms_type == 'FOOD'</attribute>
+                    <attribute name="edit">wms_type == 'FOOD'</attribute>
+                    <attribute name="delete">wms_type == 'FOOD'</attribute>
+                    <attribute name="duplicate">wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//widget[@name='generate_serials']" position="attributes">
+                    <attribute name="invisible">(wms_type == 'FOOD' and not display_assign_serial) or wms_type != 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//widget[@name='import_lots']" position="attributes">
+                    <attribute name="invisible">(wms_type == 'FOOD' and not display_import_lot) or wms_type != 'FOOD'</attribute>
+                </xpath>
+            </field>
+        </record>
+
+        <!-- Counters wms_inherit_stock_barcode/views/stock_move_views.xml:
+             inherit_view_move_kanban (stock.view_move_kandan). -->
+        <record model="ir.ui.view" id="food_inherit_view_move_kanban">
+            <field name="name">food.inherit.stock.move.operations.kanban</field>
+            <field name="model">stock.move</field>
+            <field name="inherit_id" ref="wms_inherit_stock_barcode.inherit_view_move_kanban"/>
+            <field name="priority">99</field>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='bag_qty']" position="before">
+                    <field name="wms_type" invisible="1"/>
+                </xpath>
+                <xpath expr="//field[@name='bag_qty']" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='uom_bag_id']" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                </xpath>
+            </field>
+        </record>
+    </data>
+</odoo>

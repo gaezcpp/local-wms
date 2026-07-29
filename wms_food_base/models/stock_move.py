@@ -1,9 +1,13 @@
-from odoo import api, models
+from odoo import api, fields, models
 from odoo.addons.wms_base_warehouse.models.stock_move import StockMove as _WbwStockMove
 
 
 class FoodStockMove(models.Model):
     _inherit = 'stock.move'
+
+    # Related, non-stored: lets the views below decide per-record whether to
+    # show the FEED-customized arch or the plain Odoo one.
+    wms_type = fields.Selection(related='picking_id.wms_type', string="WMS Type", store=True, index=True)
 
     # See stock_picking.py for the rationale behind the super()-jump pattern.
     # wms_base_warehouse is the innermost (earliest-loaded) FEED customization
