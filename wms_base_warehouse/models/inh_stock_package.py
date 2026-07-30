@@ -13,6 +13,10 @@ class InhStockPackage(models.Model):
         ('hold', 'Hold'),
     ], string="Yellow Tag", default='ready', tracking=True)
     
+    #AI Ini override untuk fix Access Right by picking_type_ids
+    # def _compute_picking_ids(self):
+    #     super(InhStockPackage, self.sudo())._compute_picking_ids()
+    
     def action_ready(self):
         for rec in self:
             if rec.yellow_tag != 'ready':

@@ -13,6 +13,12 @@ class StockQuant(models.Model):
         ('UU', 'UU'),
     ], string="Stock Type", index=True)
     production_line_id = fields.Many2one(comodel_name='production.line', string="Line")
+    is_available_qty_minus = fields.Boolean(string="Qty Minus", compute="_compute_is_available_qty_minus", store=True)
+
+    @api.depends('reserved_quantity')
+    def _compute_is_available_qty_minus(self):
+        for quant in self:
+            quant.is_available_qty_minus = (quant.available_quantity < 0)
     
     @api.model
     def _gather(self, product_id, location_id, lot_id=None, package_id=None, owner_id=None, strict=False, qty=None):

@@ -520,31 +520,46 @@ patch(BarcodePickingModel.prototype, {
         return null;
     },
 
+    async _getPackageStockType(packageId) {
+        if (!packageId) {
+            return false;
+        }
+        try {
+            const quants = await this.orm.searchRead(
+                "stock.quant",
+                [
+                    ["package_id", "=", packageId],
+                    ["quantity", "!=", 0],
+                ],
+                ["stock_type"],
+                { limit: 1 }
+            );
+            return quants.length ? quants[0].stock_type : false;
+        } catch (error) {
+            console.error("[DEBUG] Gagal mengecek stock_type package tujuan:", error);
+            return false;
+        }
+    },
+
     async _processPackage(barcodeData) {
         const isSplitPackage = Boolean(this.record && this.record.split_package);
         const recPackage = barcodeData && barcodeData.package;
         if (isSplitPackage && recPackage) {
             const currentLine = this.selectedLine || this.lastScannedLine;
-            // Core (`_processPackage` in barcode_picking_model.js) only treats a
-            // scanned package as a *destination* for the current line when that
-            // package is empty or already sitting at the line's destination
-            // location; otherwise it treats it as a brand new *source* package
-            // and creates extra line(s) for its own content. For split_package
-            // operation types the destination pallet is very often an existing,
-            // non-empty pallet (e.g. consolidating several partial pickings onto
-            // one pallet), so that guard is wrong here: as long as there is a
-            // line still awaiting a destination package (`result_package_id`
-            // was cleared by the split_package logic below/in `_processBarcode`)
-            // and the scanned package differs from that line's source package,
-            // always assign it as the destination via the same helper core uses
-            // (`_assignEmptyPackage`), regardless of the scanned package's own
-            // stock content.
             if (
                 currentLine &&
                 currentLine.package_id &&
                 !currentLine.result_package_id &&
                 getRelId(currentLine.package_id) !== recPackage.id
             ) {
+                const sourceStockType = await this._getSourceStockType(currentLine, {});
+                const destStockType = await this._getPackageStockType(recPackage.id);
+                if (sourceStockType && destStockType && sourceStockType !== destStockType) {
+                    this._notifyStockTypeBlocked(destStockType);
+                    barcodeData.stopped = true;
+                    return;
+                }
+
                 await this._assignEmptyPackage(currentLine, recPackage);
                 barcodeData.stopped = true;
                 this.lastScanned.packageId = recPackage.id;
@@ -623,16 +638,6 @@ patch(BarcodePickingModel.prototype, {
         const isSplitPackage = Boolean(this.record && this.record.split_package);
         if (isSplitPackage) {
             const getId = getRelId;
-            // A source package scan (`_processPackage` in core) initially sets
-            // `result_package_id` to the very same package as `package_id` for
-            // every line it creates. For `split_package` operation types this is
-            // never a valid end-state (the destination must be a different,
-            // explicitly-scanned package), so every line left in that state -
-            // not just the last one touched by this particular scan - must be
-            // reset. This also covers the case where the scanned source package
-            // contains several quants (several products/lots): core creates one
-            // line per quant and all of them need the same reset, otherwise some
-            // lines keep `result_package_id == package_id` and never get fixed.
             const linesToReset = (this.currentState.lines || []).filter((line) => {
                 const resultPkgId = getId(line.result_package_id);
                 const sourcePkgId = getId(line.package_id);
@@ -644,24 +649,6 @@ patch(BarcodePickingModel.prototype, {
                     line.result_package_id = false;
                     this._markLineAsDirty(line);
                 }
-                // Core's `_processPackage` decides whether the next scanned
-                // package barcode is a *destination* for the currently worked
-                // on line (`_assignEmptyPackage`, updates the line in place) or
-                // a brand new *source* package (creates extra lines) based on
-                // `this.selectedLine || this.lastScannedLine`. After a source
-                // package scan, core itself clears `selectedLineVirtualId`
-                // (see `_processPackage`'s "create new lines" branch), and
-                // clicking a grouped package row only updates
-                // `lastScanned.packageId` (`selectPackageLine`), never
-                // `selectedLineVirtualId`. Without explicitly re-selecting the
-                // line here, the model's selection state stays inconsistent,
-                // so a later click doesn't reliably make `this.selectedLine`
-                // point at the line that needs a destination package, and the
-                // next package scan can be wrongly treated as a new source
-                // package instead of a destination for the existing line.
-                // Re-selecting through the same helper core uses for line
-                // selection (`_selectLine`) keeps the model's internal state
-                // consistent with what core expects.
                 const currentSelection = this.selectedLine;
                 const lineToSelect =
                     (currentSelection &&

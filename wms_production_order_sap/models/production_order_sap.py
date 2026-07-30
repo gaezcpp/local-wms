@@ -298,7 +298,7 @@ class ProductionOrderSAP(models.Model):
                 #         break
                 
                 production_picking_repack_sap = self.env['ir.config_parameter'].sudo().get_param('production_picking_repack_sap')
-                op_type_id = picking_type_model.search([('barcode', '=', str(production_picking_repack_sap)), ('active', '=', True), ('company_id', '=', self.company_id.id)], limit=1)
+                op_type_id = picking_type_model.search([('barcode', '=', str(production_picking_repack_sap)), ('active', '=', True), ('company_id', '=', company_id.id)], limit=1)
                 if not op_type_id:
                     continue
                 

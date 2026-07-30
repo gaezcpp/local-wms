@@ -126,12 +126,11 @@ class InheritBaseStockMoveLine(models.Model):
                 domain = [
                     ('product_id', '=', rec.product_id.id),
                     ('location_id', '=', rec.location_dest_id.id),
+                    ('package_id', '=', (rec.result_package_id.id or rec.package_id.id) or False), #AI
                 ]
                 if rec.lot_id:
                     domain.append(('lot_id', '=', rec.lot_id.id))
-                if rec.result_package_id or rec.package_id:
-                    domain.append(('package_id', '=', rec.result_package_id.id or rec.package_id.id))
-                
+
                 dest_quants = self.env['stock.quant'].sudo().search(domain)
                 if dest_quants:
                     dest_quants.write({'stock_type': rec.stock_type})

@@ -127,16 +127,34 @@ class StockMove(models.Model):
         lines = moves.move_line_ids.filtered('result_package_id')
         if lines:
             lines.write({'result_package_id': False})
+            
+    def _consolidate_sml_per_quant(self):
+        for picking in self.mapped('picking_id'):
+            sml_by_quant = {}
+            lines_to_unlink = self.env['stock.move.line'].sudo()
+            
+            for line in picking.move_line_ids.filtered(lambda l: l.state not in ['done', 'cancel']):
+                quant_key = (
+                    line.location_id.id, 
+                    line.lot_id.id, 
+                    line.package_id.id, 
+                    line.owner_id.id
+                )
+                
+                if quant_key not in sml_by_quant:
+                    sml_by_quant[quant_key] = line
+                else:
+                    first_line = sml_by_quant[quant_key]
+                    first_line.sudo().write({
+                        'quantity': first_line.quantity + line.quantity
+                    })
+                    lines_to_unlink |= line
+            
+            if lines_to_unlink:
+                lines_to_unlink.unlink()
 
     ## NOTE INI BELUM DITES DI QAS, TAPI NAIKIN AJA
     def _action_assign(self, **kwargs):
-        for move in self:
-            _logger.info(
-                f"[GRGI] _action_assign IN move={move.id} picking={move.picking_id.name} "
-                f"type={move.picking_id.picking_type_id.name} product={move.product_id.default_code} "
-                f"demand={move.product_uom_qty} qty={move.quantity} state={move.state}"
-            )
-
         bypass = self.env.context.get('bypass_adjust_demand', False)
         moves_uu = self.filtered(lambda m: m.picking_id.picking_type_id.uu_only)
         moves_full_pallet = self.filtered(lambda m: m.picking_id.picking_type_id.book_full_pallet and not bypass)
@@ -152,6 +170,8 @@ class StockMove(models.Model):
             res = super(StockMove, moves_uu.with_context(uu_only=True))._action_assign(**kwargs) and res
         if moves_fp_only:
             res = super(StockMove, moves_fp_only)._action_assign(**kwargs) and res
+            
+        self._consolidate_sml_per_quant()
 
         if moves_full_pallet:
             self._book_full_pallet(moves_full_pallet, moves_uu)
@@ -162,13 +182,6 @@ class StockMove(models.Model):
 
         if moves_split_package:
             self._clear_result_package(moves_split_package)
-
-        for move in self:
-            lines = [(l.id, l.quantity, l.lot_id.name) for l in move.move_line_ids]
-            _logger.info(
-                f"[GRGI] _action_assign OUT move={move.id} picking={move.picking_id.name} "
-                f"demand={move.product_uom_qty} qty={move.quantity} state={move.state} lines={lines}"
-            )
 
         return res
     
@@ -528,16 +541,15 @@ class StockMove(models.Model):
                     domain = [
                         ('product_id', '=', line.product_id.id),
                         ('location_id', '=', line.location_dest_id.id),
+                        ('package_id', '=', line.result_package_id.id if line.result_package_id else False), #AI
                     ]
                     if line.lot_id:
                         domain.append(('lot_id', '=', line.lot_id.id))
-                    if line.result_package_id:
-                        domain.append(('package_id', '=', line.result_package_id.id))
-                    
+
                     quants = self.env['stock.quant'].search(domain)
                     if quants:
                         quants.sudo().write({'stock_type': line.stock_type})
-                        
+
         return res
     
     def _prepare_move_line_vals(self, quantity=None, reserved_quant=None):

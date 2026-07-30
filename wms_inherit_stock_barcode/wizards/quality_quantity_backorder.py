@@ -45,6 +45,8 @@ class QualityQuantityBackorder(models.TransientModel):
 
             orig_ml = line.move_line_id
             orig_move = orig_ml.move_id if orig_ml else False
+            source_package_id = orig_ml.package_id.id if orig_ml and orig_ml.package_id else (line.package_id.id if line.package_id else False) #AI
+            source_lot_id = orig_ml.lot_id.id if orig_ml and orig_ml.lot_id else (line.lot_id.id if line.lot_id else False) #AI
 
             move = self.env['stock.move'].create({
                 'product_id': line.product_id.id,
@@ -90,8 +92,8 @@ class QualityQuantityBackorder(models.TransientModel):
                 'bag_qty': line.qty_pack,
                 'location_id': line.location_id.id,
                 'location_dest_id': new_picking.location_dest_id.id,
-                'lot_id': line.lot_id.id if hasattr(line, 'lot_id') else False,
-                'package_id': line.package_id.id if line.package_id else False, 
+                'lot_id': source_lot_id,
+                'package_id': source_package_id,
                 'result_package_id': line.result_package_id.id if line.result_package_id else False,
                 'production_line_id': line.production_line_id.id,
                 'stock_type': line.move_line_id.stock_type if line.move_line_id else 'QI',
