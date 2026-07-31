@@ -1,0 +1,19 @@
+<?xml version='1.0' encoding='utf-8'?>
+<odoo>
+    <record id="pid_berita_acara_wizard_form_views" model="ir.ui.view">
+        <field name="name">pid.berita.acara.wizard.form</field>
+        <field name="model">pid.berita.acara.wizard</field>
+        <field name="arch" type="xml">
+            <form string="PID Berita Acara">
+                <group>
+                    <field name="sia_id" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1"/>
+                    <field name="remark" required="1"/>
+                </group>
+                <footer>
+                    <button name="create_berita_acara" type="object" string="Confirm" class="btn-primary" confirm="Yakin semua data sudah sesuai?"/>
+                    <button string="Cancel" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

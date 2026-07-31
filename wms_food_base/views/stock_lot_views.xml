@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Counters wms_base_warehouse/views/stock_lot_views.xml:
+             base_warehouse_stock_lot_form (stock.view_production_lot_form).
+             For a FOOD company, location_id is restored to the exact native
+             condition (see odoo/addons/stock/views/stock_lot_views.xml) and
+             the FEED-only production_line_id/lot_aft_ids additions are
+             hidden; for FEED everything stays exactly as before. -->
+        <record model="ir.ui.view" id="food_base_warehouse_stock_lot_form">
+            <field name="name">food.base.warehouse.stock.lot.form</field>
+            <field name="model">stock.lot</field>
+            <field name="inherit_id" ref="wms_base_warehouse.base_warehouse_stock_lot_form"/>
+            <field name="priority">99</field>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='location_id']" position="attributes">
+                    <attribute name="invisible">(wms_type == 'FOOD' and not location_id) or wms_type != 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='production_line_id']" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='production_line_id']" position="after">
+                    <!-- Explicit, hidden: the client's expression evaluator only
+                         resolves field names that are actually declared/fetched
+                         in this view, so every invisible condition above/below
+                         that reads "wms_type" needs this. -->
+                    <field name="wms_type" invisible="1"/>
+                </xpath>
+                <xpath expr="//field[@name='lot_aft_ids']" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                </xpath>
+            </field>
+        </record>
+
+        <!-- Counters wms_inherit_stock_barcode/views/stock_lot_views.xml:
+             inherit_stock_lot_form_views (stock.view_production_lot_form):
+             hides the FEED-only bag qty row, which has no native equivalent. -->
+        <record model="ir.ui.view" id="food_inherit_stock_lot_form_views">
+            <field name="name">food.inherit.stock.lot.form</field>
+            <field name="model">stock.lot</field>
+            <field name="inherit_id" ref="wms_inherit_stock_barcode.inherit_stock_lot_form_views"/>
+            <field name="priority">99</field>
+            <field name="arch" type="xml">
+                <xpath expr="//label[@for='bag_qty']" position="before">
+                    <field name="wms_type" invisible="1"/>
+                </xpath>
+                <!-- bag_qty/uom_bag_id have no stock.lot equivalent in native
+                     Odoo, so for FOOD this is always hidden; for FEED the
+                     original "not display_complete" condition is preserved
+                     unchanged. -->
+                <xpath expr="//label[@for='bag_qty']" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD' or (wms_type != 'FOOD' and not display_complete)</attribute>
+                </xpath>
+                <xpath expr="//label[@for='bag_qty']/following-sibling::div[1]" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD' or (wms_type != 'FOOD' and not display_complete)</attribute>
+                </xpath>
+            </field>
+        </record>
+    </data>
+</odoo>

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Counters wms_base_warehouse/views/uom_uom_views.xml:
+             inherit_uom_uom_form (uom.product_uom_form_view). sap_synchronize/
+             sap_name have no native equivalent, so they are hidden for FOOD.
+             uom.uom has no company_id of its own, so wms_type here is the
+             computed, session-scoped field (see models/uom_uom.py), same
+             caveat as _get_fields_stock_barcode()'s env.company fallback. -->
+        <record model="ir.ui.view" id="food_inherit_uom_uom_form">
+            <field name="name">food.inherit.uom.uom.form</field>
+            <field name="model">uom.uom</field>
+            <field name="inherit_id" ref="wms_base_warehouse.inherit_uom_uom_form"/>
+            <field name="priority">99</field>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='sap_synchronize']" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='sap_synchronize']" position="after">
+                    <!-- Explicit, hidden: the client's expression evaluator only
+                         resolves field names that are actually declared/fetched
+                         in this view, so the invisible conditions here need
+                         this. -->
+                    <field name="wms_type" invisible="1"/>
+                </xpath>
+                <xpath expr="//field[@name='sap_name']" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                </xpath>
+            </field>
+        </record>
+    </data>
+</odoo>

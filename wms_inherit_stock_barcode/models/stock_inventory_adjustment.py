@@ -213,16 +213,28 @@ class StockInventoryAdjustment(models.Model):
                 SummaryModel.create(new_summaries)
 
             rec.state = 'done_counting'
-    
-    def action_done_sap(self):
-        for rec in self:
-            if rec.state == 'done_counting':
-                rec.state = 'done_sap'
 
     def action_cancelled(self):
         for rec in self:
             if rec.state in ('draft', 'in_progress'):
                 rec.state = 'cancelled'
+                
+    def action_berita_acara(self):
+        self.ensure_one()
+        if not self.need_berita_acara:
+            raise ValidationError("Berita Acara hanya bisa dilakukan jika ada Diff pada Summary")
+        
+        view = self.env.ref('wms_inherit_stock_barcode.pid_berita_acara_wizard_form_views')
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'PID Berita Acara',
+            'res_model': 'pid.berita.acara.wizard',
+            'views': [(view.id, 'form')],
+            'target': 'new',
+            'context': {
+                'default_sia_id': self.id,
+            }
+        }
 
     @api.depends('adjustment_line_ids', 'adjustment_line_ids.quant_id')
     def _compute_quant_count(self):
@@ -355,8 +367,8 @@ class StockInventoryAdjustment(models.Model):
                             q.stock_type = stock_type_snapshot[q.id]
                             
                     _logger.info(f"cron_synchronize_auto_done_pid IBLNR {rec.name}: action_apply_inventory berhasil untuk {len(quants_to_apply)} quant.")
-
                     rec.write({
+                        'need_berita_acara': True,
                         'state': 'done_sap',
                         'done_pid_number': 'BYPASS',
                     })
@@ -545,8 +557,10 @@ class StockInventoryAdjustment(models.Model):
             else:
                 _logger.warning(f"cron_synchronize_auto_done_pid IBLNR {iblnr}: Tidak ada quant terkait pada SIA {sia.name}")
 
+            need_ba = bool(sia.summary_line_ids.filtered(lambda s: s.inventory_diff_quantity != 0.0))
             sia.write({
                 'state': 'done_sap',
                 'done_pid_number': mblnr,
+                'need_berita_acara': need_ba
             })
             sia.message_post(body=f"Inventory applied & status Done SAP via cron. IBLNR: {iblnr}, MBLNR: {mblnr}")

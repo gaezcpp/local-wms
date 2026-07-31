@@ -66,7 +66,7 @@
                 <xpath expr="//label[@for='bag_qty']" position="attributes">
                     <attribute name="invisible">wms_type == 'FOOD'</attribute>
                 </xpath>
-                <xpath expr="//label[@for='bag_qty']/following-sibling::div[@class='o_row'][1]" position="attributes">
+                <xpath expr="//label[@for='bag_qty']/following-sibling::div[hasclass('o_row')][1]" position="attributes">
                     <attribute name="invisible">wms_type == 'FOOD'</attribute>
                 </xpath>
             </field>

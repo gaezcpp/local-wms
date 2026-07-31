@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    FOOD bypass for
+    wms_inherit_stock_barcode/static/src/xml/barcode_line_component_views.xml.
+
+    Every `<t t-inherit="stock_barcode.XXX" t-inherit-mode="extension">`
+    below targets the SAME core template as its FEED counterpart and is
+    loaded strictly AFTER it (wms_food_base's assets are declared after
+    wms_inherit_stock_barcode's in web.assets_backend, and wms_food_base
+    depends on wms_inherit_stock_barcode, so module/asset evaluation order
+    guarantees this). Client-side QWeb template extensions
+    (odoo/addons/web/static/src/core/templates.js, `registerTemplateExtension`)
+    are NOT resolved through a `priority` XML attribute the way server-side
+    ir.ui.view records are: there is no such mechanism for these OWL
+    templates. Instead they are applied strictly in ascending `blockId`
+    order, where `blockId` is assigned purely by asset-bundle load order
+    (see `_getTemplate`'s `for (const otherBlockId in templateExtensions[name]...)`
+    loop, applied cumulatively from lowest to highest blockId). So simply
+    listing this file after wms_inherit_stock_barcode's in the manifest
+    (already required by the task) is what makes our overrides win; no
+    `priority` attribute is added here since it would have no effect on
+    these templates.
+
+    Every attribute this file restores was a plain attribute-value rewrite
+    in FEED's file, so instead of a second blind rewrite we make the final
+    value a runtime ternary on `env.model.record.wms_type`, keeping FEED's
+    original expression completely unchanged for FEED/empty and restoring
+    the exact native Odoo expression (copied from
+    odoo/addons/stock_barcode/static/src/components/line.xml and main.xml)
+    for FOOD. `env.model.record.wms_type` is available in every context
+    below because all of them render under MainComponent's
+    `useSubEnv({model, ...})`, and `stock.picking._get_fields_stock_barcode()`
+    now includes `wms_type` (wms_food_base/models/stock_picking.py, added in
+    this phase).
+-->
+<templates xml:space="preserve">
+
+    <!-- Native: t-out="env.model.IsNotSet(line) ? '?' : qtyDone" -->
+    <t t-inherit="stock_barcode.LineQuantity" t-inherit-mode="extension">
+        <xpath expr="//span[hasclass('qty-done')]" position="attributes">
+            <attribute name="t-out">env.model.record.wms_type === 'FOOD' ? (env.model.IsNotSet(line) ? '?' : qtyDone) : (hasBagUom ? computedBagQty + ' ' + bagUomLabel : (env.model.IsNotSet(line) ? '?' : qtyDone))</attribute>
+        </xpath>
+        <!-- Native: t-out="'/' + qtyDemand" (the t-if here is identical to
+             native already, FEED's own rewrite of it was a no-op, nothing
+             to restore). -->
+        <xpath expr="//span[hasclass('qty-done')]/../span[@t-if]" position="attributes">
+            <attribute name="t-out">env.model.record.wms_type === 'FOOD' ? '/' + qtyDemand : (hasBagUom ? '/' + computedBagDemand + ' ' + bagUomLabel : '/' + qtyDemand)</attribute>
+        </xpath>
+        <!-- Native: t-if="props.displayUOM" -->
+        <xpath expr="//small[hasclass('o_line_uom')]" position="attributes">
+            <attribute name="t-if">env.model.record.wms_type === 'FOOD' ? props.displayUOM : (props.displayUOM and !hasBagUom)</attribute>
+        </xpath>
+    </t>
+
+    <!-- Native: t-if="!displayToggleBtn" -->
+    <t t-inherit="stock_barcode.LineUpperButtons" t-inherit-mode="extension">
+        <xpath expr="//button[hasclass('o_edit')]" position="attributes">
+            <attribute name="t-if">env.model.record.wms_type === 'FOOD' ? !displayToggleBtn : (!displayToggleBtn and !env.model.record.hide_edit_barcode)</attribute>
+        </xpath>
+    </t>
+
+    <!-- Native: t-if="!displayToggleBtn" -->
+    <t t-inherit="stock_barcode.LineLot" t-inherit-mode="extension">
+        <xpath expr="//button[hasclass('o_edit')]" position="attributes">
+            <attribute name="t-if">env.model.record.wms_type === 'FOOD' ? !displayToggleBtn : (!displayToggleBtn and !env.model.record.hide_edit_barcode)</attribute>
+        </xpath>
+    </t>
+
+    <!-- FEED entirely replaces the native button row (decrement/increment/
+         fulfill/delete/complete-package) with a stripped-down one (only a
+         production-only delete button). Restore the full native row for
+         FOOD via t-elif, chained onto the sibling `t-if="displayToggleBtn"`
+         div already present above this one in the (FEED-modified) template,
+         and keep FEED's reduced row (unchanged) as the final t-else. -->
+    <t t-inherit="stock_barcode.LineLowerButtons" t-inherit-mode="extension">
+        <xpath expr="//div[hasclass('gap-2')]" position="replace">
+            <div t-elif="env.model.record.wms_type === 'FOOD'" class="d-flex flex-nowrap gap-2">
+                <button class="o_line_button btn px-0" style="min-width:0"/>
+                <button t-if="isSelected and env.model.toggleAsCounted" t-on-click="toggleAsCounted"
+                        t-attf-class="o_line_button btn btn-{{quantityIsSet ? 'warning o_unset' : 'danger o_count_zero'}}">
+                    <span t-if="quantityIsSet" class="fa fa-lg fa-question"/>
+                    <span t-else="">0</span>
+                </button>
+                <button t-if="isSelected and qtyDone and !isPackage" name="decrementButton"
+                        class="o_line_button o_remove_unit btn btn-light"
+                        t-att-disabled="!this.env.model.lineCanBeEdited(line)"
+                        t-on-click="() => this.addQuantity(-1)">
+                    -1
+                </button>
+                <button t-if="displayIncrementButton" name="incrementButton"
+                        class="o_line_button o_add_quantity btn btn-light"
+                        t-att-disabled="!this.env.model.lineCanBeEdited(line)"
+                        t-on-click="() => this.addQuantity(1)">+1</button>
+                <button t-if="displayFulfillbutton" name="fulfillButton"
+                        t-on-click="() => this.addQuantity(incrementQty)"
+                        t-att-disabled="!this.env.model.lineCanBeEdited(line)"
+                        t-attf-class="o_line_button o_add_remaining_quantity btn btn-{{isSelected ? 'light' : 'secondary'}}">
+                    <t t-if="incrementQty > 0">+</t><t t-esc="incrementQty"/>
+                </button>
+                <button t-if="displayDeleteButton" name="deleteButton"
+                        t-on-click="() => this.env.model.deleteLine(line)"
+                        t-att-disabled="!this.env.model.lineCanBeEdited(line)"
+                        class="o_line_button o_delete_line btn btn-danger">
+                    <span class="fa fa-lg fa-trash"/>
+                </button>
+                <button t-if="displayCompletePackageButton" name="completePackageButton"
+                        t-on-click="() => this.completePackage()"
+                        t-att-disabled="!this.env.model.lineCanBeEdited(line)"
+                        t-attf-class="o_line_button btn btn-{{isComplete ? 'success' : 'light'}}">
+                    <span class="fa f-lg fa-check"/>
+                </button>
+            </div>
+            <div t-else="" class="d-flex flex-nowrap gap-2">
+                <button t-if="env.model.isProductionOnly()" name="deleteButton"
+                        t-on-click="() => this.env.model.deleteLine(line)"
+                        t-att-disabled="!this.env.model.lineCanBeEdited(line)"
+                        class="o_line_button o_delete_line btn btn-danger">
+                    <span class="fa fa-lg fa-trash"/>
+                </button>
+            </div>
+        </xpath>
+    </t>
+
+    <!-- Native: no editLine prop on <PackageLineComponent/>, both "Return
+         Products" spots shown per env.model.displayReturnButton (and, for
+         the 2nd one, state.view too). The editLine.bind prop is left as-is
+         for FOOD (harmless: it's only ever read by PackageLineComponent's
+         displayEditToggle/sublinesToDisplay, which are dead code for both
+         companies, see package_line_component_patch.js). -->
+    <t t-inherit="stock_barcode.MainComponent" t-inherit-mode="extension">
+        <xpath expr="//div[@t-if='displayOperationButtons']//button[hasclass('o_create_return')]" position="attributes">
+            <attribute name="t-if">env.model.record.wms_type === 'FOOD' ? env.model.displayReturnButton : false</attribute>
+        </xpath>
+        <xpath expr="//footer[hasclass('mt-auto')]" position="attributes">
+            <attribute name="t-if">env.model.record.wms_type === 'FOOD' ? (env.model.displayReturnButton and state.view === 'barcodeLines') : false</attribute>
+        </xpath>
+    </t>
+
+    <!-- Native: no such div at all; hide FEED's (empty, commented-out
+         button) insertion for FOOD. -->
+    <t t-inherit="stock_barcode.LineDestinationLocation" t-inherit-mode="extension">
+        <xpath expr="//div[@name='duplicate_button']" position="attributes">
+            <attribute name="t-if">env.model.record.wms_type !== 'FOOD'</attribute>
+        </xpath>
+    </t>
+
+</templates>

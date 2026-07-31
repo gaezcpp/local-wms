@@ -1,9 +1,13 @@
-from odoo import models
+from odoo import fields, models
 from odoo.addons.wms_base_warehouse.models.stock_location import InheritStockLocation as _WbwStockLocation
 
 
 class FoodStockLocation(models.Model):
     _inherit = 'stock.location'
+
+    # Related, non-stored: lets the views below decide per-record whether to
+    # show the FEED-customized arch or the plain Odoo one.
+    wms_type = fields.Selection(related='company_id.wms_type', string="WMS Type", store=True, index=True)
 
     def write(self, vals):
         food = self.filtered(lambda l: l.company_id.wms_type == 'FOOD')

@@ -36,12 +36,14 @@
         <field name="arch" type="xml">
             <form string="Inventory Adjustment">
                 <field name="is_checked" invisible="1"/>
+                <field name="need_berita_acara" invisible="1"/>
                 <header>
                     <button name="check_details" string="Get Details" type="object" class="oe_highlight" invisible="state != 'draft'"/>
                     <button name="action_in_progress" string="Confirm" type="object" class="oe_highlight" invisible="state != 'draft' or not is_checked"/>
                     <button name="action_done_counting" string="Done Counting" type="object" class="btn btn-success" invisible="state != 'in_progress'" confirm="Are you sure?"/>
                     <button name="action_cancelled" string="Cancel" type="object" class="btn btn-danger" invisible="state != 'in_progress'" confirm="Are you sure?"/>
-                    <field name="state" widget="statusbar" statusbar_visible="draft,in_progress,done_counting,done_sap"/>
+                    <button name="action_berita_acara" string="Buat Berita Acara" type="object" class="oe_highlight" invisible="state != 'done_sap' or not need_berita_acara"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,in_progress,done_counting,done_sap,berita_acara"/>
                 </header>
                 <sheet>
                     <div class="oe_button_box" name="button_box">

@@ -31,6 +31,7 @@ Long description of module's purpose
         'wizards/quality_quantity_backorder_views.xml',
         'wizards/create_new_picking_views.xml',
         'wizards/production_pallet_wizard_views.xml',
+        'wizards/pid_berita_acara_wizard_views.xml',
         'views/product_template_views.xml',
         'views/stock_package_views.xml',
         'views/stock_picking_views.xml',

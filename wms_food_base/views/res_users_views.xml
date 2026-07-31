@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Counters wms_base_warehouse/views/res_users_views.xml:
+             inherit_base_res_users_form (base.view_users_form). The whole
+             "WH Types" page has no native equivalent, so it is hidden for
+             FOOD. -->
+        <record model="ir.ui.view" id="food_inherit_base_res_users_form">
+            <field name="name">food.inherit.base.res.users.form</field>
+            <field name="model">res.users</field>
+            <field name="inherit_id" ref="wms_base_warehouse.inherit_base_res_users_form"/>
+            <field name="priority">99</field>
+            <field name="arch" type="xml">
+                <xpath expr="//page[@name='page_wh_types']" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//page[@name='page_wh_types']" position="after">
+                    <!-- Explicit, hidden: the client's expression evaluator only
+                         resolves field names that are actually declared/fetched
+                         in this view, so the invisible condition above needs
+                         this. -->
+                    <field name="wms_type" invisible="1"/>
+                </xpath>
+            </field>
+        </record>
+    </data>
+</odoo>

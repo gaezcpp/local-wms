@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Counters wms_base_warehouse/views/stock_location_views.xml:
+             inherit_base_stock_location_form (stock.view_location_form).
+             sloc_id has no native equivalent, so it is hidden for FOOD. -->
+        <record model="ir.ui.view" id="food_inherit_base_stock_location_form">
+            <field name="name">food.inherit.base.stock.location.form</field>
+            <field name="model">stock.location</field>
+            <field name="inherit_id" ref="wms_base_warehouse.inherit_base_stock_location_form"/>
+            <field name="priority">99</field>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='sloc_id']" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='sloc_id']" position="after">
+                    <!-- Explicit, hidden: the client's expression evaluator only
+                         resolves field names that are actually declared/fetched
+                         in this view, so the invisible condition above needs
+                         this. -->
+                    <field name="wms_type" invisible="1"/>
+                </xpath>
+            </field>
+        </record>
+    </data>
+</odoo>

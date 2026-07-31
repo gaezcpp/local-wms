@@ -1,6 +1,8 @@
 from odoo import models, fields, api
 from odoo.exceptions import ValidationError, UserError
 import logging
+import pytz
+from datetime import timedelta
 _logger = logging.getLogger(__name__)
 
 class StockPicking(models.Model):
@@ -371,11 +373,68 @@ class StockPicking(models.Model):
                 if not ml.result_package_id:
                     ml.write({'result_package_id': ml.package_id})
                     
+    # def _get_next_pallet_ke_map(self):
+    #     result = {}
+    #     for rec in self:
+    #         if not rec.picking_type_id.production_only:
+    #             continue
+
+    #         groups = {}
+    #         for ml in rec.move_line_ids:
+    #             groups.setdefault((ml.product_id.id, ml.production_line_id.id), []).append(ml)
+
+    #         for (product_id, production_line_id), mls in groups.items():
+    #             latest_ml = self.env['stock.move.line'].sudo().search([
+    #                 ('picking_id', '!=', rec.id),
+    #                 ('picking_id.state', '=', 'done'),
+    #                 ('picking_id.picking_type_id.production_only', '=', True),
+    #                 ('picking_id.production_shift_id', '=', rec.production_shift_id.id),
+    #                 ('picking_id.po_sap_id', '=', rec.po_sap_id.id),
+    #                 ('product_id', '=', product_id),
+    #                 ('production_line_id', '=', production_line_id),
+    #             ], order='pallet_ke desc, id desc', limit=1)
+    #             next_pallet = (latest_ml.pallet_ke + 1) if latest_ml else 1
+    #             for ml in mls:
+    #                 result[ml] = next_pallet
+    #                 next_pallet += 1
+    #     return result
+    
     def _get_next_pallet_ke_map(self):
         result = {}
+        # Gunakan timezone user, atau default ke WIB (Asia/Jakarta)
+        tz_name = self.env.user.tz or 'Asia/Jakarta'
+        user_tz = pytz.timezone(tz_name)
+
         for rec in self:
             if not rec.picking_type_id.production_only:
                 continue
+            
+            # 1. Dapatkan waktu saat ini lalu konversi ke waktu lokal (WIB)
+            now_utc = fields.Datetime.now()
+            local_dt = pytz.utc.localize(now_utc).astimezone(user_tz)
+            hour = local_dt.hour
+            
+            # 2. Tentukan batas Start & End Shift berdasarkan waktu lokal
+            if 7 <= hour < 15:
+                # Shift 2 (07:00 - 15:00)
+                start_local = local_dt.replace(hour=7, minute=0, second=0, microsecond=0)
+            elif 15 <= hour < 23:
+                # Shift 3 (15:00 - 23:00)
+                start_local = local_dt.replace(hour=15, minute=0, second=0, microsecond=0)
+            else:
+                # Shift 1 (23:00 - 07:00 lintas hari)
+                if hour >= 23:
+                    start_local = local_dt.replace(hour=23, minute=0, second=0, microsecond=0)
+                else:
+                    # Jika jam 00:00 - 06:59, ini masih masuk shift 1 dari HARI SEBELUMNYA
+                    start_local = (local_dt - timedelta(days=1)).replace(hour=23, minute=0, second=0, microsecond=0)
+            
+            # Tambahkan 8 jam untuk mendapatkan batas akhir shift
+            end_local = start_local + timedelta(hours=8)
+            
+            # 3. Kembalikan ke format UTC (tanpa tzinfo) agar bisa diproses oleh ORM Odoo
+            start_utc = start_local.astimezone(pytz.utc).replace(tzinfo=None)
+            end_utc = end_local.astimezone(pytz.utc).replace(tzinfo=None)
 
             groups = {}
             for ml in rec.move_line_ids:
@@ -390,11 +449,16 @@ class StockPicking(models.Model):
                     ('picking_id.po_sap_id', '=', rec.po_sap_id.id),
                     ('product_id', '=', product_id),
                     ('production_line_id', '=', production_line_id),
+                    # 4. Filter krusial: Hanya cari data di rentang waktu shift INI
+                    ('picking_id.date_done', '>=', start_utc),
+                    ('picking_id.date_done', '<', end_utc),
                 ], order='pallet_ke desc, id desc', limit=1)
+
                 next_pallet = (latest_ml.pallet_ke + 1) if latest_ml else 1
                 for ml in mls:
                     result[ml] = next_pallet
                     next_pallet += 1
+                    
         return result
 
     def button_validate(self):

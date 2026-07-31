@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Counters wms_inherit_stock_barcode/views/stock_move_line_barcode_views.xml:
+             inherit_stock_move_line_product_selector (stock_barcode.stock_move_line_product_selector,
+             the barcode app's "Select a Product" dialog). This is a single-
+             record form (not a nested list), so a bare "wms_type" resolves
+             fine everywhere below (stock.move.line's own related field, see
+             models/stock_move_line.py). Every restored condition below is
+             taken verbatim from odoo/addons/stock_barcode/views/
+             stock_move_line_views.xml (stock_move_line_product_selector);
+             for FEED, every original condition is preserved unchanged.
+
+             NOT restored, and left as a known gap for manual review:
+             - the "options"/"force_save"/"class" attributes throughout (not
+               per-record expressions, so cannot be conditioned on wms_type
+               without also changing FEED's rendering).
+             - result_package_id's FEED-only domain (filters on stock.package's
+               FEED-only can_be_use field) and its "Pallet" label override
+               (native label is "Destination Package"): domains and string
+               attributes are not boolean expressions and there is no
+               precedent in this codebase for conditioning them on wms_type;
+               doing so here for the first time was judged too risky for the
+               live barcode app without dedicated QA. -->
+        <record model="ir.ui.view" id="food_inherit_stock_move_line_product_selector">
+            <field name="name">food.inherit.stock.move.line.product.selector</field>
+            <field name="model">stock.move.line</field>
+            <field name="inherit_id" ref="wms_inherit_stock_barcode.inherit_stock_move_line_product_selector"/>
+            <field name="priority">99</field>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='dummy_full_pallet']" position="after">
+                    <!-- Explicit, hidden: the client's expression evaluator only
+                         resolves field names that are actually declared/fetched
+                         in this view, so every invisible/readonly condition
+                         below that reads "wms_type" needs this. -->
+                    <field name="wms_type" invisible="1"/>
+                </xpath>
+                <xpath expr="//field[@name='qty_done']" position="attributes">
+                    <attribute name="readonly">wms_type != 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='product_uom_id']" position="attributes">
+                    <attribute name="readonly">wms_type != 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='package_id']" position="attributes">
+                    <attribute name="readonly">wms_type != 'FOOD' and checker_only</attribute>
+                </xpath>
+                <xpath expr="//field[@name='outermost_result_package_id']" position="attributes">
+                    <attribute name="invisible">wms_type != 'FOOD' and (production_only or checker_only)</attribute>
+                </xpath>
+                <xpath expr="//field[@name='lot_id']" position="attributes">
+                    <attribute name="readonly">wms_type != 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//div[@name='properties']" position="attributes">
+                    <attribute name="invisible">(wms_type == 'FOOD' and (tracking == 'none' or not lot_id)) or wms_type != 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//div[@name='location_dest']" position="attributes">
+                    <attribute name="invisible">(wms_type == 'FOOD' and picking_code == 'outgoing') or (wms_type != 'FOOD' and production_only)</attribute>
+                </xpath>
+                <xpath expr="//div[@name='package']" position="attributes">
+                    <attribute name="invisible">wms_type != 'FOOD' and production_only</attribute>
+                </xpath>
+                <xpath expr="//div[@name='outermost_package']" position="attributes">
+                    <attribute name="invisible">wms_type != 'FOOD' and (production_only or checker_only)</attribute>
+                </xpath>
+                <xpath expr="//div[@name='tracking_number']" position="attributes">
+                    <attribute name="invisible">(wms_type == 'FOOD' and hide_lot_name and hide_lot) or (wms_type != 'FOOD' and production_only)</attribute>
+                </xpath>
+                <xpath expr="//div[@name='location_src']/field[@name='location_id']" position="attributes">
+                    <attribute name="readonly">wms_type != 'FOOD' and checker_only</attribute>
+                </xpath>
+                <xpath expr="//field[@name='location_dest_id']" position="attributes">
+                    <attribute name="readonly">wms_type != 'FOOD' and checker_only</attribute>
+                </xpath>
+                <xpath expr="//div[@name='quantity']" position="attributes">
+                    <attribute name="invisible">wms_type != 'FOOD' and (checker_only or checker_out)</attribute>
+                </xpath>
+                <!-- bag_quantity/pallet_quantity have no native equivalent. -->
+                <xpath expr="//div[@name='bag_quantity']" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//div[@name='pallet_quantity']" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//div[@name='btn_full_pallet']" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD' or not production_only</attribute>
+                </xpath>
+                <!-- FEED forces the whole div invisible (masking the native
+                     widget's own "invisible" condition beneath it, which is
+                     left untouched here); for FOOD the div itself carries no
+                     invisible condition natively, so the inner widget's own
+                     expression is what governs visibility again. -->
+                <xpath expr="//div[@name='digipad']" position="attributes">
+                    <attribute name="invisible">wms_type != 'FOOD'</attribute>
+                </xpath>
+                <!-- production_text has no native equivalent. -->
+                <xpath expr="//div[@name='production_text']" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD' or not production_only</attribute>
+                </xpath>
+            </field>
+        </record>
+    </data>
+</odoo>

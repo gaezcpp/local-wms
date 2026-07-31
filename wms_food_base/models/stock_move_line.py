@@ -57,3 +57,24 @@ class FoodStockMoveLine(models.Model):
         return super(FoodStockMoveLine, self)._synchronize_quant(
             quantity, location, action=action, in_date=in_date, **quants_value
         )
+
+    # wms_base_warehouse does not touch this one, so wms_inherit_stock_barcode
+    # is the innermost FEED layer for the barcode app's field-name list.
+    def _get_fields_stock_barcode(self):
+        if self and self[0].company_id.wms_type == 'FOOD':
+            return super(_SbStockMoveLine, self)._get_fields_stock_barcode()
+        return super(FoodStockMoveLine, self)._get_fields_stock_barcode()
+
+    # pallet_qty/bag_qty (and this capacity rule) have no core stock.move.line
+    # equivalent, so for FOOD there is nothing native to super()-jump to:
+    # the constraint simply must not run at all for FOOD lines. Because
+    # @api.constrains resolves the method by name on the final class (plain
+    # attribute lookup, not a super() chain), redefining it here with the
+    # same trigger fields is required for this FOOD skip to take effect --
+    # otherwise wms_inherit_stock_barcode's version would still be the one
+    # the ORM invokes for every company.
+    @api.constrains('pallet_qty', 'picking_id')
+    def _check_pallet_qty_limit(self):
+        other = self.filtered(lambda l: l.company_id.wms_type != 'FOOD')
+        if other:
+            super(FoodStockMoveLine, other)._check_pallet_qty_limit()

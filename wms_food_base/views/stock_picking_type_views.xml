@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Counters wms_base_warehouse/views/stock_picking_type_views.xml:
+             inherit_stock_picking_type_form_views (stock.view_picking_type_form).
+             Every field added here (move_type_sap, uu_only/production_only/
+             checker_*, packaging_type_id, ...) has no native equivalent, so
+             they are all hidden for FOOD. -->
+        <record model="ir.ui.view" id="food_inherit_stock_picking_type_form_views">
+            <field name="name">food.inherit.stock.picking.type.form</field>
+            <field name="model">stock.picking.type</field>
+            <field name="inherit_id" ref="wms_base_warehouse.inherit_stock_picking_type_form_views"/>
+            <field name="priority">99</field>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='move_type_sap']" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='move_type_sap']" position="after">
+                    <!-- Explicit, hidden: the client's expression evaluator only
+                         resolves field names that are actually declared/fetched
+                         in this view, so every invisible condition below that
+                         reads "wms_type" needs this. -->
+                    <field name="wms_type" invisible="1"/>
+                </xpath>
+                <xpath expr="//field[@name='uu_only']" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='production_only']" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='checker_only']" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='quality_type_id']" position="attributes">
+                    <attribute name="invisible">(wms_type == 'FOOD') or not checker_only</attribute>
+                </xpath>
+                <xpath expr="//field[@name='quantity_type_id']" position="attributes">
+                    <attribute name="invisible">(wms_type == 'FOOD') or not checker_only</attribute>
+                </xpath>
+                <xpath expr="//field[@name='checker_out']" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='quality_out_type_id']" position="attributes">
+                    <attribute name="invisible">(wms_type == 'FOOD') or not checker_out</attribute>
+                </xpath>
+                <xpath expr="//field[@name='quantity_out_type_id']" position="attributes">
+                    <attribute name="invisible">(wms_type == 'FOOD') or not checker_out</attribute>
+                </xpath>
+                <xpath expr="//field[@name='book_full_pallet']" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='mandatory_destination']" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='split_package']" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='bypass_entire_packs']" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='create_new_picking']" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='autofill_pack_qty']" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='restrict_over_demand']" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='hide_zero_qty']" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='hide_edit_barcode']" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='packaging_type_id']" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                </xpath>
+            </field>
+        </record>
+    </data>
+</odoo>

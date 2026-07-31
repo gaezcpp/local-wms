@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Counters wms_base_warehouse/views/inh_stock_package_views.xml:
+             inherit_stock_package_form_views (stock.stock_package_view_form).
+             For a FOOD company: the native "Unpack" button is shown again,
+             the FEED-only yellow_tag/action_ready/action_hold additions are
+             hidden, the contained_quant_ids stock_type column (a stock.quant
+             field, evaluated in that nested list's own row scope, so a bare
+             "wms_type" here is stock.quant's own related field, see
+             models/stock_quant.py) is hidden, and create/edit/delete are
+             restored to native (unset, i.e. always allowed) on both the form
+             and the contained_quant_ids list. package_type_id/location_id/
+             parent_package_id/company_id/pack_date are restored to native
+             (never readonly); their "options"/"force_save" attributes are
+             left as-is for both FEED and FOOD since those are static view
+             attributes, not per-record expressions, so they cannot be
+             conditioned on wms_type without also changing FEED's behavior
+             (see odoo/addons/stock/views/stock_package_views.xml for the
+             native arch reference used throughout this file). -->
+        <record model="ir.ui.view" id="food_inherit_stock_package_form_views">
+            <field name="name">food.inherit.stock.package.form</field>
+            <field name="model">stock.package</field>
+            <field name="inherit_id" ref="wms_base_warehouse.inherit_stock_package_form_views"/>
+            <field name="priority">99</field>
+            <field name="arch" type="xml">
+                <xpath expr="//button[@name='unpack']" position="attributes">
+                    <attribute name="invisible">wms_type != 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//button[@name='unpack']" position="after">
+                    <!-- Explicit, hidden: the client's expression evaluator only
+                         resolves field names that are actually declared/fetched
+                         in this view, so every invisible/readonly/create/edit/
+                         delete condition below that reads "wms_type" needs
+                         this. -->
+                    <field name="wms_type" invisible="1"/>
+                </xpath>
+                <xpath expr="//button[@name='action_ready']" position="attributes">
+                    <attribute name="invisible">(wms_type == 'FOOD') or yellow_tag == 'ready'</attribute>
+                </xpath>
+                <xpath expr="//button[@name='action_hold']" position="attributes">
+                    <attribute name="invisible">(wms_type == 'FOOD') or yellow_tag == 'hold'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='yellow_tag']" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                </xpath>
+                <!-- column_invisible evaluates against the contained_quant_ids
+                     list's own scope, not the row's data, so, exactly like
+                     sap_seq/order_seq in stock_picking_views.xml, it needs
+                     "parent." even though stock.quant (the row model) also
+                     carries its own related wms_type field. -->
+                <xpath expr="//field[@name='contained_quant_ids']/list/field[@name='stock_type']" position="attributes">
+                    <attribute name="column_invisible">parent.wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//form" position="attributes">
+                    <attribute name="create">wms_type == 'FOOD'</attribute>
+                    <attribute name="edit">wms_type == 'FOOD'</attribute>
+                    <attribute name="delete">wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='package_type_id']" position="attributes">
+                    <attribute name="readonly">wms_type != 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='location_id']" position="attributes">
+                    <attribute name="readonly">wms_type != 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='parent_package_id']" position="attributes">
+                    <attribute name="readonly">wms_type != 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='company_id']" position="attributes">
+                    <attribute name="readonly">wms_type != 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='pack_date']" position="attributes">
+                    <attribute name="readonly">wms_type != 'FOOD'</attribute>
+                </xpath>
+                <!-- column_invisible/list-level attrs evaluate against the
+                     list's own scope, not the row's data, so they must use
+                     "parent." to reach the package (this list is directly
+                     embedded in stock.package's own form, so "parent" here
+                     is always that package). -->
+                <xpath expr="//field[@name='contained_quant_ids']/list" position="attributes">
+                    <attribute name="create">parent.wms_type == 'FOOD'</attribute>
+                    <attribute name="edit">parent.wms_type == 'FOOD'</attribute>
+                    <attribute name="delete">parent.wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='contained_quant_ids']/kanban/templates/t/field[@name='product_id']" position="before">
+                    <!-- Explicit, hidden: this kanban card renders one
+                         contained stock.quant per row, so this is that
+                         quant's own related field (see models/stock_quant.py),
+                         needed here for the row-level "invisible" expressions
+                         below (and re-used by the sibling barcode counter
+                         view's bag_qty/uom_bag_id div, since both end up in
+                         the same merged <t t-name="card"> template). -->
+                    <field name="wms_type" invisible="1"/>
+                </xpath>
+                <xpath expr="//field[@name='contained_quant_ids']/kanban/templates/t/span[field[@name='stock_type']]" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                </xpath>
+            </field>
+        </record>
+
+        <!-- Counters wms_inherit_stock_barcode/views/stock_package_views.xml:
+             inherit_stock_package_form_views (stock.stock_package_view_form,
+             a second/separate inheritance of the same native view). pallet_
+             status/can_be_use/is_reserved and bag_qty/uom_bag_id have no
+             native stock.package equivalent, so they are hidden for FOOD;
+             the kanban row's bag_qty/uom_bag_id are stock.quant's own fields
+             (nested list/kanban row scope), so a bare "wms_type" there reads
+             that row's own related field. -->
+        <record model="ir.ui.view" id="food_inherit_stock_package_form_views_barcode">
+            <field name="name">food.inherit.stock.package.form.barcode</field>
+            <field name="model">stock.package</field>
+            <field name="inherit_id" ref="wms_inherit_stock_barcode.inherit_stock_package_form_views"/>
+            <field name="priority">99</field>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='pallet_status']" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='pallet_status']" position="after">
+                    <!-- Explicit, hidden: same client-side scope reason as
+                         the sibling counter view above. -->
+                    <field name="wms_type" invisible="1"/>
+                </xpath>
+                <xpath expr="//field[@name='can_be_use']" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='is_reserved']" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                </xpath>
+                <!-- bag_qty/uom_bag_id here are columns of the
+                     contained_quant_ids list (added after product_uom_id,
+                     the only occurrence of which is inside that nested
+                     list), so column_invisible needs "parent." just like the
+                     stock_type column above. -->
+                <xpath expr="//field[@name='bag_qty'][not(ancestor::kanban)]" position="attributes">
+                    <attribute name="column_invisible">parent.wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='uom_bag_id'][not(ancestor::kanban)]" position="attributes">
+                    <attribute name="column_invisible">parent.wms_type == 'FOOD'</attribute>
+                </xpath>
+                <!-- The kanban card div's own bag_qty/uom_bag_id, by
+                     contrast, are plain row-level fields of the current
+                     kanban card's stock.quant record, so the bare "wms_type"
+                     here resolves to that quant's own related field. -->
+                <xpath expr="//field[@name='contained_quant_ids']/kanban/templates/t/div[field[@name='bag_qty']]" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                </xpath>
+            </field>
+        </record>
+    </data>
+</odoo>

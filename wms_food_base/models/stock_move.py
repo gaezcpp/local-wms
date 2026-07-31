@@ -1,5 +1,6 @@
 from odoo import api, fields, models
 from odoo.addons.wms_base_warehouse.models.stock_move import StockMove as _WbwStockMove
+from odoo.addons.wms_inherit_stock_barcode.models.stock_move import InheritStockMove as _SbStockMove
 
 
 class FoodStockMove(models.Model):
@@ -77,3 +78,17 @@ class FoodStockMove(models.Model):
         if self.company_id.wms_type == 'FOOD':
             return super(_WbwStockMove, self)._prepare_move_line_vals(quantity=quantity, reserved_quant=reserved_quant)
         return super(FoodStockMove, self)._prepare_move_line_vals(quantity=quantity, reserved_quant=reserved_quant)
+
+    def _prepare_move_split_vals(self, qty):
+        self.ensure_one()
+        if self.company_id.wms_type == 'FOOD':
+            return super(_WbwStockMove, self)._prepare_move_split_vals(qty)
+        return super(FoodStockMove, self)._prepare_move_split_vals(qty)
+
+    # wms_base_warehouse does not touch this one, so wms_inherit_stock_barcode
+    # (which adds bag_qty/pallet_qty/uom_bag_id/uom_pallet_id/qty_packaging_sap
+    # to the barcode app payload) is the innermost FEED layer here.
+    def _get_fields_stock_barcode(self):
+        if self and self[0].company_id.wms_type == 'FOOD':
+            return super(_SbStockMove, self)._get_fields_stock_barcode()
+        return super(FoodStockMove, self)._get_fields_stock_barcode()

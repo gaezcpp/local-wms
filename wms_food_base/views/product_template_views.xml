@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Counters wms_base_warehouse/views/product_template_views.xml:
+             inherit_product_template_form (product.product_template_form_view).
+             The whole "Family SKU" tab has no native equivalent, so it is
+             simply hidden for FOOD. -->
+        <record model="ir.ui.view" id="food_inherit_product_template_form">
+            <field name="name">food.inherit.product.template.form</field>
+            <field name="model">product.template</field>
+            <field name="inherit_id" ref="wms_base_warehouse.inherit_product_template_form"/>
+            <field name="priority">99</field>
+            <field name="arch" type="xml">
+                <xpath expr="//page[@name='wip']" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//page[@name='wip']" position="after">
+                    <!-- Explicit, hidden: the client's expression evaluator only
+                         resolves field names that are actually declared/fetched
+                         in this view, so the invisible condition above needs
+                         this. -->
+                    <field name="wms_type" invisible="1"/>
+                </xpath>
+            </field>
+        </record>
+
+        <!-- Counters wms_inherit_stock_barcode/views/product_template_views.xml:
+             inherit_product_template_form_views (product.product_template_only_form_view).
+             sap_mm/uom_bag_id/uom_pallet_id have no native equivalent, so
+             they are simply hidden for FOOD. -->
+        <record model="ir.ui.view" id="food_inherit_product_template_form_views">
+            <field name="name">food.inherit.product.template.only.form</field>
+            <field name="model">product.template</field>
+            <field name="inherit_id" ref="wms_inherit_stock_barcode.inherit_product_template_form_views"/>
+            <field name="priority">99</field>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='sap_mm']" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='sap_mm']" position="after">
+                    <field name="wms_type" invisible="1"/>
+                </xpath>
+                <xpath expr="//field[@name='uom_bag_id']" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//field[@name='uom_pallet_id']" position="attributes">
+                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                </xpath>
+            </field>
+        </record>
+    </data>
+</odoo>

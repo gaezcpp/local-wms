@@ -31,6 +31,7 @@ class StockMove(models.Model):
             over = any(m.quantity != m.product_uom_qty for m in picking.move_ids)
             picking.over_delivery = over
     
+    # UNTUK _ACTION_ASSIGN
     def _get_package_actual_qty(self, line):
         quants = line.package_id.quant_ids.filtered(lambda q: q.product_id == line.product_id)
         if line.lot_id:
@@ -135,6 +136,7 @@ class StockMove(models.Model):
             
             for line in picking.move_line_ids.filtered(lambda l: l.state not in ['done', 'cancel']):
                 quant_key = (
+                    line.move_id.id,
                     line.location_id.id, 
                     line.lot_id.id, 
                     line.package_id.id, 
@@ -525,15 +527,25 @@ class StockMove(models.Model):
             
         return picking and picking.picking_type_id.move_type_sap == str(prod_in_move_type)
     
+    def _prepare_move_split_vals(self, qty):
+        # NOTE: nama method core adalah `_prepare_move_split_vals` (bukan
+        # `_prepare_move_split_values`) -- sebelumnya salah tulis sehingga
+        # override ini tidak pernah terpanggil oleh `_split()`.
+        # Sebenarnya `_split()` sudah memakai `copy_data()` yang otomatis
+        # meng-copy semua field custom (termasuk sap_seq/order_seq) selama
+        # field-nya tidak `copy=False`, jadi override ini murni pengaman
+        # eksplisit, bukan fix wajib.
+        self.ensure_one()
+        vals = super()._prepare_move_split_vals(qty)
+        vals.update({
+            'sale_line_id': self.sale_line_id.id if self.sale_line_id else False,
+            'purchase_line_id': self.purchase_line_id.id if self.purchase_line_id else False,
+            'sap_seq': self.sap_seq,
+            'order_seq': self.order_seq,
+        })
+        return vals
+    
     def _action_done(self, **kwargs):
-        for move in self:
-            lines = [(l.id, l.quantity, l.lot_id.name, l.location_dest_id.complete_name) for l in move.move_line_ids]
-            _logger.info(
-                f"[GRGI] _action_done IN move={move.id} picking={move.picking_id.name} "
-                f"type={move.picking_id.picking_type_id.name} product={move.product_id.default_code} "
-                f"demand={move.product_uom_qty} qty={move.quantity} lines={lines}"
-            )
-
         res = super()._action_done(**kwargs)
         for move in res:
             for line in move.move_line_ids:
