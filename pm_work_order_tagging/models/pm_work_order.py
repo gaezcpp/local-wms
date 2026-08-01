@@ -49,8 +49,9 @@ class PlanMaintenanceWorkOrder(models.Model):
     material_only = fields.Boolean(string="Material Only", compute='_compute_flag_material')
     jasa_only = fields.Boolean(string="Jasa Only", compute='_compute_flag_jasa')
     preventif_inspection = fields.Boolean(string="Preventif Inspection", default=False)
-    start_time = fields.Datetime(string="Start Time")
-    end_time = fields.Datetime(string="End Time")
+    start_time = fields.Datetime(string="Planned Start")
+    end_time = fields.Datetime(string="Planned End")
+    preventif_visible = fields.Boolean(string="Preventif Visible", default=False, compute='_compute_flag_preventif_visible', store=True)
     
     @api.model_create_multi
     def create(self, vals_list):
@@ -74,6 +75,21 @@ class PlanMaintenanceWorkOrder(models.Model):
                 rec.jasa_only = all(line.is_gr == True for line in rec.pm_wo_jasa_line_ids)
             else:
                 rec.jasa_only = False
+                
+    @api.depends('start_time', 'preventif_inspection')
+    def _compute_flag_preventif_visible(self):
+        now_date = self.today_jakarta()
+        tz_name = self.env.user.tz or 'Asia/Jakarta'
+        user_tz = pytz.timezone(tz_name)
+        
+        for rec in self:
+            if rec.preventif_inspection and rec.start_time:
+                utc_dt = pytz.utc.localize(rec.start_time)
+                local_dt = utc_dt.astimezone(user_tz)
+                start_date = local_dt.date()
+                rec.preventif_visible = (now_date >= start_date)
+            else:
+                rec.preventif_visible = False
     
     def today_jakarta(self):
         tz = pytz.timezone('Asia/Jakarta')
@@ -479,6 +495,13 @@ class PlanMaintenanceWorkOrder(models.Model):
             if not equipment:
                 _logger.info(f"Sub Equipment {sub_equip} cron_synhronize_sap_work_order skipped")
                 continue
+            else:
+                if not equipment.parent_equipment_id:
+                    equipment_id = equipment.id
+                    sub_equipment_id = equip_model.search([('parent_equipment_id', '=', equipment_id)], limit=1).id
+                else:
+                    equipment_id = equipment.parent_equipment_id.id
+                    sub_equipment_id = equipment.id
             
             starttime = self._parse_string_datetime(strmn, strur)
             endtime = self._parse_string_datetime(ltrmn, ltrur)
@@ -493,8 +516,8 @@ class PlanMaintenanceWorkOrder(models.Model):
                 'sap_synchronize': True,
                 'system_id': equipment.system_id.id,
                 'sub_system_id': equipment.sub_system_id.id,
-                'equipment_id': equipment.parent_equipment_id.id,
-                'sub_equipment_id': equipment.id,
+                'equipment_id': equipment_id,
+                'sub_equipment_id': sub_equipment_id,
                 'company_id': company.id,
                 'description': ktext,
                 'start_time': starttime,
@@ -619,7 +642,7 @@ class PlanMaintenanceWorkOrder(models.Model):
             sub_equip = (first.get('EQUNR') or "").lstrip('0')
             company_registry = first.get('WERKS')
             ktext = first.get('KTEXT')
-            strmn = first.get('STRMN', '')
+            nplda = first.get('NPLDA', '')
             strur = first.get('STRUR', '')
             ltrmn = first.get('LTRMN', '')
             ltrur = first.get('LTRUR', '')
@@ -633,11 +656,16 @@ class PlanMaintenanceWorkOrder(models.Model):
             if not equipment:
                 _logger.info(f"Sub Equipment {sub_equip} cron_synhronize_sap_preventif_inspection skipped")
                 continue
+            else:
+                if not equipment.parent_equipment_id:
+                    equipment_id = equipment.id
+                    sub_equipment_id = equip_model.search([('parent_equipment_id', '=', equipment_id)], limit=1).id
+                else:
+                    equipment_id = equipment.parent_equipment_id.id
+                    sub_equipment_id = equipment.id
             
-            starttime = self._parse_string_datetime(strmn, strur)
-            endtime = self._parse_string_datetime(ltrmn, ltrur)
-            if not endtime:
-                endtime = starttime
+            starttime = self._parse_string_datetime(nplda, strur)
+            endtime = starttime
             
             wo_preventif = pm_wo_model.search([('wo_sap', '=', nomor_wo),('company_id', '=', company.id)], limit=1)
             vals = {
@@ -647,8 +675,8 @@ class PlanMaintenanceWorkOrder(models.Model):
                 'sap_synchronize': True,
                 'system_id': equipment.system_id.id,
                 'sub_system_id': equipment.sub_system_id.id,
-                'equipment_id': equipment.parent_equipment_id.id,
-                'sub_equipment_id': equipment.id,
+                'equipment_id': equipment_id,
+                'sub_equipment_id': sub_equipment_id,
                 'company_id': company.id,
                 'description': ktext,
                 'preventif_inspection': True,

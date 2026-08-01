@@ -11,6 +11,11 @@
                 <field name="tagging_id"/>
                 <field name="company_id"/>
                 <field name="name"/>
+                <filter name="fl_preventif" string="Preventif" domain="[('preventif_inspection','=', True)]"/>
+                <group>
+                    <filter name="gr_type" string="By Type" context="{'group_by':'type_mo'}"/>
+                    <filter name="gr_state" string="By State" context="{'group_by':'state'}"/>
+                </group>
             </search>
         </field>
     </record>
@@ -69,6 +74,7 @@
                             <field name="company_id" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1"/>
                             <field name="start_time" force_save="1" readonly="1"/>
                             <field name="end_time" force_save="1" readonly="1" invisible="end_time == start_time"/>
+                            <field name="preventif_visible"/>
                         </group>
                     </group>
                     <field name="material_only" invisible="1"/>
@@ -146,6 +152,7 @@
         <field name="name">Work Order</field>
         <field name="res_model">pm.work.order</field>
         <field name="view_mode">list,calendar,form</field>
+        <field name="domain">[('preventif_visible', '=', True)]</field>
     </record>
 
     <record id="pm_work_order_calendar_action" model="ir.actions.act_window">
