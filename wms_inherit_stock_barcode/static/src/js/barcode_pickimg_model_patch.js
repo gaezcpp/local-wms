@@ -507,18 +507,30 @@ patch(BarcodePickingModel.prototype, {
 
     _findProductionLineByCode(barcode) {
         const productionLineCache = this.cache.dbIdCache?.["production.line"] || {};
-        return Object.values(productionLineCache).find((pl) => pl.code === barcode);
+        const normalizedBarcode = (barcode || "").trim().toUpperCase();
+        return Object.values(productionLineCache).find(
+            (pl) => (pl.code || "").trim().toUpperCase() === normalizedBarcode
+        );
     },
 
     get _lineAwaitingProductionLine() {
         if (!this.record.production_only) {
             return null;
         }
-        const line = this.selectedLine;
-        if (line && line.result_package_id && !line.production_line_id) {
-            return line;
+        const isPending = (l) => Boolean(l && l.result_package_id && !l.production_line_id);
+        // Normally the packed line stays selected, but when its demand isn't fully done,
+        // core's _assignEmptyPackage() splits it and moves selection to the new remainder
+        // line (which has no package yet). lastScannedLine still points at the line that
+        // was actually just packed in that case, so check it before falling back to a full
+        // scan of the page's lines.
+        if (isPending(this.selectedLine)) {
+            return this.selectedLine;
         }
-        return null;
+        if (isPending(this.lastScannedLine)) {
+            return this.lastScannedLine;
+        }
+        const lines = (this.currentState && this.currentState.lines) || [];
+        return lines.find(isPending) || null;
     },
 
     async _getPackageStockType(packageId) {

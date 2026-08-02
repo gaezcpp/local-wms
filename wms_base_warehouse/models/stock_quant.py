@@ -164,3 +164,9 @@ class StockQuant(models.Model):
                 message_body = f"Update Stock Type: Produk {quant.product_id.display_name} telah diubah dari [{old_type or '-'}] menjadi [{new_type}]."
                 quant.package_id.message_post(body=message_body)
     
+    @api.model
+    def fill_zero_bag(self):
+        zero_bag = self.env['stock.quant'].sudo().search([('quantity', '>=', 1),('bag_qty', '=', 0)])
+        for z in zero_bag:
+            if z.product_uom_id and z.uom_bag_id:
+                z.bag_qty = z.product_uom_id._compute_quantity(z.quantity, z.uom_bag_id)
