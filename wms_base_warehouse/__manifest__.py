@@ -23,7 +23,7 @@ Long description of module's purpose
     # always loaded
     'data': [
         'security/ir.model.access.csv',
-        'security/ir_rules.xml',
+        # 'security/ir_rules.xml',
         'wizard/unpack_stock_package_views.xml',
         'data/parameter.xml',
         'data/cron.xml',
@@ -46,7 +46,7 @@ Long description of module's purpose
         'views/stock_quant_views.xml',
         'views/stock_move_views.xml',
         'views/product_template_views.xml',
-        'views/res_users_views.xml',
+        # 'views/res_users_views.xml',
         'views/stock_warehouse_category_views.xml',
         'views/menuitem.xml',
     ],

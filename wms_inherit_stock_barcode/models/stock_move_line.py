@@ -27,6 +27,7 @@ class StockMoveLine(models.Model):
     autofill_pack_qty = fields.Boolean(related='picking_id.autofill_pack_qty', store=True)
     hide_zero_qty = fields.Boolean(related='picking_id.hide_zero_qty', store=True)
     pallet_ke = fields.Integer(string="Pallet Ke-", default=0)
+    check_scan_pallet = fields.Boolean(related='picking_id.check_scan_pallet', store=True)
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -35,13 +36,11 @@ class StockMoveLine(models.Model):
 
             self._validate_bag_qty(vals)
             self._sync_qty_from_bag(vals)
-            # self._clear_destination_pallet(vals)
 
         filtered_vals_list = self._filter_empty_package_lines(vals_list)
         if not filtered_vals_list:
             return self.browse()
         records = super().create(filtered_vals_list)
-        # records._validate_lot_availability()
         return records
 
     def write(self, vals):
@@ -50,57 +49,9 @@ class StockMoveLine(models.Model):
         self._validate_bag_qty(vals, records=self)
         self._sync_qty_from_bag(vals, records=self)
         self._validate_qty_packaging_sap(vals)
-        # self._clear_destination_pallet(vals, records=self)
         res = super().write(vals)
-
-        # if {'quantity', 'bag_qty', 'qty_done'} & set(vals.keys()):
-        #     self._validate_lot_availability()
-
         return res
 
-    # def _validate_lot_availability(self):
-    #     if self.env.context.get('skip_over_demand_check'):
-    #         return
-
-    #     precision = self.env['decimal.precision'].precision_get('Product Unit of Measure')
-    #     for line in self:
-    #         if not line.lot_id or not line.location_id or line.state in ('done', 'cancel'):
-    #             continue
-    #         picking_type = line.picking_id.picking_type_id if line.picking_id else False
-    #         if not picking_type or not picking_type.restrict_over_demand:
-    #             continue
-
-    #         domain = [
-    #             ('product_id', '=', line.product_id.id),
-    #             ('lot_id', '=', line.lot_id.id),
-    #             ('location_id', '=', line.location_id.id),
-    #         ]
-    #         quant_domain = domain + [
-    #             ('package_id', '=', line.package_id.id if line.package_id else False),
-    #         ]
-    #         on_hand = sum(self.env['stock.quant'].sudo().search(quant_domain).mapped('quantity'))
-
-    #         other_lines = self.env['stock.move.line'].sudo().search(domain + [
-    #             ('id', '!=', line.id),
-    #             ('state', 'not in', ('done', 'cancel')),
-    #         ])
-    #         reserved_by_others = sum(other_lines.mapped('quantity'))
-    #         available_for_line = on_hand - reserved_by_others
-
-    #         if float_compare(line.quantity, available_for_line, precision_digits=precision) > 0:
-    #             _logger.info(
-    #                 f"[GRGI] lot_availability BLOCKED line={line.id} picking={line.picking_id.name} "
-    #                 f"lot={line.lot_id.name} on_hand={on_hand} available={available_for_line} "
-    #                 f"attempted={line.quantity}"
-    #             )
-    #             raise ValidationError(
-    #                 f"Quantity {line.quantity} yang diinput untuk lot '{line.lot_id.name}' "
-    #                 f"({line.product_id.display_name}) di picking {line.picking_id.name} "
-    #                 f"melebihi stok lot tersebut yang tersedia di lokasi "
-    #                 f"'{line.location_id.complete_name}' (tersedia: {available_for_line}). "
-    #                 f"Input quantity sesuai qty milik lot ini saja, jangan total gabungan lot lain."
-    #             )
-    
     def _clear_destination_pallet(self, vals, records=None):
         picking_id = vals.get('picking_id')
         if picking_id:
@@ -227,36 +178,8 @@ class StockMoveLine(models.Model):
             'stock_type',
             'create_new_picking',
             'autofill_pack_qty',
+            'check_scan_pallet',
         ]
-    
-    # @api.constrains('pallet_qty', 'bag_qty', 'result_package_id')
-    # def _check_package_capacity_limit(self):
-    #     for line in self:
-    #         if line.picking_id and line.picking_id.state not in ('done', 'cancel'):
-    #             if not line.result_package_id:
-    #                 continue
-
-    #             lines = self.sudo().search([
-    #                 ('result_package_id', '=', line.result_package_id.id),
-    #                 ('product_id', '=', line.product_id.id),
-    #                 ('picking_id', '=', line.picking_id.id),
-    #             ])
-                
-    #             total_pallet = sum(lines.mapped('pallet_qty'))
-    #             total_bag = sum(lines.mapped('bag_qty'))
-
-    #             if total_pallet > 1:
-    #                 uom_bag_name = lines[0].uom_bag_id.name if lines and lines[0].uom_bag_id else 'BAG'
-    #                 try:
-    #                     max_bag = lines[0].uom_pallet_id.factor / lines[0].uom_bag_id.factor
-    #                 except:
-    #                     max_bag = 0
-                    
-    #                 remaining_bag = max_bag - (total_bag - line.bag_qty)
-    #                 raise ValidationError(
-    #                     f"{line.result_package_id.name} sudah melebihi UPP Pallet, "
-    #                     f"hanya bisa ditambah sebanyak {remaining_bag:.0f} {uom_bag_name} lagi!"
-    #                 )
     
     def _check_package_capacity_limit(self):
         for line in self:
@@ -287,7 +210,6 @@ class StockMoveLine(models.Model):
                 try:
                     max_bag = int(line.uom_pallet_id.factor / line.uom_bag_id.factor)
                     line.bag_qty = max_bag
-                    # line._onchange_bag_qty()
                 except ZeroDivisionError:
                     pass
 

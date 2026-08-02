@@ -14,7 +14,7 @@ normally and the existing FEED logic runs unchanged.
     'author': "Mr Gaez",
     'website': "https://www.cpp.co.id",
     'category': 'WMS',
-    'version': '19.0.1.1.0',
+    'version': '19.0.1.2.0',
     'depends': [
         'base',
         'stock',
@@ -47,6 +47,7 @@ normally and the existing FEED logic runs unchanged.
         'web.assets_backend': [
             'wms_food_base/static/src/js/food_barcode_utils.js',
             'wms_food_base/static/src/js/barcode_pickimg_model_patch.js',
+            'wms_food_base/static/src/js/barcode_quant_model_patch.js',
             'wms_food_base/static/src/js/digipad_patch.js',
             'wms_food_base/static/src/js/package_line_component_patch.js',
             'wms_food_base/static/src/xml/barcode_line_component_views.xml',

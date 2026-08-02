@@ -24,6 +24,7 @@ class InheritStockPickingType(models.Model):
     restrict_over_demand = fields.Boolean(string="Restrict Over Demand", default=False)
     hide_zero_qty = fields.Boolean(string="Hide Zero Qty", default=False)
     hide_edit_barcode = fields.Boolean(string="Hide Edit Barcode", default=False)
+    check_scan_pallet = fields.Boolean(string="Check Scan Pallet", default=False)
     
     @api.onchange('checker_only')
     def _onchange_checker_only(self):

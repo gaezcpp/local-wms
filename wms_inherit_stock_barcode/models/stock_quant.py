@@ -31,9 +31,9 @@ class InheritStockQuant(models.Model):
 
         for vals in vals_list:
             self._prepare_bag_pallet_vals(vals)
-            pallet_ke_from_ctx = self.env.context.get('force_pallet_ke')  # insert_pallet_ke
-            if pallet_ke_from_ctx:  # insert_pallet_ke
-                vals['pallet_ke'] = pallet_ke_from_ctx  # insert_pallet_ke
+            pallet_ke_from_ctx = self.env.context.get('force_pallet_ke')
+            if pallet_ke_from_ctx:
+                vals['pallet_ke'] = pallet_ke_from_ctx
             prod_line_ctx = self.env.context.get('force_production_line')
             if prod_line_ctx:
                 vals['production_line_id'] = prod_line_ctx
@@ -60,14 +60,12 @@ class InheritStockQuant(models.Model):
                 if vals_to_write:
                     vals.update(vals_to_write)
 
-        # insert_pallet_ke: start
         pallet_ke_from_ctx = self.env.context.get('force_pallet_ke')
         if pallet_ke_from_ctx:
             vals['pallet_ke'] = pallet_ke_from_ctx
         prod_line_ctx = self.env.context.get('force_production_line')
         if prod_line_ctx:
             vals['production_line_id'] = prod_line_ctx
-        # insert_pallet_ke: end
 
         res = super().write(vals)
 
@@ -122,6 +120,7 @@ class InheritStockQuant(models.Model):
                 line.inventory_quantity = 0.0
                 continue
             line.inventory_quantity = line.bag_dummy_qty * (line.uom_bag_id.factor / 1000)
+            line.bag_qty = line.bag_dummy_qty
     
     @api.depends('inventory_quantity', 'uom_pallet_id')
     def _compute_pallet_dummy_qty(self):
@@ -130,3 +129,13 @@ class InheritStockQuant(models.Model):
                 line.pallet_dummy_qty = line.inventory_quantity / (line.uom_pallet_id.factor / 1000)
             else:
                 line.pallet_dummy_qty = 0.0
+
+    def _get_fields_stock_barcode(self):
+        return super()._get_fields_stock_barcode() + [
+            'bag_qty',
+            'pallet_qty',
+            'uom_bag_id',
+            'uom_pallet_id',
+            'bag_dummy_qty',
+            'uom_pallet_id',
+        ]

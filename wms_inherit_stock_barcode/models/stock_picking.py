@@ -20,6 +20,7 @@ class StockPicking(models.Model):
     uu_only = fields.Boolean(related='picking_type_id.uu_only', store=True)
     split_package = fields.Boolean(related='picking_type_id.split_package', store=True)
     hide_edit_barcode = fields.Boolean(related='picking_type_id.hide_edit_barcode', store=True)
+    check_scan_pallet = fields.Boolean(related='picking_type_id.check_scan_pallet', store=True)
 
     def _get_fields_stock_barcode(self):
         res = super()._get_fields_stock_barcode()
@@ -43,6 +44,8 @@ class StockPicking(models.Model):
             res.append('hide_edit_barcode')
         if 'split_package' not in res:
             res.append('split_package')
+        if 'check_scan_pallet' not in res:
+            res.append('check_scan_pallet')
         return res
     
     def _get_stock_barcode_data(self):

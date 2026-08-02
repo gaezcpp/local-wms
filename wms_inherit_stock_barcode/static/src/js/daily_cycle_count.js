@@ -2,6 +2,7 @@ import MainComponent from "@stock_barcode/components/main";
 import { patch } from "@web/core/utils/patch";
 import { ApplyQuantDialog } from "@stock_barcode/components/apply_quant_dialog";
 import BarcodeModel from "@stock_barcode/models/barcode_model";
+import LineComponent from "@stock_barcode/components/line";
 import { _t } from "@web/core/l10n/translation";
 
 export default class BarcodeDailyCountModel extends BarcodeModel {
@@ -694,4 +695,61 @@ patch(MainComponent.prototype, {
         }
         return super._getBarcodeModel(...arguments);
     }
+});
+
+
+patch(LineComponent.prototype, {
+    _getDailyCycleCountRelationId(value) {
+        if (value && typeof value === "object") {
+            return value.id;
+        }
+        return value || false;
+    },
+
+    _resolveDailyCycleCountPackInfo(line) {
+        const uomId =
+            this._getDailyCycleCountRelationId(line?.pack_unit_id) ||
+            this._getDailyCycleCountRelationId(line?.uom_bag_id);
+        const qty = line?.pack_qty || line?.bag_qty || 0;
+        return { uomId, qty };
+    },
+
+    get hasPackUom() {
+        if (this.env.model.resModel !== "daily.cycle.count") {
+            return false;
+        }
+        const line = this.props.line || this.line;
+        const sourceLine =
+            Array.isArray(line?.lines) && line.lines.length ? line.lines[0] : line;
+        return !!this._resolveDailyCycleCountPackInfo(sourceLine).uomId;
+    },
+
+    get computedPackQty() {
+        const line = this.props.line || this.line;
+        if (Array.isArray(line?.lines) && line.lines.length) {
+            const total = line.lines.reduce(
+                (sum, subline) => sum + (this._resolveDailyCycleCountPackInfo(subline).qty || 0),
+                0
+            );
+            return Math.round(total * 100) / 100;
+        }
+        return Math.round(this._resolveDailyCycleCountPackInfo(line).qty * 100) / 100;
+    },
+
+    get packUomLabel() {
+        const line = this.props.line || this.line;
+        const sourceLine =
+            Array.isArray(line?.lines) && line.lines.length ? line.lines[0] : line;
+        const uomId = this._resolveDailyCycleCountPackInfo(sourceLine).uomId;
+        if (!uomId) {
+            return "";
+        }
+        const targetUom = this.env.model.cache.getRecord("uom.uom", uomId);
+        return targetUom?.sap_name || "";
+    },
+
+    get packQtyLabel() {
+        const label = this.packUomLabel;
+        return label ? `${this.computedPackQty} ${label}` : `${this.computedPackQty}`;
+    },
 });

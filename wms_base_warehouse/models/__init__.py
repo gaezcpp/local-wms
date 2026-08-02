@@ -20,5 +20,5 @@ from . import stock_rule
 from . import stock_lot
 from . import stock_lot_aft
 from . import product_wip
-from . import res_users
+# from . import res_users
 from . import stock_warehouse_category

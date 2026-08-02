@@ -38,7 +38,13 @@
                     <attribute name="invisible">wms_type == 'FOOD'</attribute>
                 </xpath>
                 <xpath expr="//div[@name='pallet_quantity']" position="attributes">
-                    <attribute name="invisible">wms_type == 'FOOD'</attribute>
+                    <attribute name="invisible">1</attribute>
+                </xpath>
+                <xpath expr="//div[@name='quantity']" position="attributes">
+                    <attribute name="invisible">wms_type != 'FOOD'</attribute>
+                </xpath>
+                <xpath expr="//div[@name='digipad']" position="attributes">
+                    <attribute name="invisible">wms_type != 'FOOD'</attribute>
                 </xpath>
             </field>
         </record>

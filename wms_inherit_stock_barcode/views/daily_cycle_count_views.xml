@@ -163,7 +163,7 @@
                         <field name="pack_unit_id" class="fs-6" options="{'no_open': True, 'no_create': True}" widget="many2one_uom" force_save="1" readonly="1"/>
                     </div>
                 </div>
-                <div name="pallet_quantity" class="row my-2">
+                <!-- <div name="pallet_quantity" class="row my-2">
                     <div class="col">
                         <field name="pallet_qty" class="text-end" options="{'type': 'number'}" placeholder="Pallet Qty" force_save="1" readonly="1"/>
                     </div>
@@ -178,7 +178,7 @@
                     <div class="col-3 ps-0" invisible="not product_uom_id">
                         <field name="product_uom_id" options="{'no_open': True, 'no_create': True}" widget="many2one_uom" force_save="1" readonly="1"/>
                     </div>
-                </div>
+                </div> -->
                 <div name="location_src" class="row">
                     <div class="text-black-50 mt-2 fs-5">
                         <span class="fa fa-map-marker me-1"/>

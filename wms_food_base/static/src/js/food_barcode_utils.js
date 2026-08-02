@@ -161,6 +161,28 @@ export function isFoodFormRecord(formRecord) {
 }
 
 /**
+ * BarcodeQuantModel (Count Inventory) has no single `.record` the way
+ * BarcodePickingModel does -- its lines are `stock.quant` records for
+ * potentially several locations/products, not one picking. It does,
+ * however, always have `model.companyIds` (set in its `setData()`) and the
+ * matching `res.company` record in the client cache, with `wms_type`
+ * exposed there by wms_food_base/models/stock_quant.py's
+ * `get_stock_barcode_data_records()` override -- reliable even before any
+ * quant line has been scanned/loaded.
+ *
+ * @param {object|null|undefined} model  A BarcodeQuantModel instance (`this`
+ *  inside a BarcodeQuantModel patch).
+ * @returns {boolean}
+ */
+export function isFoodQuantModel(model) {
+    if (!model || !model.companyIds || !model.companyIds.length) {
+        return false;
+    }
+    const company = model.cache.getRecord("res.company", model.companyIds[0], false);
+    return Boolean(company && company.wms_type === "FOOD");
+}
+
+/**
  * Returns the prototype right above `PatchedClass.prototype` in the class
  * hierarchy. Safe to use as a native-code escape hatch ONLY for
  * methods/getters that native Odoo does not itself redefine as an own

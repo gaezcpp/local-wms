@@ -63,23 +63,30 @@
                 <xpath expr="//field[@name='product_uom_id']" position="attributes">
                     <attribute name="readonly">1</attribute>
                 </xpath>
+                <xpath expr="//field[@name='product_id']" position="attributes">
+                    <attribute name="options">{'no_open': True, 'no_create': True}</attribute>
+                </xpath>
+                <xpath expr="//div[@name='digipad']" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </xpath>
+                <xpath expr="//div[@name='quantity']" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </xpath>
                 <xpath expr="//div[@name='quantity']" position="before">
                     <div name="bag_quantity" class="row my-2">
                         <div class="col">
-                            <field name="bag_dummy_qty" class="text-end" options="{'type': 'number'}" force_save="1" placeholder="Bag Qty"/>
+                            <field name="bag_dummy_qty" class="text-end" placeholder="Bag Qty"/>
                         </div>
                         <div class="col-3 ps-0" groups="uom.group_uom">
                             <field name="uom_bag_id" options="{'no_open': True}" groups="uom.group_uom" widget="many2one_uom" force_save="1" readonly="1"/>
                         </div>
                     </div>
-                    <div name="pallet_quantity" class="row my-2">
-                        <div class="col">
-                            <field name="pallet_dummy_qty" class="text-end" options="{'type': 'number'}" placeholder="Pallet Qty" force_save="1" readonly="1"/>
-                        </div>
-                        <div class="col-3 ps-0" groups="uom.group_uom">
-                            <field name="uom_pallet_id" options="{'no_open': True}" groups="uom.group_uom" widget="many2one_uom" force_save="1" readonly="1"/>
-                        </div>
-                    </div>
+                </xpath>
+                <xpath expr="//field[@name='package_id']" position="attributes">
+                    <attribute name="options">{'no_open': True, 'no_create': True}</attribute>
+                </xpath>
+                <xpath expr="//field[@name='lot_id']" position="attributes">
+                    <attribute name="options">{'no_open': True, 'no_create': True}</attribute>
                 </xpath>
             </field>
         </record>

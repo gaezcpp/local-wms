@@ -4,6 +4,7 @@ import { patch } from "@web/core/utils/patch";
 import BarcodePickingModel from "@stock_barcode/models/barcode_picking_model";
 import { _t } from "@web/core/l10n/translation";
 import { ConfirmationDialog } from "@web/core/confirmation_dialog/confirmation_dialog";
+import { Deferred } from "@web/core/utils/concurrency";
 
 function getRelId(val) {
     return val && typeof val === "object" ? val.id : val || false;
@@ -542,8 +543,39 @@ patch(BarcodePickingModel.prototype, {
     },
 
     async _processPackage(barcodeData) {
-        const isSplitPackage = Boolean(this.record && this.record.split_package);
         const recPackage = barcodeData && barcodeData.package;
+        if (
+            this.record &&
+            this.record.check_scan_pallet &&
+            recPackage &&
+            Array.isArray(recPackage.contained_quant_ids) &&
+            recPackage.contained_quant_ids.length
+        ) {
+            const isExpectedSource = (this.currentState.lines || []).some(
+                (line) => getRelId(line.package_id) === recPackage.id
+            );
+            if (!isExpectedSource) {
+                const userConfirmation = new Deferred();
+                this.dialogService.add(ConfirmationDialog, {
+                    title: _t("Peringatan: Pallet Tidak Terdaftar!"),
+                    body: _t(
+                        "Pallet %s tidak terdaftar sebagai Source Package pada transfer ini. Apakah Anda yakin ingin melanjutkan?",
+                        recPackage.name
+                    ),
+                    confirm: () => userConfirmation.resolve(true),
+                    cancel: () => userConfirmation.resolve(false),
+                    close: () => userConfirmation.resolve(false),
+                });
+                const confirmed = await userConfirmation;
+                if (!confirmed) {
+                    barcodeData.stopped = true;
+                    this.trigger("update");
+                    return;
+                }
+            }
+        }
+
+        const isSplitPackage = Boolean(this.record && this.record.split_package);
         if (isSplitPackage && recPackage) {
             const currentLine = this.selectedLine || this.lastScannedLine;
             if (
