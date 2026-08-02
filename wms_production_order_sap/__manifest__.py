@@ -27,7 +27,9 @@ Long description of module's purpose
         'data/parameter.xml',
         'data/cron.xml',
         'data/sequence.xml',
+        'wizards/qr_po_sap_views.xml',
         'reports/qr_production_order_sap.xml',
+        'reports/qr_po_sap_line.xml',
         'views/production_order_sap_views.xml',
         'views/stock_picking_views.xml',
         'views/stock_quant_views.xml',
@@ -41,6 +43,8 @@ Long description of module's purpose
         "web.assets_backend": [
             "wms_production_order_sap/static/src/js/qr_production_order_sap.js",
             "wms_production_order_sap/static/src/xml/qr_production_order_sap_template.xml",
+            "wms_production_order_sap/static/src/js/qr_gr_fg_scanner.js",
+            "wms_production_order_sap/static/src/xml/qr_gr_fg_scanner_template.xml",
         ],
     },
 }

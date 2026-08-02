@@ -89,6 +89,7 @@
             <form string="Production Order SAP" create="0" edit="0" delete="0" duplicate="0">
                 <header>
                     <button name="action_picking_po_sap" string="GR FG" type="object" class="oe_highlight" invisible="state == 'teco'"/>
+                    <button name="action_open_qr_po_sap_wizard" string="Generate QR" type="object" class="btn-secondary" invisible="state == 'teco'"/>
                     <button name="action_picking_wip_po" string="GR WIP" type="object" invisible="1"/>
                     <field name="state" widget="statusbar" statusbar_visible="open,in_progress,teco"/>
                 </header>
@@ -162,5 +163,10 @@
     <record id="qr_production_order_sap_client" model="ir.actions.client">
         <field name="name">QR Production Order SAP</field>
         <field name="tag">qr_scanner_action</field>
+    </record>
+
+    <record id="qr_gr_fg_scanner_client" model="ir.actions.client">
+        <field name="name">QR Scanner GR FG</field>
+        <field name="tag">qr_scanner_gr_fg_action</field>
     </record>
 </odoo>

@@ -16,6 +16,14 @@
     />
 
     <menuitem
+        id="qr_gr_fg_scanner_menu"
+        name="QR Scanner GR FG"
+        parent="wms_production_order_sap.production_order_sap_menu_root"
+        action="wms_production_order_sap.qr_gr_fg_scanner_client"
+        sequence="2"
+    />
+
+    <menuitem
         id="production_order_sap_menu"
         name="PO SAP"
         parent="wms_production_order_sap.production_order_sap_menu_root"

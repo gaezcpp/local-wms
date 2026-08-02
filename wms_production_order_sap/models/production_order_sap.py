@@ -339,7 +339,7 @@ class ProductionOrderSAP(models.Model):
             _logger.info(f"PROD ORDER {po_number} total line {len(rows)}")
             
         
-    def action_picking_po_sap(self):
+    def action_picking_po_sap(self, production_line_id=False):
         operation_type_barcode_fg = self.env['ir.config_parameter'].sudo().get_param('operation_type_barcode_fg')
         operation_type = self.env['stock.picking.type'].sudo().search([('company_id', '=', self.company_id.id),('barcode', '=', str(operation_type_barcode_fg))], limit=1)
         if not operation_type:
@@ -391,15 +391,28 @@ class ProductionOrderSAP(models.Model):
                 picking.action_confirm()
                 last_picking_id = picking.id
                 if picking.move_line_ids:
-                    picking.move_line_ids.sudo().write({'stock_type': 'QI'})
+                    move_line_vals = {'stock_type': 'QI'}
+                    if production_line_id:
+                        move_line_vals['production_line_id'] = production_line_id
+                    picking.move_line_ids.sudo().write(move_line_vals)
                 rec.sudo().write({'state': 'in_progress'})
-        
+
         if last_picking_id:
             last_picking_record = self.env['stock.picking'].browse(last_picking_id)
             return last_picking_record.action_open_picking_client_action()
-            
+
         return {'type': 'ir.actions.act_window_close'}
-    
+
+    @api.model
+    def action_picking_po_sap_from_qr(self, po_number, production_line_code):
+        po_sap = self.search([('po_number', '=', po_number)], limit=1)
+        if not po_sap:
+            raise ValidationError(f"PO SAP dengan nomor {po_number} tidak ditemukan")
+        production_line = self.env['production.line'].search([('code', '=', production_line_code)], limit=1)
+        if not production_line:
+            raise ValidationError(f"Production Line dengan kode {production_line_code} tidak ditemukan")
+        return po_sap.action_picking_po_sap(production_line_id=production_line.id)
+
     def action_picking_wip_po(self):
         raise ValidationError("WIP masih dalam proses development")
         operation_type_barcode_wip = self.env['ir.config_parameter'].sudo().get_param('operation_type_barcode_wip')
@@ -550,3 +563,17 @@ class ProductionOrderSAP(models.Model):
     
     # def download_qr(self):
     #     return self.env.ref('wms_production_order_sap.qr_production_order_sap').report_action(self)
+    
+    def action_open_qr_po_sap_wizard(self):
+        self.ensure_one()
+        view = self.env.ref('wms_production_order_sap.qr_po_sap_wizard_form_views')
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'Select Production Line',
+            'res_model': 'qr.po.sap',
+            'views': [(view.id, 'form')],
+            'target': 'new',
+            'context': {
+                'default_po_sap_id': self.id,
+            }
+        }

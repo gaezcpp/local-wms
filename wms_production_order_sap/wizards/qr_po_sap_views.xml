@@ -1,0 +1,19 @@
+<?xml version='1.0' encoding='utf-8'?>
+<odoo>
+    <record id="qr_po_sap_wizard_form_views" model="ir.ui.view">
+        <field name="name">qr.po.sap.wizard.form</field>
+        <field name="model">qr.po.sap</field>
+        <field name="arch" type="xml">
+            <form string="Select Production Line">
+                <group>
+                    <field name="po_sap_id" required="1" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1"/>
+                    <field name="production_line_id" required="1" options="{'no_open': True, 'no_create': True}"/>
+                </group>
+                <footer>
+                    <button name="action_print_qr_line" type="object" string="Print QR" class="btn-primary"/>
+                    <button string="Cancel" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

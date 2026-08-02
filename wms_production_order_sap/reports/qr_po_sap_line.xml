@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="qr_po_sap_line" name="qr_po_sap_line">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="doc">
+                <t t-call="web.internal_layout">
+                    <div class="page">
+                        <div class="row">
+                            <center>
+                                <table>
+                                    <tr>
+                                        <td class="text-center">
+                                            <img t-if="doc.po_sap_id.po_number and doc.production_line_id.code" t-att-src="'/report/barcode/?barcode_type=%s&amp;value=%s&amp;width=%s&amp;height=%s' % ('QR', '%s|%s' % (doc.po_sap_id.po_number, doc.production_line_id.code), 300, 300)" alt="QR Code" style="height:300px"/>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-center">
+                                            <t t-esc="doc.po_sap_id.po_number"/>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-center">
+                                            <t t-esc="doc.production_line_id.name"/>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </center>
+                        </div>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+
+    <record id="action_report_qr_po_sap_line" model="ir.actions.report">
+        <field name="name">Print QR PO SAP Line</field>
+        <field name="model">qr.po.sap</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">wms_production_order_sap.qr_po_sap_line</field>
+        <field name="report_file">wms_production_order_sap.qr_po_sap_line</field>
+        <field name="print_report_name">'QR-Label-%s-%s' % (object.po_sap_id.po_number, object.production_line_id.code)</field>
+    </record>
+
+</odoo>
