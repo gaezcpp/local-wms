@@ -14,9 +14,9 @@ class InheritSaleOrderSAP(models.Model):
     _inherit = 'sale.order'
     
     is_sap = fields.Boolean(string="SAP", default=False, tracking=True)
-    so_sap = fields.Char(string="SO SAP", tracking=True)
-    do_sap = fields.Char(string="DO SAP", tracking=True)
-    po_sap = fields.Char(string="PO SAP", tracking=True)
+    so_sap = fields.Char(string="SO SAP", tracking=True, index=True)
+    do_sap = fields.Char(string="DO SAP", tracking=True, index=True)
+    po_sap = fields.Char(string="PO SAP", tracking=True, index=True)
     sales_sap_name = fields.Char(string="Sales Name", tracking=True)
     nomor_polisi_desc = fields.Text(string="Nomor Polisi", tracking=True)
     date_order_sap = fields.Date(string="Date Order", tracking=True)
@@ -466,10 +466,13 @@ class InheritSaleOrderSAP(models.Model):
 
         pick_delivery_model = self.env['stock.picking'].sudo()
         for data in data_list:
-            if not data.get('MBLNR'):
-                continue
+            if cron_name != 'cron_auto_done_sale_order_do':
+                if not data.get('MBLNR'):
+                    _logger.info(f"CRON {cron_name} SKIPPED karna gaada MBLNR")
+                    continue
 
             value = data.get(data_key)
+            _logger.info(f"VALUE {value}")
             picking = pick_delivery_model.search([
                 (search_field, '=', value),
                 ('picking_type_id.code', '=', 'outgoing'),
@@ -485,13 +488,13 @@ class InheritSaleOrderSAP(models.Model):
             {
                 'config_key': 'query_auto_done_sale_order_do_sap',
                 'search_field': 'sale_id.do_sap',
-                'data_key': 'LE_VBELN',
+                'data_key': 'VBELV',
                 'cron_name': 'cron_auto_done_sale_order_do',
             },
             {
                 'config_key': 'query_done_so_plan_to_plan_sap',
                 'search_field': 'sale_id.do_sap',
-                'data_key': 'EBELN',
+                'data_key': 'VBELN_VL',
                 'cron_name': 'cron_auto_done_so_plan_to_plan',
             },
             {
@@ -510,6 +513,7 @@ class InheritSaleOrderSAP(models.Model):
                             
     @api.model
     def cron_auto_done_sale_order_do(self):
+        raise ValidationError("KAYAKNYA cron_auto_done_sale_order_do GA KEPAKE")
         data_list = self._fetch_sap_data(
             config_key='query_auto_done_sale_order_do_sap',
             cron_name='cron_auto_done_sale_order_do',

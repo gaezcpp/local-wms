@@ -11,7 +11,7 @@
         </record>
         <record id="query_auto_done_sale_order_do_sap" model="ir.config_parameter">
             <field name="key">query_auto_done_sale_order_do_sap</field>
-            <field name="value">SELECT a.mblnr,a.le_vbeln,a.budat,a.cputm, a.usnam from mkpf a join likp b on a.xblnr = b.vbeln</field>
+            <field name="value">select a.vbelv,a.vbtyp_n, a.erdat, a.vbeln, a.bwart from vbfa a where a.vbtyp_n = 'R' and a.erdat BETWEEN TO_CHAR(TRUNC(SYSDATE)-2,'YYYYMMDD') AND TO_CHAR(TRUNC(SYSDATE),'YYYYMMDD')</field>
         </record>
         <record id="query_done_so_plan_to_plan_sap" model="ir.config_parameter">
             <field name="key">query_done_so_plan_to_plan_sap</field>

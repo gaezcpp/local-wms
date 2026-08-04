@@ -42,7 +42,7 @@ class ResUsers(models.Model):
         # self.allowed_location_ids = [(6, 0, filtered_locations)]
         # self.allowed_operation_types = [(6,0,filtered_operation)]
 
-    @api.depends('allowed_warehouse_ids')
+    @api.onchange('allowed_warehouse_ids')
     def check_warehouse_update(self):
         for rec in self:
             if len(rec.allowed_warehouse_ids.ids) == 0:
@@ -50,7 +50,7 @@ class ResUsers(models.Model):
             else:
                 rec.check_warehouse = True
 
-    @api.depends('allowed_location_ids')
+    @api.onchange('allowed_location_ids')
     def check_location_update(self):
         for rec in self:
             if len(rec.allowed_location_ids.ids) == 0:
@@ -58,7 +58,7 @@ class ResUsers(models.Model):
             else:
                 rec.check_location = True
 
-    @api.depends('allowed_operation_types')
+    @api.onchange('allowed_operation_types')
     def check_operation_update(self):
         for rec in self:
             if len(rec.allowed_operation_types.ids) == 0:
@@ -66,23 +66,23 @@ class ResUsers(models.Model):
             else:
                 rec.check_operation = True
 
-    def write(self, values):
-        res = super(ResUsers, self).write(values)
+    # def write(self, values):
+    #     res = super(ResUsers, self).write(values)
 
-        # Skip check for admin users
-        if self.env.user.has_group('base.group_system'):
-            self.env.cache.clear()
-            return res
+    #     # Skip check for admin users
+    #     if self.env.user.has_group('base.group_system'):
+    #         self.env.cache.clear()
+    #         return res
 
-        # Ensure all locations belong to allowed warehouses
-        for location in self.allowed_location_ids:
-            if location.warehouse_id and location.warehouse_id not in self.allowed_warehouse_ids:
-                raise UserError(
-                    f"You need warehouse access to view/manage stock in location '{location.name}'"
-                )
-        self.env.cache.clear()
-        self.env.invalidate_all()
-        return res
+    #     # Ensure all locations belong to allowed warehouses
+    #     for location in self.allowed_location_ids:
+    #         if location.warehouse_id and location.warehouse_id not in self.allowed_warehouse_ids:
+    #             raise UserError(
+    #                 f"You need warehouse access to view/manage stock in location '{location.name}'"
+    #             )
+    #     self.env.cache.clear()
+    #     self.env.invalidate_all()
+    #     return res
     
     @api.onchange('allowed_operation_types')
     def onchange_fill_location_by_types(self):

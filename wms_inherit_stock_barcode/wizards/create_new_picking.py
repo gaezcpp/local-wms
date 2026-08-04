@@ -25,6 +25,7 @@ class CreateNewPicking(models.TransientModel):
             'location_dest_id': sales_pick_type.default_location_dest_id.id,
             'origin': orig_picking.sale_id.name,
             'company_id': self.company_id.id,
+            'user_id': False
         })
         
         for line in self.line_ids:

@@ -14,6 +14,7 @@
                 </xpath>
                 <xpath expr="//field[@name='name']" position="after">
                     <field name="do_sap"/>
+                    <field name="po_sap"/>
                 </xpath>
                 <xpath expr="//field[@name='partner_id']" position="after">
                     <field name="sales_sap_name"/>
@@ -34,6 +35,7 @@
                     <field name="do_sap" force_save="1" readonly="1"/>
                     <field name="po_sap" force_save="1" readonly="1"/>
                     <field name="sloc_to" force_save="1" readonly="1"/>
+                    <field name="carrier_id" readonly="1" options="{'no_open': True, 'no_create': True}"/>
                 </xpath>
                 <xpath expr="//field[@name='tag_ids']" position="after">
                     <field name="is_sap" force_save="1" readonly="1"/>
@@ -48,6 +50,9 @@
                 <xpath expr="//field[@name='order_line']/list/field[@name='currency_id']" position="after">
                     <field name="sap_sequence" readonly="1" optional="show"/>
                     <field name="order_seq" readonly="1" optional="show"/>
+                </xpath>
+                <xpath expr="//field[@name='order_line']/list" position="attributes">
+                    <attribute name="default_order">order_seq asc</attribute>
                 </xpath>
                 <!--PEMBATASAN USER-->
                 <xpath expr="//form" position="attributes">

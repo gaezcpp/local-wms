@@ -10,7 +10,9 @@
                                 <table>
                                     <tr>
                                         <td class="text-center">
-                                            <img t-if="doc.po_sap_id.po_number and doc.production_line_id.code" t-att-src="'/report/barcode/?barcode_type=%s&amp;value=%s&amp;width=%s&amp;height=%s' % ('QR', '%s|%s' % (doc.po_sap_id.po_number, doc.production_line_id.code), 300, 300)" alt="QR Code" style="height:300px"/>
+                                            <img t-if="doc.po_sap_id.po_number and doc.production_line_id.code"
+                                                 t-att-src="'data:image/png;base64,%s' % doc._get_qr_image_base64()"
+                                                 alt="QR Code" style="width:700px;height:700px"/>
                                         </td>
                                     </tr>
                                     <tr>
@@ -40,5 +42,4 @@
         <field name="report_file">wms_production_order_sap.qr_po_sap_line</field>
         <field name="print_report_name">'QR-Label-%s-%s' % (object.po_sap_id.po_number, object.production_line_id.code)</field>
     </record>
-
 </odoo>

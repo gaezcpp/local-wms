@@ -43,16 +43,16 @@ normally and the existing FEED logic runs unchanged.
     # `t-inherit` calls apply on top of FEED's (see
     # static/src/js/food_barcode_utils.js for why a plain `super.x()` alone
     # cannot reach native behaviour here, and how each file resolves it).
-    'assets': {
-        'web.assets_backend': [
-            'wms_food_base/static/src/js/food_barcode_utils.js',
-            'wms_food_base/static/src/js/barcode_pickimg_model_patch.js',
-            'wms_food_base/static/src/js/barcode_quant_model_patch.js',
-            'wms_food_base/static/src/js/digipad_patch.js',
-            'wms_food_base/static/src/js/package_line_component_patch.js',
-            'wms_food_base/static/src/xml/barcode_line_component_views.xml',
-        ],
-    },
+    # 'assets': {
+    #     'web.assets_backend': [
+    #         'wms_food_base/static/src/js/food_barcode_utils.js',
+    #         'wms_food_base/static/src/js/barcode_pickimg_model_patch.js',
+    #         'wms_food_base/static/src/js/barcode_quant_model_patch.js',
+    #         'wms_food_base/static/src/js/digipad_patch.js',
+    #         'wms_food_base/static/src/js/package_line_component_patch.js',
+    #         'wms_food_base/static/src/xml/barcode_line_component_views.xml',
+    #     ],
+    # },
     'installable': True,
     'auto_install': False,
     'license': 'LGPL-3',

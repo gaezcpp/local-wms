@@ -32,7 +32,7 @@
 
     <!--         This is the rule for base group user access of stock.move DONE-->
     <record id="rule_stock_move_access_base_group" model="ir.rule">
-        <field name="name">Stock move Access Rule for base group</field>
+        <field name="name">STTL Stock move Access Rule for base group</field>
         <field name="model_id" ref="stock.model_stock_move"/>
         <field name="domain_force">
             ['|','|',('location_dest_id','in',user.allowed_location_ids.ids),('location_id','in',user.allowed_location_ids.ids),('bool_move_flag','=',user.check_location)]
@@ -41,21 +41,21 @@
     </record>
 
         <!--         This is the rule for base group user access of stock.picking.type DONE-->
-    <record id="rule_stock_move_access_base_group" model="ir.rule">
-        <field name="name">Stock move Access Rule for base group</field>
+    <record id="rule_stock_picking_type_access_base_group" model="ir.rule">
+        <field name="name">STTL Stock Picking Type Access Rule for base group</field>
         <field name="model_id" ref="stock.model_stock_picking_type"/>
         <field name="domain_force">
-            ['|',('id','in',user.allowed_operation_types.ids),('bool_picking_type','=',user.check_operation)]
+            ['|','|',('id','in',user.allowed_operation_types.ids),('bool_picking_type','=',user.check_operation),(1, '=', 1)]
         </field>
         <field name="groups" eval="[(4, ref('base.group_user'))]"/>
     </record>
 
         <!--   This is the rule for base group user access of stock.picking DONE-->
-    <record id="rule_stock_picking_type_access_base_group" model="ir.rule">
-        <field name="name">Stock picking Access Rule for base group</field>
+    <record id="rule_stock_picking_access_base_group" model="ir.rule">
+        <field name="name">STTL Stock picking Access Rule for base group</field>
         <field name="model_id" ref="stock.model_stock_picking"/>
         <field name="domain_force">
-            ['|','|',('location_dest_id','in',user.allowed_location_ids.ids),('location_id','child_of',user.allowed_location_ids.ids),('bool_picking_flag','=',user.check_location)]
+            ['|','|','|',('location_dest_id','in',user.allowed_location_ids.ids),('location_id','child_of',user.allowed_location_ids.ids),('bool_picking_flag','=',user.check_location),(1, '=', 1)]
         </field>
         <field name="groups" eval="[(4, ref('base.group_user'))]"/>
     </record>

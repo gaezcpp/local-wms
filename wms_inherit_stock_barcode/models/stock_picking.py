@@ -212,9 +212,9 @@ class StockPicking(models.Model):
 
             default_lines.append((0, 0, {
                 'product_id': line.product_id.id or False,
-                'qty': qty_kg, 
+                'qty': 0.0, 
                 'product_uom_id': line.product_id.uom_id.id or False,
-                'qty_pack': qty_bag, 
+                'qty_pack': 0.0, 
                 'pack_uom_id': line.product_id.uom_bag_id.id or False,
                 'company_id': line.company_id.id or False, 
             }))
