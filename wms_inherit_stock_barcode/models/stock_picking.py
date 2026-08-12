@@ -381,60 +381,80 @@ class StockPicking(models.Model):
                     
     def _get_next_pallet_ke_map(self):
         result = {}
-        # Gunakan timezone user, atau default ke WIB (Asia/Jakarta)
-        tz_name = self.env.user.tz or 'Asia/Jakarta'
+        tz_name = 'Asia/Jakarta'
         user_tz = pytz.timezone(tz_name)
 
         for rec in self:
-            if not rec.picking_type_id.production_only:
+            if not rec.picking_type_id.production_only or not rec.production_shift_id:
                 continue
             
-            # 1. Dapatkan waktu saat ini lalu konversi ke waktu lokal (WIB)
-            now_utc = fields.Datetime.now()
-            local_dt = pytz.utc.localize(now_utc).astimezone(user_tz)
-            hour = local_dt.hour
+            # 1. Base time dari scheduled_date (support backdate)
+            base_time = rec.scheduled_date if rec.scheduled_date else fields.Datetime.now()
+            local_dt = pytz.utc.localize(base_time).astimezone(user_tz)
             
-            # 2. Tentukan batas Start & End Shift berdasarkan waktu lokal
-            if 7 <= hour < 15:
-                # Shift 2 (07:00 - 15:00)
-                start_local = local_dt.replace(hour=7, minute=0, second=0, microsecond=0)
-            elif 15 <= hour < 23:
-                # Shift 3 (15:00 - 23:00)
-                start_local = local_dt.replace(hour=15, minute=0, second=0, microsecond=0)
-            else:
-                # Shift 1 (23:00 - 07:00 lintas hari)
-                if hour >= 23:
+            shift_code = rec.production_shift_id.code or ''
+            shift_name = rec.production_shift_id.name or ''
+            
+            # 2. Tentukan batas Start Shift lokal
+            if shift_code == '0011' or 'Shift 1' in shift_name:
+                if local_dt.hour >= 23:
                     start_local = local_dt.replace(hour=23, minute=0, second=0, microsecond=0)
                 else:
-                    # Jika jam 00:00 - 06:59, ini masih masuk shift 1 dari HARI SEBELUMNYA
                     start_local = (local_dt - timedelta(days=1)).replace(hour=23, minute=0, second=0, microsecond=0)
+            elif shift_code == '0013' or 'Shift 3' in shift_name:
+                start_local = local_dt.replace(hour=15, minute=0, second=0, microsecond=0)
+            else:
+                start_local = local_dt.replace(hour=7, minute=0, second=0, microsecond=0)
             
-            # Tambahkan 8 jam untuk mendapatkan batas akhir shift
+            # 3. Hitung end shift (+8 jam) & convert ke UTC untuk query database
             end_local = start_local + timedelta(hours=8)
-            
-            # 3. Kembalikan ke format UTC (tanpa tzinfo) agar bisa diproses oleh ORM Odoo
             start_utc = start_local.astimezone(pytz.utc).replace(tzinfo=None)
             end_utc = end_local.astimezone(pytz.utc).replace(tzinfo=None)
 
+            # 4. Kumpulkan group data move_line di memori
             groups = {}
             for ml in rec.move_line_ids:
                 groups.setdefault((ml.product_id.id, ml.production_line_id.id), []).append(ml)
 
-            for (product_id, production_line_id), mls in groups.items():
-                latest_ml = self.env['stock.move.line'].sudo().search([
-                    ('picking_id', '!=', rec.id),
-                    ('picking_id.state', '=', 'done'),
-                    ('picking_id.picking_type_id.production_only', '=', True),
-                    ('picking_id.production_shift_id', '=', rec.production_shift_id.id),
-                    ('picking_id.po_sap_id', '=', rec.po_sap_id.id),
-                    ('product_id', '=', product_id),
-                    ('production_line_id', '=', production_line_id),
-                    # 4. Filter krusial: Hanya cari data di rentang waktu shift INI
-                    ('picking_id.date_done', '>=', start_utc),
-                    ('picking_id.date_done', '<', end_utc),
-                ], order='pallet_ke desc, id desc', limit=1)
+            # --- OPTIMASI KECEPATAN (PERFORMANCE TWEAK) ---
+            # Kumpulkan semua list product_id dan production_line_id yang ada di dokumen ini
+            product_ids = [k[0] for k in groups.keys() if k[0]]
+            production_line_ids = [k[1] for k in groups.keys() if k[1]]
 
-                next_pallet = (latest_ml.pallet_ke + 1) if latest_ml else 1
+            # Buat 1 Query Domain (Mewakili seluruh item)
+            domain = [
+                ('picking_id', '!=', rec.id),
+                ('picking_id.state', '=', 'done'),
+                ('picking_id.picking_type_id.production_only', '=', True),
+                ('picking_id.production_shift_id', '=', rec.production_shift_id.id),
+                ('picking_id.po_sap_id', '=', rec.po_sap_id.id),
+                ('product_id', 'in', product_ids),
+                ('production_line_id', 'in', production_line_ids),
+                ('picking_id.date_done', '>=', start_utc),
+                ('picking_id.date_done', '<', end_utc),
+            ]
+
+            # Lakukan 'read_group' HANYA 1 KALI menembak database untuk mencari MAX(pallet_ke)
+            grouped_data = self.env['stock.move.line'].sudo().read_group(
+                domain,
+                ['product_id', 'production_line_id', 'pallet_ke:max'],
+                ['product_id', 'production_line_id'],
+                lazy=False
+            )
+
+            # Map hasil read_group ke dictionary agar mudah dibaca
+            max_pallet_map = {}
+            for data in grouped_data:
+                prod_id = data.get('product_id')[0] if data.get('product_id') else False
+                pline_id = data.get('production_line_id')[0] if data.get('production_line_id') else False
+                max_pallet_map[(prod_id, pline_id)] = data.get('pallet_ke') or 0
+
+            # 5. Pasangkan/assign pallet_ke yang baru ke masing-masing move line
+            for (product_id, production_line_id), mls in groups.items():
+                # Ambil data max_pallet_ke dari dict, jika tidak ada berarti mulai dari 1
+                current_max_pallet = max_pallet_map.get((product_id, production_line_id), 0)
+                next_pallet = current_max_pallet + 1
+                
                 for ml in mls:
                     result[ml] = next_pallet
                     next_pallet += 1
@@ -458,24 +478,41 @@ class StockPicking(models.Model):
 
     def split_restrict_upp(self):
         for picking in self.filtered(lambda p: p.split_package):
-            package_qty_map = {}
             valid_move_lines = picking.move_line_ids.filtered(lambda ml: ml.result_package_id)
+            if not valid_move_lines:
+                continue
+
+            package_ids = valid_move_lines.mapped('result_package_id.id')
+            existing_quants = self.env['stock.quant'].sudo().search([
+                ('package_id', 'in', package_ids),
+                ('location_id.usage', '=', 'internal')
+            ])
+
+            existing_qty_map = {}
+            for quant in existing_quants:
+                key = (quant.package_id.id, quant.product_id.id, quant.lot_id.id)
+                qty_lama = quant.pallet_qty if hasattr(quant, 'pallet_qty') else 0.0
+                existing_qty_map[key] = existing_qty_map.get(key, 0.0) + qty_lama
+
+            package_qty_map = {}
             for line in valid_move_lines:
-                key = (line.result_package_id.id, line.product_id.id)
+                key = (line.result_package_id.id, line.product_id.id, line.lot_id.id)
                 if key not in package_qty_map:
                     package_qty_map[key] = {
-                        'total_pallet_qty': 0.0,
+                        'total_pallet_qty': existing_qty_map.get(key, 0.0), 
                         'product_code': line.product_id.default_code or line.product_id.name,
-                        'package_name': line.result_package_id.name
+                        'package_name': line.result_package_id.name,
+                        'lot_name': line.lot_id.name or 'No Lot' # Untuk pesan error
                     }
                 
                 package_qty_map[key]['total_pallet_qty'] += line.pallet_qty
 
             for data in package_qty_map.values():
-                if data['total_pallet_qty'] > 1.0:
+                if round(data['total_pallet_qty'], 5) > 1.0:
                     raise ValidationError(
-                        f"Quantity pada product {data['product_code']} di package {data['package_name']} "
-                        f"melebihi UPP Pallet pada proses Split Package (Total saat ini: {data['total_pallet_qty']})."
+                        f"Quantity pada product {data['product_code']} (Lot: {data['lot_name']}) "
+                        f"di package {data['package_name']} melebihi UPP Pallet pada proses "
+                        f"Split Package (Total saat ini: {data['total_pallet_qty']})."
                     )
 
     def button_validate(self):

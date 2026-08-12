@@ -9,6 +9,9 @@
                 <xpath expr="//field[@name='move_ids']/list" position="attributes">
                     <attribute name="default_order">order_seq asc</attribute>
                 </xpath>
+                <xpath expr="//button[@name='button_validate']" position="after">
+                    <button name="action_revert_done_picking_to_draft" invisible="state != 'done'" string="Revert to Draft" type="object" class="oe_highlight" groups="base.group_system" confirm="Apakah anda yakin?"/>
+                </xpath>
                 <!--PEMBATASAN USER-->
                 <xpath expr="//form" position="attributes">
                     <attribute name="create">0</attribute>

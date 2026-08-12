@@ -14,6 +14,11 @@
                                  <field name="allowed_location_ids" widget="many2many_tags"/>
                                  <field name="allowed_operation_types" widget="many2many_tags"/>
                             </group>
+                            <group>
+                                <field name="check_warehouse" force_save="1" readonly="1"/>
+                                <field name="check_location" force_save="1" readonly="1"/>
+                                <field name="check_operation" force_save="1" readonly="1"/>
+                            </group>
                         </group>
                     </page>
                 </xpath>

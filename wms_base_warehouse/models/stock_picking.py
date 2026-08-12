@@ -167,7 +167,178 @@ class InheritBaseStockPicking(models.Model):
                     ))
 
         return res
+
+    # def action_cancel_done_picking(self, reason=False):
+    #     """Force-cancel a stock.picking that already reached state='done'.
+
+    #     Core Odoo refuses to cancel a done move (state stays consistent with
+    #     quants/valuation only via a Return). This reverses the physical stock
+    #     through the standard stock.return.picking mechanism first (which also
+    #     unreserves the immediate downstream move via _do_unreserve, pushing it
+    #     back to 'confirmed'/Waiting), then flips move_ids to 'cancel' so
+    #     picking.state (computed from move states) settles on 'cancel' too.
+    #     """
+    #     for picking in self:
+    #         if picking.state != 'done':
+    #             raise ValidationError(
+    #                 f"Picking {picking.name} tidak bisa dibatalkan karena statusnya "
+    #                 f"'{picking.state}', bukan Done."
+    #             )
+
+    #         if not self.env.user.has_group('stock.group_stock_manager'):
+    #             raise ValidationError("Hanya Stock Manager yang bisa membatalkan picking yang sudah Done.")
+
+    #         downstream_done = picking.move_ids.move_dest_ids.filtered(lambda m: m.state == 'done')
+    #         if downstream_done:
+    #             raise ValidationError(
+    #                 f"Tidak bisa membatalkan {picking.name} karena stock hasil transfer ini "
+    #                 f"sudah diproses lebih lanjut di: "
+    #                 f"{', '.join(downstream_done.picking_id.mapped('name'))}. "
+    #                 f"Batalkan dahulu picking tersebut sebelum membatalkan {picking.name}."
+    #             )
+
+    #         if picking.picking_type_id.production_only and picking._is_gr_prod():
+    #             raise ValidationError(
+    #                 f"Tidak bisa membatalkan {picking.name} karena merupakan picking GR "
+    #                 f"Production — reversal Stock Type (QI/UU/BLOCKED) pada stock.lot.aft "
+    #                 f"belum didukung oleh fungsi ini."
+    #             )
+
+    #         return_wizard = self.env['stock.return.picking'].sudo().with_context(active_id=picking.id, active_model='stock.picking',).create({})
+    #         return_action = return_wizard.action_create_returns_all()
+    #         return_picking = self.env['stock.picking'].sudo().browse(return_action['res_id'])
+
+    #         try:
+    #             return_picking.with_context(skip_sanity_check=True).button_validate()
+    #         except (ValidationError, UserError) as e:
+    #             raise ValidationError(
+    #                 f"Gagal membuat reversal stock otomatis untuk {picking.name}. "
+    #                 f"Picking Return {return_picking.name} sudah dibuat tapi gagal divalidasi "
+    #                 f"otomatis ({e}). Silahkan selesaikan {return_picking.name} secara manual "
+    #                 f"terlebih dahulu."
+    #             )
+
+    #         if return_picking.state != 'done':
+    #             raise ValidationError(
+    #                 f"Gagal membuat reversal stock untuk {picking.name}. Picking Return "
+    #                 f"{return_picking.name} berstatus '{return_picking.state}', bukan Done. "
+    #                 f"Silahkan selesaikan secara manual."
+    #             )
+
+    #         moves_to_cancel = picking.move_ids.sudo()
+    #         moves_to_cancel.write({'picked': False, 'state': 'cancel'})
+
+    #         # Bebaskan next transfer (mis. Good Issue) dari referensi ke move yang
+    #         # baru saja dibatalkan, supaya dia bisa reconnect ke stock manapun
+    #         # yang tersedia berikutnya, bukan permanen "nunggu" move yang mati.
+    #         for move in moves_to_cancel:
+    #             dest_moves = move.move_dest_ids
+    #             if not dest_moves:
+    #                 continue
+    #             siblings_states = (dest_moves.mapped('move_orig_ids') - move).mapped('state')
+    #             if all(state in ('done', 'cancel') for state in siblings_states):
+    #                 for dest_move in dest_moves:
+    #                     dest_move.write({
+    #                         'procure_method': 'make_to_stock',
+    #                         'move_orig_ids': [(6, 0, (dest_move.move_orig_ids - move).ids)],
+    #                     })
+
+    #         picking.sudo().write({
+    #             'is_locked': True,
+    #             'synchronize_sap': False,
+    #         })
+
+    #         msg = f"Picking dibatalkan setelah Done oleh {self.env.user.name}. #cancel_done"
+    #         if reason:
+    #             msg += f" Alasan: {reason}"
+    #         msg += f" Stock direversal melalui Return: {return_picking.name}."
+    #         picking.message_post(body=msg)
+
+    #     return True
     
+    def action_revert_done_picking_to_draft(self, reason=False, auto_assign=False):
+        """Force a done stock.picking back to state='draft' so it can be redone.
+
+        Editing a done move_line's `quantity` is a natively-supported operation
+        in core Odoo (see stock.move.line.write()): writing it to 0 makes core
+        correctly reverse the exact quant movement _action_done() made
+        (destination -> source) and automatically unreserve + re-trigger
+        _action_assign() on any downstream move (e.g. Good Issue) that isn't
+        done/cancel yet -- no separate Return document needed. Once the lines
+        are gone and move_ids.state is 'draft', picking.state (computed from
+        move_ids.state) settles on 'draft' too.
+
+        If auto_assign is True, the picking is immediately re-confirmed and
+        reserved (state -> 'assigned'/Ready) instead of being left in Draft.
+        This does NOT affect any downstream transfer (e.g. Good Issue): it stays
+        unreserved/Waiting until this picking is actually validated again.
+        """
+        for picking in self:
+            if picking.state != 'done':
+                raise ValidationError(
+                    f"Picking {picking.name} tidak bisa dikembalikan ke Draft karena "
+                    f"statusnya '{picking.state}', bukan Done."
+                )
+
+            if not self.env.user.has_group('base.group_system'):
+                raise ValidationError(
+                    "Hanya Admin yang bisa mengembalikan picking yang sudah Done ke Draft."
+                )
+
+            downstream_done = picking.move_ids.move_dest_ids.filtered(lambda m: m.state == 'done')
+            if downstream_done:
+                raise ValidationError(
+                    f"Tidak bisa mengembalikan {picking.name} ke Draft karena stock hasil "
+                    f"transfer ini sudah diproses lebih lanjut di: "
+                    f"{', '.join(downstream_done.picking_id.mapped('name'))}. "
+                    f"Selesaikan/batalkan dahulu picking tersebut sebelum mengembalikan "
+                    f"{picking.name} ke Draft."
+                )
+
+            if picking.picking_type_id.production_only and picking._is_gr_prod():
+                raise ValidationError(
+                    f"Tidak bisa mengembalikan {picking.name} ke Draft karena merupakan "
+                    f"picking GR Production — reversal Stock Type (QI/UU/BLOCKED) pada "
+                    f"stock.lot.aft belum didukung oleh fungsi ini."
+                )
+
+            move_lines = picking.move_ids.move_line_ids.sudo()
+            if move_lines:
+                # quantity=0 pada move_line yang masih 'done' memicu core untuk
+                # otomatis membalikkan quant (dest -> source) dan unreserve +
+                # re-assign move tujuan (mis. Good Issue) yang belum done.
+                move_lines.write({'quantity': 0})
+
+            picking.move_ids.sudo().write({
+                'state': 'draft',
+                'picked': False,
+                'date': fields.Datetime.now(),
+            })
+
+            # Sekarang state sudah 'draft' -> baris move_line lama (quantity
+            # sudah 0) aman dihapus, supaya picking benar-benar seperti belum
+            # pernah diproses.
+            move_lines.unlink()
+
+            picking.sudo().write({
+                'synchronize_sap': False,
+                'date_done': False,
+            })
+
+            if auto_assign:
+                picking.action_confirm()
+                picking.action_assign()
+
+            msg = (
+                f"Picking dikembalikan ke {'Ready' if auto_assign else 'Draft'} setelah "
+                f"Done oleh {self.env.user.name}. #revert_to_draft"
+            )
+            if reason:
+                msg += f" Alasan: {reason}"
+            picking.message_post(body=msg)
+
+        return True
+
     @api.model
     def _fetch_sap_data(self, config_key, cron_name):
         icp = self.env['ir.config_parameter'].sudo()

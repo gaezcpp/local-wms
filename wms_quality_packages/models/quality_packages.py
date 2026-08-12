@@ -1,6 +1,7 @@
 from odoo import models, fields, api, _
 from odoo.exceptions import ValidationError
 from collections import defaultdict
+from datetime import datetime, time
 import logging
 _logger  = logging.getLogger(__name__)
 
@@ -34,6 +35,7 @@ class QualityPackages(models.Model):
     lot_stock_id = fields.Many2one(comodel_name='stock.location', string="Location Stock")
     production_shift_id = fields.Many2one(comodel_name='production.shift', string="Shift")
     production_line_id = fields.Many2one(comodel_name='production.line', string="Production Line")
+    date_done = fields.Date(string="Date Done")
     
     @api.model_create_multi
     def create(self, vals_list):
@@ -67,7 +69,7 @@ class QualityPackages(models.Model):
     def check_availability(self):
         quant_model = self.env['stock.quant'].sudo()
         quality_line_model = self.env['quality.packages.line'].sudo()
-        pickings = self.env['stock.picking'].sudo()
+        picking_model = self.env['stock.picking'].sudo()
         stock_move_line = self.env['stock.move.line'].sudo()
 
         for rec in self:
@@ -94,20 +96,38 @@ class QualityPackages(models.Model):
             if rec.action_aft_id and rec.action_aft_id.stock_type_from:
                 domain.append(('stock_type', '=', rec.action_aft_id.stock_type_from))
             if rec.production_shift_id:
-                pickings = pickings.search([('production_shift_id', '=', rec.production_shift_id.id)])
-                move_lines = stock_move_line.search([('picking_id', 'in', pickings.ids),('lot_id', '!=', False)])
+                shift_pickings = picking_model.search([('production_shift_id', '=', rec.production_shift_id.id)])
+                move_lines = stock_move_line.search([('picking_id', 'in', shift_pickings.ids), ('lot_id', '!=', False)])
                 lot_ids = move_lines.mapped('lot_id').ids
                 if lot_ids:
                     domain.append(('lot_id', 'in', lot_ids))
                 else:
                     domain.append(('lot_id', 'in', []))
             if rec.production_line_id:
-                move_lines = stock_move_line.search([('production_line_id', '=', rec.production_line_id.id),('lot_id', '!=', False)])
+                move_lines = stock_move_line.search([('production_line_id', '=', rec.production_line_id.id), ('lot_id', '!=', False)])
                 lot_ids = move_lines.mapped('lot_id').ids
                 if lot_ids:
                     domain.append(('lot_id', 'in', lot_ids))
                 else:
                     domain.append(('lot_id', 'in', []))
+            if rec.date_done:
+                start_of_day = datetime.combine(rec.date_done, time.min)
+                end_of_day = datetime.combine(rec.date_done, time.max)
+                date_pickings = picking_model.search([
+                    ('date_done', '>=', start_of_day),
+                    ('date_done', '<=', end_of_day)
+                ])
+                move_lines = stock_move_line.search([
+                    ('picking_id', 'in', date_pickings.ids),
+                    ('lot_id', '!=', False)
+                ])
+                
+                lot_ids = move_lines.mapped('lot_id').ids
+                if lot_ids:
+                    domain.append(('lot_id', 'in', lot_ids))
+                else:
+                    domain.append(('lot_id', 'in', []))
+                
             quants = quant_model.search(domain)
             if not quants:
                 rec.is_checked = False

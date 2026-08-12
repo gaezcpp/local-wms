@@ -12,7 +12,7 @@
                                         <td class="text-center">
                                             <img t-if="doc.po_sap_id.po_number and doc.production_line_id.code"
                                                  t-att-src="'data:image/png;base64,%s' % doc._get_qr_image_base64()"
-                                                 alt="QR Code" style="width:700px;height:700px"/>
+                                                 alt="QR Code" style="width:1024px;height:1024px"/>
                                         </td>
                                     </tr>
                                     <tr>
