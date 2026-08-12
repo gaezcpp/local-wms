@@ -21,6 +21,7 @@ class StockPicking(models.Model):
     split_package = fields.Boolean(related='picking_type_id.split_package', store=True)
     hide_edit_barcode = fields.Boolean(related='picking_type_id.hide_edit_barcode', store=True)
     check_scan_pallet = fields.Boolean(related='picking_type_id.check_scan_pallet', store=True)
+    bulk_pallet_lot = fields.Boolean(related='picking_type_id.bulk_pallet_lot', store=True)
 
     def _get_fields_stock_barcode(self):
         res = super()._get_fields_stock_barcode()
@@ -46,6 +47,8 @@ class StockPicking(models.Model):
             res.append('split_package')
         if 'check_scan_pallet' not in res:
             res.append('check_scan_pallet')
+        if 'bulk_pallet_lot' not in res:
+            res.append('bulk_pallet_lot')
         return res
     
     def _get_stock_barcode_data(self):
@@ -326,7 +329,7 @@ class StockPicking(models.Model):
                 if no_production_line:
                     raise ValidationError(
                         f"Production Line belum diisi untuk picking {picking.name}.\n\n"
-                        f"Silahkan isi dahulu Production Line pada : {', '.join(no_package.mapped('product_reference_code') or '-')}"
+                        f"Silahkan isi dahulu Production Line pada : {', '.join(no_production_line.mapped('product_reference_code') or '-')}"
                     )
                     
     def _sync_post_validate_quantities(self):
@@ -376,32 +379,6 @@ class StockPicking(models.Model):
                 if not ml.result_package_id:
                     ml.write({'result_package_id': ml.package_id})
                     
-    # def _get_next_pallet_ke_map(self):
-    #     result = {}
-    #     for rec in self:
-    #         if not rec.picking_type_id.production_only:
-    #             continue
-
-    #         groups = {}
-    #         for ml in rec.move_line_ids:
-    #             groups.setdefault((ml.product_id.id, ml.production_line_id.id), []).append(ml)
-
-    #         for (product_id, production_line_id), mls in groups.items():
-    #             latest_ml = self.env['stock.move.line'].sudo().search([
-    #                 ('picking_id', '!=', rec.id),
-    #                 ('picking_id.state', '=', 'done'),
-    #                 ('picking_id.picking_type_id.production_only', '=', True),
-    #                 ('picking_id.production_shift_id', '=', rec.production_shift_id.id),
-    #                 ('picking_id.po_sap_id', '=', rec.po_sap_id.id),
-    #                 ('product_id', '=', product_id),
-    #                 ('production_line_id', '=', production_line_id),
-    #             ], order='pallet_ke desc, id desc', limit=1)
-    #             next_pallet = (latest_ml.pallet_ke + 1) if latest_ml else 1
-    #             for ml in mls:
-    #                 result[ml] = next_pallet
-    #                 next_pallet += 1
-    #     return result
-    
     def _get_next_pallet_ke_map(self):
         result = {}
         # Gunakan timezone user, atau default ke WIB (Asia/Jakarta)
@@ -463,12 +440,52 @@ class StockPicking(models.Model):
                     next_pallet += 1
                     
         return result
+    
+    def remove_package_customer_location(self):
+        for picking in self:
+            if picking.picking_type_id.default_location_dest_id.usage == 'customer': # 'outgoing'
+                picking.move_line_ids.write({'result_package_id': False})
+                picking.move_ids.write({'package_ids': [(5, 0, 0)]})
+                
+    def restrict_customer_location(self):
+        for picking in self:
+            if picking.picking_type_id.default_location_dest_id.usage == 'customer': # 'outgoing'
+                if self.env.su or self.env.context.get('from_cron'):
+                    continue
+                
+                if not self.env.user.has_group('stock.group_stock_manager'):
+                    raise ValidationError("User biasa tidak bisa melakukan validate ke lokasi customer! Silahkan hubungi admin.")
+
+    def split_restrict_upp(self):
+        for picking in self.filtered(lambda p: p.split_package):
+            package_qty_map = {}
+            valid_move_lines = picking.move_line_ids.filtered(lambda ml: ml.result_package_id)
+            for line in valid_move_lines:
+                key = (line.result_package_id.id, line.product_id.id)
+                if key not in package_qty_map:
+                    package_qty_map[key] = {
+                        'total_pallet_qty': 0.0,
+                        'product_code': line.product_id.default_code or line.product_id.name,
+                        'package_name': line.result_package_id.name
+                    }
+                
+                package_qty_map[key]['total_pallet_qty'] += line.pallet_qty
+
+            for data in package_qty_map.values():
+                if data['total_pallet_qty'] > 1.0:
+                    raise ValidationError(
+                        f"Quantity pada product {data['product_code']} di package {data['package_name']} "
+                        f"melebihi UPP Pallet pada proses Split Package (Total saat ini: {data['total_pallet_qty']})."
+                    )
 
     def button_validate(self):
         self._sync_packaging_lines()
-        self._check_all_sloc_filled()
+        # self._check_all_sloc_filled()
         self._check_all_result_package_id()
         self._check_production_order_sap()
+        self.remove_package_customer_location()
+        self.restrict_customer_location()
+        self.split_restrict_upp()
         if self.checker_only or self.checker_out:
             status, product, diff_qty = self._has_missing_qty()
             konversi = False
@@ -648,6 +665,7 @@ class StockPicking(models.Model):
                     'purchase_line_id': parent_move.purchase_line_id.id if hasattr(parent_move, 'purchase_line_id') and parent_move.purchase_line_id else False,
                     'sap_seq': parent_move.sap_seq if hasattr(parent_move, 'sap_seq') else False,
                     'order_seq': parent_move.order_seq if hasattr(parent_move, 'order_seq') else False,
+                    'order_selection': parent_move.order_selection if hasattr(parent_move, 'order_selection') else False,
                 })
                 new_move._action_confirm()
 
@@ -722,186 +740,3 @@ class StockPicking(models.Model):
             },
         }
     
-    # NOTE Quantity Backorder YANG PAKE DEMAND
-    # def action_create_quantity_backorder(self):
-    #     self.ensure_one()
-
-    #     if not (self.checker_only or self.checker_out):
-    #         return
-
-    #     # 1. Root picking
-    #     root_picking = self
-    #     while root_picking.backorder_id:
-    #         root_picking = root_picking.backorder_id
-
-    #     # 2. Semua picking dalam chain (rekursif)
-    #     def get_all_pickings_in_chain(root):
-    #         result = root
-    #         children = self.env['stock.picking'].sudo().search([('backorder_id', '=', root.id)])
-    #         for child in children:
-    #             result |= get_all_pickings_in_chain(child)
-    #         return result
-
-    #     all_related_pickings = get_all_pickings_in_chain(root_picking)
-
-    #     for move in self.move_ids:
-    #         product = move.product_id
-
-    #         # Demand
-    #         root_moves = root_picking.move_ids.filtered(lambda m: m.product_id == product)
-    #         demand = sum(root_moves.mapped('product_uom_qty'))
-
-    #         # Hitung total processed
-    #         all_moves_in_chain = all_related_pickings.mapped('move_ids').filtered(lambda m: m.product_id == product)
-    #         total_done = 0.0
-    #         total_in_progress = 0.0
-    #         for m in all_moves_in_chain:
-    #             ml_qty_sum = sum(m.move_line_ids.mapped('quantity'))
-    #             if m.state == 'done':
-    #                 total_done += m.quantity
-    #             elif m.state not in ('cancel',):
-    #                 total_in_progress += ml_qty_sum
-
-    #         missing_qty = demand - (total_done + total_in_progress)
-
-    #         if missing_qty <= 0:
-    #             continue
-            
-    #         # Kurangin demadn
-    #         if root_moves:
-    #             target_move = root_moves[0]
-    #             old_demand = target_move.product_uom_qty
-    #             new_demand = max(old_demand - missing_qty, 0.0)
-    #             target_move.write({'product_uom_qty': new_demand})
-
-    #         qty_type = False
-    #         if self.checker_only:
-    #             qty_type = self.picking_type_id.quantity_type_id
-    #         if self.checker_out:
-    #             qty_type = self.picking_type_id.quantity_out_type_id
-            
-    #         if not qty_type:
-    #             raise UserError(f"Operation type tidak memiliki Quantity Type.")
-
-    #         lot_id_for_search = move.move_line_ids[:1].lot_id.id if move.move_line_ids else False
-
-    #         all_quants = self.env['stock.quant'].sudo().search([
-    #             ('location_id', '=', move.location_id.id),
-    #             ('product_id', '=', product.id),
-    #             ('lot_id', '=', lot_id_for_search),
-    #             ('quantity', '>', 0),
-    #         ])
-    #         for q in all_quants:
-    #             avail = q.quantity - q.reserved_quantity
-    #         usable_quants = sorted(
-    #             [q for q in all_quants if (q.quantity - q.reserved_quantity) > 0],
-    #             key=lambda q: (q.quantity - q.reserved_quantity),
-    #             reverse=True,
-    #         )
-
-    #         # Buat picking baru
-    #         new_picking = self.env['stock.picking'].create({
-    #             'picking_type_id': qty_type.id,
-    #             'location_id': move.location_id.id,
-    #             'location_dest_id': qty_type.default_location_dest_id.id,
-    #             'company_id': self.company_id.id,
-    #             'backorder_id': root_picking.id,
-    #             'origin': f"{root_picking.name} - Qty Remaining",
-    #             'po_sap_id': self.po_sap_id.id if self.po_sap_id else False,
-    #         })
-
-    #         new_move = self.env['stock.move'].create({
-    #             'picking_id': new_picking.id,
-    #             'product_id': product.id,
-    #             'product_uom_qty': missing_qty,
-    #             'product_uom': move.product_uom.id,
-    #             'location_id': move.location_id.id,
-    #             'location_dest_id': new_picking.location_dest_id.id,
-    #             'company_id': self.company_id.id,
-    #             'sale_line_id': move.sale_line_id.id if move.sale_line_id else False,
-    #             'purchase_line_id': move.purchase_line_id.id if move.purchase_line_id else False,
-    #             'sap_seq': move.sap_seq,
-    #             'order_seq': move.order_seq,
-    #         })
-    #         new_move._action_confirm()
-
-    #         # Hapus auto-generated move_line
-    #         if new_move.move_line_ids:
-    #             new_move.move_line_ids.unlink()
-
-    #         remaining = missing_qty
-    #         created_lines = []
-
-    #         for q in usable_quants:
-    #             if remaining <= 0:
-    #                 break
-
-    #             avail = q.quantity - q.reserved_quantity
-    #             take_qty = min(avail, remaining)
-
-    #             ml_vals = {
-    #                 'move_id': new_move.id,
-    #                 'picking_id': new_picking.id,
-    #                 'product_id': product.id,
-    #                 'product_uom_id': move.product_uom.id,
-    #                 'quantity': take_qty,
-    #                 'lot_id': q.lot_id.id if q.lot_id else False,
-    #                 'location_id': move.location_id.id,
-    #                 'location_dest_id': new_picking.location_dest_id.id,
-    #                 'package_id': q.package_id.id if q.package_id else False,
-    #                 'result_package_id': False,
-    #                 'stock_type': q.stock_type or 'QI',
-    #             }
-    #             ml = self.env['stock.move.line'].create(ml_vals)
-    #             created_lines.append({
-    #                 'ml_id': ml.id,
-    #                 'quant_id': q.id,
-    #                 'package_id': q.package_id.id if q.package_id else None,
-    #                 'take_qty': take_qty,
-    #                 'avail_was': avail,
-    #             })
-    #             remaining -= take_qty
-
-    #         if remaining > 0:
-    #             raise UserError(
-    #                 f"Tidak cukup stok tersedia untuk membuat Qty Backorder.\n"
-    #                 f"Produk: {product.display_name}\n"
-    #                 f"Dibutuhkan: {missing_qty} | Tersedia: {missing_qty - remaining}\n"
-    #                 f"Periksa stock quant di lokasi {move.location_id.name}."
-    #             )
-
-    #         try:
-    #             result = new_picking.with_context(
-    #                 skip_backorder=True,
-    #                 skip_immediate=True,
-    #                 skip_sms=True,
-    #             ).button_validate()
-    #         except Exception as e:
-    #             _logger.error(f"[GRGI] qty_backorder picking={new_picking.name} button_validate FAILED: {e}")
-    #             raise
-
-    #         if new_picking.state != 'done':
-    #             try:
-    #                 new_move.with_context(
-    #                     skip_backorder=True,
-    #                     skip_immediate=True,
-    #                 )._action_done()
-    #             except Exception as e2:
-    #                 _logger.error(f"[GRGI] qty_backorder picking={new_picking.name} _action_done FAILED: {e2}")
-    #                 raise
-
-    #         if new_picking.state != 'done':
-    #             raise UserError(f"Picking {new_picking.name} gagal divalidasi otomatis.")
-
-
-    #     return {
-    #         "type": "ir.actions.client",
-    #         "tag": "display_notification",
-    #         "params": {
-    #             "title": "Success",
-    #             "message": "Qty Backorder telah diproses.",
-    #             "type": "success",
-    #             "sticky": False,
-    #             "next": {"type": "ir.actions.act_window_close"},
-    #         },
-    #     }

@@ -1,4 +1,7 @@
 from odoo import models, fields, api
+from odoo.exceptions import ValidationError
+from datetime import datetime, timedelta
+import pytz
 
 class SaleStockPicking(models.Model):
     _inherit = 'stock.picking'
@@ -88,3 +91,17 @@ class SaleStockPicking(models.Model):
             if 'sale_id' in vals or 'move_ids' in vals or 'move_line_ids' in vals:
                 self._do_sap_autofix_name()
         return res
+    
+    def today_jakarta(self):
+        tz = pytz.timezone('Asia/Jakarta')
+        now_jakarta = datetime.now(tz)
+        return now_jakarta.date()
+    
+    def cron_cleansing_stock_picking(self):
+        one_day_ago = datetime.utcnow() - timedelta(days=1)
+        over_days = self.env['stock.picking'].sudo().search([
+            ('state', '=', 'draft'),
+            ('create_date', '<', one_day_ago),
+        ])
+        if over_days:
+            over_days.sudo().unlink()

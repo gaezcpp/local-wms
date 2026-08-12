@@ -9,7 +9,6 @@ class InheritStockPickingType(models.Model):
     move_type_sap = fields.Char(string="Move Type SAP")
     packaging_type_id = fields.Many2one(comodel_name='stock.picking.type', string="Packaging Type")
     checker_only = fields.Boolean(string="Checker In", default=False)
-    checker_type_id = fields.Many2one(comodel_name='stock.picking.type')
     quality_type_id = fields.Many2one(comodel_name='stock.picking.type', string="Quality Type")
     quantity_type_id = fields.Many2one(comodel_name='stock.picking.type', string="Quantity Type")
     checker_out = fields.Boolean(string="Checker Out", default=False)
@@ -25,6 +24,7 @@ class InheritStockPickingType(models.Model):
     hide_zero_qty = fields.Boolean(string="Hide Zero Qty", default=False)
     hide_edit_barcode = fields.Boolean(string="Hide Edit Barcode", default=False)
     check_scan_pallet = fields.Boolean(string="Check Scan Pallet", default=False)
+    bulk_pallet_lot = fields.Boolean(string="Bulk Pallet Lot", default=False)
     
     @api.onchange('checker_only')
     def _onchange_checker_only(self):

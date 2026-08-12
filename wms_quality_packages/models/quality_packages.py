@@ -113,11 +113,12 @@ class QualityPackages(models.Model):
                 rec.is_checked = False
                 raise ValidationError("Packages tidak ditemukan!")
 
+            lines_to_create = []
             for quant in quants:
                 if not quant.lot_id:
                     continue
 
-                quality_line_model.create({
+                lines_to_create.append({
                     'quality_packages_id': rec.id,
                     'quant_id': quant.id or False,
                     'product_id': quant.product_id.id or False,
@@ -132,6 +133,9 @@ class QualityPackages(models.Model):
                     'pallet_ke': quant.pallet_ke or 0,
                     'production_line_id': quant.production_line_id.id or False,
                 })
+
+            if lines_to_create:
+                quality_line_model.create(lines_to_create)
 
             rec.is_checked = True
             

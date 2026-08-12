@@ -6,12 +6,17 @@ class SaleOrderLine(models.Model):
     
     sap_sequence = fields.Integer(string="SAP Seq")
     order_seq = fields.Integer(string="Order Seq")
-    
+    order_selection = fields.Selection([
+        ('order', 'Order'),
+        ('gratis', 'Gratis'),
+    ], string="Order Selection", default='order')
+
     # prepare stock.move
     def _prepare_procurement_values(self):
         values = super(SaleOrderLine, self)._prepare_procurement_values()
         values.update({
             'sap_sequence': self.sap_sequence,
             'order_seq': self.order_seq,
+            'order_selection': self.order_selection,
         })
         return values

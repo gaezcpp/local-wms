@@ -9,25 +9,32 @@
                 <xpath expr="//field[@name='barcode']" position="after">
                     <field name="move_type_sap"/>
                 </xpath>
-                <xpath expr="//field[@name='set_package_type']" position="after">
-                    <field name="uu_only"/>
-                    <field name="production_only"/>
-                    <field name="checker_only"/>
-                    <field name="quality_type_id" required="checker_only" invisible="not checker_only"/>
-                    <field name="quantity_type_id" required="checker_only" invisible="not checker_only"/>
-                    <field name="checker_out"/>
-                    <field name="quality_out_type_id" required="checker_out" invisible="not checker_out"/>
-                    <field name="quantity_out_type_id" required="checker_out" invisible="not checker_out"/>
-                    <field name="book_full_pallet"/>
-                    <field name="mandatory_destination"/>
-                    <field name="split_package"/>
-                    <field name="bypass_entire_packs"/>
-                    <field name="create_new_picking"/>
-                    <field name="autofill_pack_qty"/>
-                    <field name="restrict_over_demand"/>
-                    <field name="hide_zero_qty"/>
-                    <field name="hide_edit_barcode"/>
-                    <field name="check_scan_pallet"/>
+                <xpath expr="//group[@name='second']" position="after">
+                    <group>
+                        <group name="custom_1" string="Custom1">
+                            <field name="uu_only"/>
+                            <field name="production_only"/>
+                            <field name="checker_only"/>
+                            <field name="quality_type_id" required="checker_only" invisible="not checker_only"/>
+                            <field name="quantity_type_id" required="checker_only" invisible="not checker_only"/>
+                            <field name="checker_out"/>
+                            <field name="quality_out_type_id" required="checker_out" invisible="not checker_out"/>
+                            <field name="quantity_out_type_id" required="checker_out" invisible="not checker_out"/>
+                            <field name="book_full_pallet"/>
+                            <field name="mandatory_destination"/>
+                            <field name="split_package"/>
+                        </group>
+                        <group name="custom2" string="Custom2">
+                            <field name="bypass_entire_packs"/>
+                            <field name="create_new_picking"/>
+                            <field name="autofill_pack_qty"/>
+                            <field name="restrict_over_demand"/>
+                            <field name="hide_zero_qty"/>
+                            <field name="hide_edit_barcode"/>
+                            <field name="check_scan_pallet"/>
+                            <field name="bulk_pallet_lot"/>
+                        </group>
+                    </group>
                 </xpath>
                 <xpath expr="//field[@name='return_picking_type_id']" position="after">
                     <field name="packaging_type_id"/>

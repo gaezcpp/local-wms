@@ -75,12 +75,12 @@
                     <attribute name="invisible">wms_type != 'FOOD' and (checker_only or checker_out)</attribute>
                 </xpath>
                 <!-- bag_quantity/pallet_quantity have no native equivalent. -->
-                <xpath expr="//div[@name='bag_quantity']" position="attributes">
+                <!-- <xpath expr="//div[@name='bag_quantity']" position="attributes">
                     <attribute name="invisible">wms_type == 'FOOD'</attribute>
                 </xpath>
                 <xpath expr="//div[@name='pallet_quantity']" position="attributes">
                     <attribute name="invisible">wms_type == 'FOOD'</attribute>
-                </xpath>
+                </xpath> -->
                 <xpath expr="//div[@name='btn_full_pallet']" position="attributes">
                     <attribute name="invisible">wms_type == 'FOOD' or not production_only</attribute>
                 </xpath>

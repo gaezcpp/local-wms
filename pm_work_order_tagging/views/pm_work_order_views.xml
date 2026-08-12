@@ -27,12 +27,12 @@
             <list string="Work Order" create="0" edit="0" delete="0">
                 <field name="name"/>
                 <field name="tagging_id"/>
+                <field name="wo_sap"/>
                 <field name="type_mo"/>
                 <field name="system_id"/>
                 <field name="sub_system_id"/>
                 <field name="equipment_id"/>
                 <field name="sub_equipment_id"/>
-                <!-- <field name="create_date"/> -->
                 <field name="state"/>
                 <field name="priority"/>
                 <field name="company_id"/>
@@ -111,8 +111,8 @@
                             </field>
 						</page>
 					</notebook>
-                    <separator string="Close Evidence" invisible="not sap_synchronize"/>
-                    <group invisible="not sap_synchronize">
+                    <separator name="close_evidence" string="Close Evidence" invisible="not sap_synchronize"/>
+                    <group name="close_evidence" invisible="not sap_synchronize">
                         <field name="need_desc" invisible="1" force_save="1" readonly="1"/>
                         <field name="date_from" readonly="state != 'draft'"/>
                         <field name="date_to" readonly="state != 'draft'"/>
@@ -120,11 +120,32 @@
                         <field name="analysis_id" domain="['|', ('company_id', '=', company_id), ('company_id', '=', False)]" readonly="state != 'draft'"/>
                         <field name="analysis" readonly="state != 'draft'" invisible="not need_desc" required="need_desc"/>
                         <field name="problem_handling" readonly="state != 'draft'"/>
-                        <field name="photo_attachment" readonly="state != 'draft'"/>
+                        <field name="photo_attachment" readonly="state != 'draft'" widget="image" options="{'size': [128, 128]}"/>
                     </group>
                 </sheet>
                 <chatter/>
             </form>
+        </field>
+    </record>
+
+    <record id="pm_work_order_view_form_calendar_only" model="ir.ui.view">
+        <field name="name">pm.work.order.view.form.calendar.only</field>
+        <field name="model">pm.work.order</field>
+        <field name="inherit_id" ref="pm_work_order_tagging.pm_work_order_view_form"/>
+        <field name="mode">primary</field>
+        <field name="arch" type="xml">
+            <xpath expr="//separator[@name='close_evidence']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+            <xpath expr="//group[@name='close_evidence']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+            <xpath expr="//button[@name='action_waiting_sap']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+            <xpath expr="//button[@name='action_close']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
         </field>
     </record>
 
@@ -138,7 +159,8 @@
                     color="wo_sap"
                     quick_create="0"
                     mode="month"
-                    event_open_popup="true">
+                    event_open_popup="true"
+                    form_view_id="%(pm_work_order_tagging.pm_work_order_view_form_calendar_only)d">
                 <field name="wo_sap"/>
                 <field name="system_id" options="{'no_open': True, 'no_create': True}"/>
                 <field name="sub_system_id" options="{'no_open': True, 'no_create': True}"/>

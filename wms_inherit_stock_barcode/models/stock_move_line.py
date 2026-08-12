@@ -28,6 +28,9 @@ class StockMoveLine(models.Model):
     hide_zero_qty = fields.Boolean(related='picking_id.hide_zero_qty', store=True)
     pallet_ke = fields.Integer(string="Pallet Ke-", default=0)
     check_scan_pallet = fields.Boolean(related='picking_id.check_scan_pallet', store=True)
+    order_seq = fields.Integer(related='move_id.order_seq', store=True, string="Order Seq")
+    order_selection = fields.Selection(related='move_id.order_selection', store=True, string="Order Selection")
+    gratis_locked = fields.Boolean(related='move_id.gratis_locked', string="Gratis Locked")
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -49,7 +52,12 @@ class StockMoveLine(models.Model):
         self._validate_bag_qty(vals, records=self)
         self._sync_qty_from_bag(vals, records=self)
         self._validate_qty_packaging_sap(vals)
+        # fix negative stock: is_reserved doesn't recompute on cancel/done since it has no real
+        # dependency path to stock.move.line state, so trigger it explicitly here
+        packages_to_recompute = (self.package_id | self.result_package_id) if 'state' in vals else self.env['stock.package']
         res = super().write(vals)
+        if packages_to_recompute:
+            packages_to_recompute._compute_is_reserved()
         return res
 
     def _clear_destination_pallet(self, vals, records=None):
@@ -117,7 +125,7 @@ class StockMoveLine(models.Model):
         for record in self:
             if record.picking_id and record.picking_id.picking_type_id.code != 'outgoing':
                 if record.result_package_id and record.pallet_qty > 1:
-                    raise ValidationError("Quantity Pallet tidak boleh lebih dari 1!")
+                    raise ValidationError("Quantity Pallet sudah melebihi UPP Pallet!")
     
     def _validate_qty_packaging_sap(self, vals):
         if 'qty_packaging_sap' not in vals:
@@ -179,6 +187,9 @@ class StockMoveLine(models.Model):
             'create_new_picking',
             'autofill_pack_qty',
             'check_scan_pallet',
+            'order_seq',
+            'order_selection',
+            'gratis_locked',
         ]
     
     def _check_package_capacity_limit(self):

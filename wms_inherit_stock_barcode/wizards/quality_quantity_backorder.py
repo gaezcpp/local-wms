@@ -60,6 +60,7 @@ class QualityQuantityBackorder(models.TransientModel):
                 'purchase_line_id': orig_move.purchase_line_id.id if orig_move and orig_move.purchase_line_id else False,
                 'sap_seq': orig_move.sap_seq if orig_move else 0,
                 'order_seq': orig_move.order_seq if orig_move else 0,
+                'order_selection': orig_move.order_selection if orig_move else 0,
             })
             move._action_confirm()
 

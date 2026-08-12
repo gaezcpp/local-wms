@@ -7,6 +7,10 @@ class PurchaseOrderLine(models.Model):
     
     sap_sequence = fields.Integer(string="SAP Seq")
     order_seq = fields.Integer(string="Order Seq")
+    order_selection = fields.Selection([
+        ('order', 'Order'),
+        ('gratis', 'Gratis'),
+    ], string="Order Selection", default='order')
     
     def _prepare_stock_moves(self, picking):
         res = super(PurchaseOrderLine, self)._prepare_stock_moves(picking)
@@ -16,5 +20,6 @@ class PurchaseOrderLine(models.Model):
                 po_line = self.browse(po_line_id)
                 vals['sap_seq'] = po_line.sap_sequence
                 vals['order_seq'] = po_line.order_seq
+                vals['order_selection'] = po_line.order_selection
                 
         return res

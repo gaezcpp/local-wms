@@ -17,13 +17,15 @@ class CreateNewPicking(models.TransientModel):
             raise ValidationError("Referensi Picking asal tidak ditemukan untuk membuat Picking baru.")
             
         orig_picking = self.picking_id
+        # sales_pick_type = orig_picking.picking_type_id
         sales_pick_type = orig_picking.sale_id.warehouse_id.pick_type_id
         
-        new_picking = self.env['stock.picking'].create({
+        new_picking = self.env['stock.picking'].with_context(sequence_sale_order_id=orig_picking.sale_id.id).create({
             'picking_type_id': sales_pick_type.id,
             'location_id': sales_pick_type.default_location_src_id.id,
             'location_dest_id': sales_pick_type.default_location_dest_id.id,
-            'origin': orig_picking.sale_id.name,
+            'origin': orig_picking.sale_id.name if orig_picking.sale_id else False,
+            'sale_id': orig_picking.sale_id.id if orig_picking.sale_id else False,
             'company_id': self.company_id.id,
             'user_id': False
         })
@@ -45,13 +47,16 @@ class CreateNewPicking(models.TransientModel):
                 # 'product_uom': line.pack_uom_id.id,
                 'location_id': sales_pick_type.default_location_src_id.id,
                 'location_dest_id': sales_pick_type.default_location_dest_id.id,
+                'origin': orig_picking.sale_id.name if orig_picking.sale_id else False,
                 'sale_line_id': so_line.id if so_line else False,
                 'sap_seq': so_line.sap_sequence if so_line else 0,
                 'order_seq': so_line.order_seq if so_line else 0,
+                'order_selection': so_line.order_selection if so_line else 0,
                 'company_id': self.company_id.id,
             })
             
         ctx = dict(self.env.context, bypass_adjust_demand=True)
+        new_picking.message_post(body=f"New Picking created from {self.picking_id.name} New Picking")
         new_picking.with_context(ctx).action_confirm()
         new_picking.with_context(ctx).action_assign()
         

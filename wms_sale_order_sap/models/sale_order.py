@@ -70,7 +70,25 @@ class InheritSaleOrderSAP(models.Model):
                     return True
 
         return False
-    
+
+    def _assign_order_selection(self):
+        """Group each order's lines by product. When the same product appears
+        on more than one line (different order_seq/qty), the line with the
+        largest product_uom_qty is 'order' and the rest are 'gratis'."""
+        for so in self:
+            groups = defaultdict(lambda: self.env['sale.order.line'])
+            for line in so.order_line:
+                groups[line.product_id.id] |= line
+            for lines in groups.values():
+                if len(lines) <= 1:
+                    lines.filtered(lambda l: l.order_selection != 'order').write({'order_selection': 'order'})
+                    continue
+                max_qty = max(lines.mapped('product_uom_qty'))
+                gratis_lines = lines.filtered(lambda l, max_qty=max_qty: l.product_uom_qty != max_qty)
+                order_lines = lines - gratis_lines
+                order_lines.filtered(lambda l: l.order_selection != 'order').write({'order_selection': 'order'})
+                gratis_lines.filtered(lambda l: l.order_selection != 'gratis').write({'order_selection': 'gratis'})
+
     @api.model
     def _fetch_sap_data(self, config_key, cron_name):
         icp = self.env['ir.config_parameter'].sudo()
@@ -166,8 +184,15 @@ class InheritSaleOrderSAP(models.Model):
 
             partner_shipping = partner_model.search([('ref', '=', delivery_ref)], limit=1)
             if not partner_shipping:
-                _logger.info(f"cron_synchronize_sap_sale_order DELIVERY REF {delivery_ref} SKIPPED")
-                continue
+                _logger.info(f"cron_synchronize_sap_sale_order PARTNER {delivery_ref} CREATED NEW")
+                partner = partner_model.create({
+                    'ref': delivery_ref,
+                    'name': delivery_ref,
+                    'sap_synchronize': True,
+                    'type': 'contact',
+                    'company_type': 'person',
+                    'comment': "Created from cron_synchronize_sap_sale_order",
+                })
 
             company = company_model.search([('company_registry', '=', company_registry),('sync_wms', '=', True)], limit=1)
             if not company:
@@ -265,11 +290,13 @@ class InheritSaleOrderSAP(models.Model):
                 else:
                     sale_order_line_model.create(vals_line)
 
-            _logger.info(f"SO {nomor_do} total line {len(rows)}")
-            
+            so._assign_order_selection()
+
+            _logger.info(f"SO cron_synchronize_sap_sale_order {nomor_do} total line {len(rows)}")
+
             if is_new_so:
                 so.with_context(sequence_sale_order_id=so.id).action_confirm()
-                _logger.info(f"SO Confirmed {nomor_do}")
+                _logger.info(f"SO Confirmed cron_synchronize_sap_sale_order {nomor_do}")
             
                 
     @api.model
@@ -414,10 +441,12 @@ class InheritSaleOrderSAP(models.Model):
                             'product_uom_qty': qty,
                             'product_uom_id': product_uom.id,
                         })
-                        
+
+            so._assign_order_selection()
+
             if is_new_so:
                 so.with_context(sequence_sale_order_id=so.id).action_confirm()
-                _logger.info(f"SO Confirmed {nomor_do}")
+                _logger.info(f"SO Confirmed cron_synhronize_sap_so_sto {nomor_do}")
         
         # sekalian jalanin sloc to sloc
         self.cron_synhronize_so_sloc_to_sloc()
@@ -479,7 +508,7 @@ class InheritSaleOrderSAP(models.Model):
                 ('state', '=', 'assigned'),
             ], limit=1)
             if picking:
-                picking.button_validate()
+                picking.with_context(from_cron=True).button_validate()
 
 
     @api.model
@@ -564,7 +593,7 @@ class InheritSaleOrderSAP(models.Model):
                 ('state', '=', 'assigned'),
             ], limit=1)
             if picking:
-                picking.button_validate()
+                picking.with_context(from_cron=True).button_validate()
                 
                 
     @api.model
@@ -719,10 +748,12 @@ class InheritSaleOrderSAP(models.Model):
                             'product_uom_qty': qty,
                             'product_uom_id': product_uom_id,
                         })
-                        
+
+            so._assign_order_selection()
+
             if is_new_so:
                 so.with_context(sequence_sale_order_id=so.id).action_confirm()
-                _logger.info(f"SO Confirmed {nomor_do}")
+                _logger.info(f"SO Confirmed cron_synhronize_so_sloc_to_sloc {nomor_do}")
                         
     @api.model
     def _run_query_update_sap(

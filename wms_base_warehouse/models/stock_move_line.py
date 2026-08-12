@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 from odoo import models, fields, api
 from odoo.exceptions import ValidationError
 import logging
@@ -90,21 +92,32 @@ class InheritBaseStockMoveLine(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
-        for vals in vals_list:
-            if not vals.get('stock_type') and vals.get('location_id') and vals.get('product_id'):
-                domain = [
-                    ('location_id', '=', vals['location_id']), 
-                    ('product_id', '=', vals['product_id'])
-                ]
-                if vals.get('lot_id'):
-                    domain.append(('lot_id', '=', vals['lot_id']))
-                if vals.get('package_id'):
-                    domain.append(('package_id', '=', vals['package_id']))
-                
-                source_quant = self.env['stock.quant'].sudo().search(domain, limit=1)
-                if source_quant and source_quant.stock_type:
-                    vals['stock_type'] = source_quant.stock_type
-                    
+        lookup_indexes = [
+            i for i, vals in enumerate(vals_list)
+            if not vals.get('stock_type') and vals.get('location_id') and vals.get('product_id')
+        ]
+
+        if lookup_indexes:
+            location_ids = {vals_list[i]['location_id'] for i in lookup_indexes}
+            product_ids = {vals_list[i]['product_id'] for i in lookup_indexes}
+            candidate_quants = self.env['stock.quant'].sudo().search([
+                ('location_id', 'in', list(location_ids)),
+                ('product_id', 'in', list(product_ids)),
+            ])
+
+            for i in lookup_indexes:
+                vals = vals_list[i]
+                matching_quants = candidate_quants.filtered(
+                    lambda q, vals=vals: q.location_id.id == vals['location_id']
+                    and q.product_id.id == vals['product_id']
+                    and (not vals.get('lot_id') or q.lot_id.id == vals['lot_id'])
+                    and (not vals.get('package_id') or q.package_id.id == vals['package_id']),
+                )
+                if matching_quants:
+                    source_quant = matching_quants[0]
+                    if source_quant.stock_type:
+                        vals['stock_type'] = source_quant.stock_type
+
         records = super().create(vals_list)
 
         for rec in records:
@@ -118,23 +131,35 @@ class InheritBaseStockMoveLine(models.Model):
         res = super().write(vals)
         if self.env.context.get('skip_lot_aft'):
             return res
-        for rec in self:
-            if not rec._is_gr_prod():
-                continue
-            
-            if rec.stock_type and rec.state == 'done':
-                domain = [
-                    ('product_id', '=', rec.product_id.id),
-                    ('location_id', '=', rec.location_dest_id.id),
-                    ('package_id', '=', (rec.result_package_id.id or rec.package_id.id) or False), #AI
-                ]
-                if rec.lot_id:
-                    domain.append(('lot_id', '=', rec.lot_id.id))
 
-                dest_quants = self.env['stock.quant'].sudo().search(domain)
-                if dest_quants:
-                    dest_quants.write({'stock_type': rec.stock_type})
-            
+        gr_prod_recs = self.filtered(lambda r: r._is_gr_prod())
+        stock_type_recs = gr_prod_recs.filtered(lambda r: r.stock_type and r.state == 'done')
+
+        if stock_type_recs:
+            candidate_quants = self.env['stock.quant'].sudo().search([
+                ('product_id', 'in', stock_type_recs.product_id.ids),
+                ('location_id', 'in', stock_type_recs.location_dest_id.ids),
+            ])
+
+            groups = defaultdict(lambda: self.env['stock.move.line'])
+            for rec in stock_type_recs:
+                package_key = (rec.result_package_id.id or rec.package_id.id) or False
+                lot_key = rec.lot_id.id if rec.lot_id else False
+                key = (rec.product_id.id, rec.location_dest_id.id, package_key, lot_key, rec.stock_type)
+                groups[key] |= rec
+
+            for (product_id, location_dest_id, package_key, lot_key, stock_type), recs in groups.items():
+                matching_quants = candidate_quants.filtered(
+                    lambda q, product_id=product_id, location_dest_id=location_dest_id,
+                    package_key=package_key, lot_key=lot_key: q.product_id.id == product_id
+                    and q.location_id.id == location_dest_id
+                    and q.package_id.id == package_key
+                    and (not lot_key or q.lot_id.id == lot_key),
+                )
+                if matching_quants:
+                    matching_quants.write({'stock_type': stock_type})
+
+        for rec in gr_prod_recs:
             trigger_fields = {'production_line_id', 'expiration_date'}
             if trigger_fields & set(vals.keys()):
                 if rec.production_line_id and rec.expiration_date:
@@ -157,6 +182,66 @@ class InheritBaseStockMoveLine(models.Model):
                 picking = self.move_id.picking_id
             return picking and picking.picking_type_id.move_type_sap == str(prod_in_move_type)
     
+    def _get_linkable_moves(self):
+        """Jangan pernah melekatkan move line ke move 'gratis' yang masih terkunci.
+
+        Core hanya menyaring kandidat berdasarkan `product_id`
+        (`stock/models/stock_move_line.py::_get_linkable_moves`), tanpa melihat
+        `order_selection`. Move line baru dari Barcode dikirim tanpa `move_id`
+        (`_createCommandVals()` tidak menyertakannya), sehingga pemilihan move
+        diserahkan ke method ini — dan kunci sortir core `m.quantity < m.product_qty`
+        bisa menaikkan move gratis ke urutan pertama begitu move 'order'
+        pasangannya terbaca sudah penuh. Akibatnya qty masuk ke move gratis
+        padahal `gratis_locked` masih True.
+
+        `_action_assign()` sudah mengecualikan move gratis terkunci, tapi jalur
+        create ini tidak lewat sana, jadi pengamannya dipasang di sini.
+        """
+        moves = super()._get_linkable_moves()
+        if not moves:
+            return moves
+
+        unlocked = [
+            move for move in moves
+            if move.order_selection != 'gratis' or not move._is_gratis_locked()
+        ]
+        if not unlocked:
+            # Satu-satunya kandidat memang move gratis terkunci. Perilaku core
+            # dipertahankan supaya tidak malah terbentuk move baru di luar SAP.
+            _logger.warning(
+                "[GRATIS-LOCK] move line %s: semua kandidat move terkunci, tetap "
+                "memakai move %s", self.id or '(baru)', moves[0].id,
+            )
+            return moves
+
+        if len(unlocked) != len(moves):
+            _logger.info(
+                "[GRATIS-LOCK] move line %s: melewati move gratis terkunci %s, "
+                "dipakai move %s",
+                self.id or '(baru)',
+                [move.id for move in moves if move not in unlocked],
+                unlocked[0].id,
+            )
+        return unlocked
+
+    def _free_reservation(self, product_id, location_id, quantity, lot_id=None, package_id=None, owner_id=None, ml_ids_to_ignore=None):
+        # Core stock_move_line._action_done() calls _free_reservation() with
+        # context key 'quants_cache' explicitly set to None (not removed) when
+        # available_qty goes negative. stock.quant.create()'s _add_to_cache()
+        # closure only checks that the 'quants_cache' key is present in the
+        # context, not that its value is truthy, so it ends up doing
+        # `None[...]` and raises TypeError: 'NoneType' object is not
+        # subscriptable. Rebuild a fresh, empty cache of the same shape core
+        # uses elsewhere so the lookup succeeds; the cache is scoped to this
+        # call only, so no business behavior changes.
+        records = self
+        if 'quants_cache' in self.env.context and self.env.context.get('quants_cache') is None:
+            records = self.with_context(quants_cache=defaultdict(lambda: self.env['stock.quant']))
+        return super(InheritBaseStockMoveLine, records)._free_reservation(
+            product_id, location_id, quantity, lot_id=lot_id, package_id=package_id,
+            owner_id=owner_id, ml_ids_to_ignore=ml_ids_to_ignore,
+        )
+
     # untuk stock.lot.aft ngurangin yang UU
     def _action_done(self):
         for line in self:

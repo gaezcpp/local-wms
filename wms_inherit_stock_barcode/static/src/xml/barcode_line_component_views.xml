@@ -17,6 +17,9 @@
         </xpath>
     </t> -->
     <t t-inherit="stock_barcode.LineQuantity" t-inherit-mode="extension">
+        <xpath expr="//span[hasclass('o_packaging')]" position="replace">
+            <span class="o_packaging text-muted" t-if="packagingLabel" t-esc="packagingLabel"/>
+        </xpath>
         <xpath expr="//span[hasclass('qty-done')]" position="attributes">
             <attribute name="t-out">hasBagUom ? computedBagQty + ' ' + bagUomLabel : (hasPackUom ? packQtyLabel : (env.model.IsNotSet(line) ? '?' : qtyDone))</attribute>
         </xpath>
@@ -59,6 +62,33 @@
                         class="o_line_button o_delete_line btn btn-danger">
                     <span class="fa fa-lg fa-trash"/>
                 </button>
+            </div>
+        </xpath>
+        <xpath expr="//div[@t-if='displayToggleBtn']" position="attributes">
+            <attribute name="class">d-flex flex-column align-items-end</attribute>
+        </xpath>
+        <xpath expr="//button[hasclass('o_toggle_sublines')]" position="before">
+            <button t-if="showBulkEntryButton"
+                    class="btn btn-sm btn-success o_btn_bulk_entry py-0 px-2 fs-7 mb-1"
+                    t-on-click.stop="() => this.openBulkEntry(line)">
+                <i class="fa fa-lg fa-pencil" role="img"/>
+            </button>
+        </xpath>
+    </t>
+
+    <!-- Saat bypass_entire_packs, baris grup dikelompokkan per product + package
+         (lihat groupKey di barcode_pickimg_model_patch.js), jadi pallet asal pasti
+         seragam untuk seluruh subline. Tampilkan pallet asal → pallet tujuan di
+         header grup, tepat di bawah lokasi tujuan. Markup disamakan dengan blok
+         name="package" milik stock_barcode.LineComponent. -->
+    <t t-inherit="stock_barcode.GroupedLineComponent" t-inherit-mode="extension">
+        <xpath expr="//t[@t-call='stock_barcode.LineDestinationLocation']" position="after">
+            <div name="package"
+                 t-if="env.model.record.picking_type_bypass_entire_packs and (line.package_id or line.result_package_id)">
+                <i class="fa fa-fw fa-archive"/>
+                <span t-if="line.package_id" class="package" t-esc="packageLabel"/>
+                <i t-if="displayResultPackage" class="fa fa-long-arrow-right mx-1"/>
+                <span t-if="line.result_package_id" class="result-package" t-esc="resultPackageLabel"/>
             </div>
         </xpath>
     </t>
@@ -107,7 +137,10 @@
             <attribute name="editLine.bind">onOpenProductPage</attribute>
         </xpath>
         <!--HIDE RETURN PRODUCT-->
-        <xpath expr="//div[@t-if='displayOperationButtons']//button[hasclass('o_create_return')]" position="attributes">
+        <!-- <xpath expr="//div[@t-if='displayOperationButtons']//button[hasclass('o_create_return')]" position="attributes">
+            <attribute name="t-if">false</attribute>
+        </xpath> -->
+        <xpath expr="//div[@t-if='displayOperationButtons']" position="attributes">
             <attribute name="t-if">false</attribute>
         </xpath>
         <xpath expr="//footer[hasclass('mt-auto')]" position="attributes">
@@ -115,14 +148,17 @@
         </xpath>
     </t>
 
-    <t t-inherit="stock_barcode.LineDestinationLocation" t-inherit-mode="extension">
+    <!-- bulk_entry — blok ini dinonaktifkan: tombol Bulk Entry sekarang berada di
+         stock_barcode.LineLowerButtons, tepat di atas tombol dropdown subline.
+         Snippet Duplicate Product dibiarkan di sini supaya tidak hilang. -->
+    <!-- <t t-inherit="stock_barcode.LineDestinationLocation" t-inherit-mode="extension">
         <xpath expr="//div[@name='destination_location']" position="after">
             <div name="duplicate_button" class="mt-1">
-                <!-- <button class="btn btn-sm btn-outline-secondary o_btn_duplicate_line py-0 px-2 fs-7"
+                <button class="btn btn-sm btn-outline-secondary o_btn_duplicate_line py-0 px-2 fs-7"
                         t-on-click.stop="() => this.duplicateProductLine(line)">
                     <i class="fa fa-copy me-1"/> Duplicate Product
-                </button> -->
+                </button>
             </div>
         </xpath>
-    </t>
+    </t> -->
 </templates>

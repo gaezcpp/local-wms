@@ -11,6 +11,7 @@ class InheritStockPackage(models.Model):
     can_be_use = fields.Boolean(string="Can Be Use", compute="_compute_pallet_status", store=True)
     is_reserved = fields.Boolean(string="Is Reserved", compute='_compute_is_reserved', store=True)
     
+    @api.depends('quant_ids')
     def _compute_is_reserved(self):
         for rec in self:
             domain = [

@@ -430,6 +430,7 @@ tagging_system
 - query_deluxe
 - sap_coreapi
 - stock_no_negative
+- sttl_warehouse_access_control (third-party, not project-authored)
 
 ---
 

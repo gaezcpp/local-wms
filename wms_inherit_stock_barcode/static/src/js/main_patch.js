@@ -71,4 +71,17 @@ patch(MainComponent.prototype, {
         }
     },
 
+    async saveFormView(lineRecord) {
+        this.blockUI();
+        try {
+            const lineId =
+                (lineRecord && lineRecord.resId) ||
+                (this._editedLineParams && this._editedLineParams.currentId);
+            const recordId = lineRecord.resModel === this.resModel ? lineId : undefined;
+            await this._onRefreshState({ recordId, lineId });
+        } finally {
+            this.unblockUI();
+        }
+    },
+
 });

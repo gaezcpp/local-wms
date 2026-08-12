@@ -92,7 +92,7 @@
           <group name="reject_info" string="Reject Information" invisible="status != 'rejected'">
             <field name="reject_reason" readonly="1" invisible="status != 'rejected'"/>
           </group>
-          <group name="tag_equipment" string="Equipment" invisible="status not in ('validated','open_wo','closed')">
+          <group name="tag_equipment" string="Equipment" invisible="status not in ('validated','open_wo','closed', 'waiting_sap', 'process_sap', 'open_wo', 'closed')">
             <field name="system_id" invisible="1" options="{'no_open': True, 'no_create': True}"/>
             <field name="sub_system_id" invisible="1" options="{'no_open': True, 'no_create': True}"/>
             <field name="functional_location" invisible="1" />

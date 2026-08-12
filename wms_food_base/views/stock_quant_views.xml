@@ -37,9 +37,9 @@
                 <xpath expr="//div[@name='bag_quantity']" position="attributes">
                     <attribute name="invisible">wms_type == 'FOOD'</attribute>
                 </xpath>
-                <xpath expr="//div[@name='pallet_quantity']" position="attributes">
+                <!-- <xpath expr="//div[@name='pallet_quantity']" position="attributes">
                     <attribute name="invisible">1</attribute>
-                </xpath>
+                </xpath> -->
                 <xpath expr="//div[@name='quantity']" position="attributes">
                     <attribute name="invisible">wms_type != 'FOOD'</attribute>
                 </xpath>

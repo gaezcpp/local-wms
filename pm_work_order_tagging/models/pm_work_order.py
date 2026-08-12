@@ -18,7 +18,7 @@ class PlanMaintenanceWorkOrder(models.Model):
     _order = 'id desc'
     
     name = fields.Char(string="Name", default="New")
-    wo_sap = fields.Char(string="Maintenance Order", tracking=True)
+    wo_sap = fields.Char(string="Maintenance Order", tracking=True, index=True)
     tagging_id = fields.Many2one(comodel_name='tagging.record', string="Tagging", tracking=True)
     type_mo = fields.Char(string="Type MO", tracking=True)
     company_id = fields.Many2one(comodel_name='res.company', string="Company", tracking=True)
@@ -39,7 +39,7 @@ class PlanMaintenanceWorkOrder(models.Model):
         ('confirm', 'Confirm'),
         ('rejected', 'Rejected'),
         ('canceled', 'Canceled'),
-    ], string="State", default='draft', tracking=True)
+    ], string="State", default='draft', tracking=True, index=True)
     sap_synchronize = fields.Boolean(string="SAP Synchronize", default=False, tracking=True)
     analysis_id = fields.Many2one(comodel_name='pm.analysis', string="Analysis", tracking=True)
     need_desc = fields.Boolean(string="Need Desc?")
@@ -51,7 +51,7 @@ class PlanMaintenanceWorkOrder(models.Model):
     preventif_inspection = fields.Boolean(string="Preventif Inspection", default=False)
     start_time = fields.Datetime(string="Planned Start")
     end_time = fields.Datetime(string="Planned End")
-    preventif_visible = fields.Boolean(string="Preventif Visible", default=False, compute='_compute_flag_preventif_visible', store=True)
+    preventif_visible = fields.Boolean(string="Preventif Visible", compute='_compute_flag_preventif_visible', store=True)
     
     @api.model_create_multi
     def create(self, vals_list):
@@ -83,13 +83,24 @@ class PlanMaintenanceWorkOrder(models.Model):
         user_tz = pytz.timezone(tz_name)
         
         for rec in self:
-            if rec.preventif_inspection and rec.start_time:
-                utc_dt = pytz.utc.localize(rec.start_time)
-                local_dt = utc_dt.astimezone(user_tz)
-                start_date = local_dt.date()
-                rec.preventif_visible = (now_date >= start_date)
+            if rec.preventif_inspection:
+                if rec.start_time:
+                    utc_dt = pytz.utc.localize(rec.start_time)
+                    local_dt = utc_dt.astimezone(user_tz)
+                    start_date = local_dt.date()
+                    rec.preventif_visible = (now_date >= start_date)
+                else:
+                    rec.preventif_visible = False
             else:
-                rec.preventif_visible = False
+                rec.preventif_visible = True
+    
+    @api.depends('name', 'wo_sap')
+    def _compute_display_name(self):
+        for rec in self:
+            work_order = rec.name if rec.name else "(Empty)"
+            wo_sap = rec.wo_sap if rec.wo_sap else "-"
+            name = '%s - [%s]' % (work_order, wo_sap)
+            rec.display_name = name
     
     def today_jakarta(self):
         tz = pytz.timezone('Asia/Jakarta')
@@ -216,16 +227,6 @@ class PlanMaintenanceWorkOrder(models.Model):
             if rec.date_from and rec.date_to:
                 if rec.date_to < rec.date_from:
                     raise ValidationError("Date To tidak boleh kurang dari Date From!")
-            # if not rec.preventif_inspection:
-            #     if not rec.material_only and not rec.jasa_only:
-            #         raise ValidationError("Material atau Jasa harus valid jika bukan Preventif Inspection!")
-            #     for mat in rec.pm_wo_material_line_ids:
-            #         if not mat.bwart or mat.bwart != 'Z61':
-            #             raise ValidationError(f"Material {mat.sku} masih belum dilakukan GI pada SAP")
-            #     for jasa in rec.pm_wo_jasa_line_ids:
-            #         if not jasa.bwart or jasa.bwart != '101':
-            #             raise ValidationError(f"Jasa dengan No Service {jasa.no_service} belum dilakukan GR pada SAP")
-        
             rec.write({'state': 'waiting_sap'})
     
     def action_close(self):
@@ -233,8 +234,17 @@ class PlanMaintenanceWorkOrder(models.Model):
             if rec.state == 'waiting_sap':
                 rec.write({
                     'state': 'confirm',
-                    'end_date': fields.Datetime.now(),
                 })
+                
+                if rec.tagging_id:
+                    rec.tagging_id.write({
+                        'close_start_date': rec.date_from,
+                        'close_end_date': rec.date_to,
+                        'close_description': rec.analysis_id.name if rec.analysis_id else False,
+                        'close_reason': rec.problem_handling,
+                        'close_photo': rec.photo_attachment,
+                    })
+                    rec.tagging_id.message_post(body=f"Close Evidence terpenuhi dari {rec.name}")
                 
     def action_cancel(self):
         for rec in self:
@@ -628,6 +638,9 @@ class PlanMaintenanceWorkOrder(models.Model):
         pm_wo_model = self.env['pm.work.order'].sudo()
         equip_model = self.env['maintenance.equipment'].sudo()
         company_model = self.env['res.company'].sudo()
+        spare_part_model = self.env['tagging.spare_part'].sudo()
+        wo_material_line_model = self.env['pm.work.order.material.line'].sudo()
+        wo_jasa_line_model = self.env['pm.work.order.jasa.line'].sudo()
         grouped_data = defaultdict(list)
         
         for row in data_list:
@@ -636,6 +649,33 @@ class PlanMaintenanceWorkOrder(models.Model):
                 grouped_data[nomor_wo].append(row)
         
         for nomor_wo, rows in grouped_data.items():
+            is_header_valid = False
+            for row in rows:
+                has_rsnum = bool((row.get('RSNUM') or '').strip())
+                has_banfn = bool((row.get('BANFN') or '').strip())
+                is_kzear_x = (row.get('KZEAR') or '').strip() == 'X'
+                is_kzabn_x = (row.get('KZABN') or '').strip() == 'X'
+                order_category = (row.get('ORDER_CATEGORY') or '').strip().lower()
+                
+                row_is_valid = False
+                if order_category == 'inspection':
+                    row_is_valid = True
+                else:
+                    if has_rsnum and has_banfn:
+                        row_is_valid = is_kzear_x and is_kzabn_x
+                    elif has_rsnum and not has_banfn:
+                        row_is_valid = is_kzear_x
+                    elif has_banfn and not has_rsnum:
+                        row_is_valid = is_kzabn_x
+                        
+                if row_is_valid:
+                    is_header_valid = True
+                    break
+            
+            if not is_header_valid:
+                _logger.warning(f"AUFNR {nomor_wo} - TIDAK DIPROSES: Tidak ada satupun baris yang memenuhi syarat final (X) atau bukan Inspection.")
+                continue
+            
             first = rows[0]
             type_mo = first.get('AUART')
             priority = first.get('PRIOKX')
@@ -690,6 +730,89 @@ class PlanMaintenanceWorkOrder(models.Model):
             else:
                 if self._needs_update(wo_preventif, vals):
                     wo_preventif.write(vals)
+            
+            for row in rows:
+                has_rsnum = bool((row.get('RSNUM') or '').strip())
+                has_banfn = bool((row.get('BANFN') or '').strip())
+                is_kzear_x = (row.get('KZEAR') or '').strip() == 'X'
+                is_kzabn_x = (row.get('KZABN') or '').strip() == 'X'
+                
+                row_is_valid = False
+                if has_rsnum and has_banfn:
+                    row_is_valid = is_kzear_x and is_kzabn_x
+                elif has_rsnum and not has_banfn:
+                    row_is_valid = is_kzear_x
+                elif has_banfn and not has_rsnum:
+                    row_is_valid = is_kzabn_x
+                    
+                if not row_is_valid:
+                    continue
+                
+                # material
+                matnr = row.get('MATNR')
+                maktx = row.get('MAKTX')
+                qty = float(row.get('ENMNG') or 0.0)
+                rsnum = row.get('RSNUM')
+                kzear = (row.get('KZEAR') or '').strip()
+                # jasa
+                txz01 = row.get('TXZ01')
+                sku_desc = row.get('SKU')
+                banfn = row.get('BANFN')
+                kzabn = (row.get('KZABN') or '').strip()
+                
+                sparepart = spare_part_model.search([
+                    ('active', '=', True),
+                    ('sku', '=', matnr),
+                    ('company_id', '=', company.id)
+                ], limit=1)
+                
+                if not sparepart and matnr:
+                    sparepart = spare_part_model.create({
+                        'name': maktx,
+                        'sku': matnr,
+                        'company_id': company.id
+                    })
+                
+                if has_rsnum and is_kzear_x:
+                    existing_material = wo_material_line_model.search([
+                        ('pm_work_order_id', '=', wo_preventif.id),
+                        ('product_sparepart_id', '=', sparepart.id),
+                    ], limit=1)
+                    
+                    mat_vals = {
+                        'pm_work_order_id': wo_preventif.id,
+                        'product_sparepart_id': sparepart.id,
+                        'product_material': maktx,
+                        'quantity': qty,
+                        'gi_doc': rsnum,
+                        'is_gi': True,
+                    }
+                    
+                    if not existing_material:
+                        wo_material_line_model.create(mat_vals)
+                    else:
+                        if self._needs_update(existing_material, mat_vals):
+                            existing_material.write(mat_vals)
+                
+                if has_banfn and is_kzabn_x:
+                    existing_jasa = wo_jasa_line_model.search([
+                        ('pm_work_order_id', '=', wo_preventif.id),
+                        ('gr_doc', '=', banfn),
+                    ], limit=1)
+                    
+                    jasa_vals = {
+                        'pm_work_order_id': wo_preventif.id,
+                        'material_desc': txz01,
+                        'sku_desc': sku_desc,
+                        'gr_doc': banfn,
+                        'is_gr': True,
+                    }
+                    
+                    if not existing_jasa:
+                        wo_jasa_line_model.create(jasa_vals)
+                    else:
+                        if self._needs_update(existing_jasa, jasa_vals):
+                            existing_jasa.write(jasa_vals)
                     
     @api.model
     def cron_reminder_wo_draft(self):

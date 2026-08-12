@@ -297,7 +297,7 @@ class InheritPurchaseOrder(models.Model):
                 continue
             
             picking_type = operation_type_model.search([
-                ('move_type_sap', '=', str(purchase_sloc_to_sloc)),
+                ('barcode', '=', str(purchase_sloc_to_sloc)),
                 ('warehouse_id', '=', warehouse.id),
                 ('company_id', '=', company.id)
             ], limit=1)

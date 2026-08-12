@@ -16,7 +16,7 @@ class TaggingRecord(models.Model):
     _description = "Tagging Record"
     _order = "create_date desc"
 
-    name = fields.Char(string="Ticket", readonly=True, copy=False, default="New")
+    name = fields.Char(string="Ticket", readonly=True, copy=False, default="New", index=True)
     active = fields.Boolean(default=True)
 
     user_id = fields.Many2one(
@@ -641,7 +641,7 @@ class TaggingRecord(models.Model):
             return s if s else "Others"
 
         open_count = Model.search_count(domain + [("status", "=", "rejected")])
-        closed_count = Model.search_count(domain + [("status", "=", "closed")])
+        closed_count = Model.search_count(domain + [("status", "!=", "rejected")])
         total_count = Model.search_count(domain)
 
         pct_closed = (closed_count / total_count * 100.0) if total_count else 0.0

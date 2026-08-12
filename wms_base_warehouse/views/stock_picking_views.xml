@@ -47,6 +47,8 @@
                 <xpath expr="//field[@name='move_ids']/list/field[@name='product_id']" position="before">
                     <field name="sap_seq" readonly="1"/>
                     <field name="order_seq" readonly="1"/>
+                    <field name="order_selection" readonly="1"/>
+                    <field name="gratis_locked" readonly="1" optional="hide"/>
                 </xpath>
                 <xpath expr="//field[@name='move_type']" position="before">
                     <field name="sloc_to" readonly="1"/>

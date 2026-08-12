@@ -11,72 +11,36 @@ class TaggingWOSparePartWizard(models.TransientModel):
     line_ids = fields.One2many("tagging.wo.sparepart.wizard.line", "wizard_id", string="Lines")
     allowed_spare_part_ids = fields.Many2many("tagging.spare_part", compute="_compute_allowed_spare_part_ids")
 
-    @api.depends("equipment_id")
+    @api.depends("equipment_id", "equipment_id.product_line_ids")
     def _compute_allowed_spare_part_ids(self):
-        SparePart = self.env["tagging.spare_part"].sudo()
+        SparePart = self.env["tagging.spare_part"]
         for wiz in self:
-            plines = wiz.equipment_id.product_line_ids if wiz.equipment_id else None
+            if not wiz.equipment_id:
+                wiz.allowed_spare_part_ids = [(5, 0, 0)]
+                continue
+
+            base_domain = [
+                '|', 
+                ('company_id', '=', False), 
+                ('company_id', 'in', self.env.companies.ids)
+            ]
+
+            plines = wiz.equipment_id.product_line_ids.spare_part_id
             if not plines:
-                wiz.allowed_spare_part_ids = SparePart
+                wiz.allowed_spare_part_ids = SparePart.search(base_domain).ids
                 continue
 
             sku_list = list(filter(None, plines.mapped("sku")))
-            company_id = wiz.equipment_id.company_id.id
+            if not sku_list:
+                wiz.allowed_spare_part_ids = SparePart.search(base_domain).ids
+                continue
 
-            wiz.allowed_spare_part_ids = (
-                SparePart.search([("sku", "in", sku_list), ("company_id", "=", company_id)])
-                if sku_list else SparePart
-            )
+            domain = base_domain + [("sku", "in", sku_list)]
+            if wiz.equipment_id.company_id:
+                domain.append(("company_id", "=", wiz.equipment_id.company_id.id))
 
-    # @api.depends("equipment_id")
-    # def _compute_allowed_spare_part_ids(self):
-    #     SparePart = self.env["tagging.spare_part"].sudo()
-    #     print(f"XXXXXXXX {SparePart}")
-
-    #     for wiz in self:
-    #         if not wiz.equipment_id:
-    #             wiz.allowed_spare_part_ids = SparePart.browse()
-    #             continue
-
-    #         plines = wiz._get_equipment_product_lines()
-
-    #         if not plines:
-    #             wiz.allowed_spare_part_ids = SparePart.browse()
-    #             continue
-
-    #         product_ids = wiz._extract_spare_part_ids(plines)
-    #         wiz.allowed_spare_part_ids = SparePart.browse(product_ids)
-
-    # def _get_equipment_product_lines(self):
-    #     self.ensure_one()
-    #     eq = self.equipment_id
-
-    #     if not eq:
-    #         return self.env["maintenance.equipment.product.line"]
-
-    #     # langsung target field yang jelas
-    #     if "product_line_ids" in eq._fields:
-    #         return eq.product_line_ids
-
-    #     return self.env["maintenance.equipment.product.line"]
-
-    # def _extract_spare_part_ids(self, plines):
-    #     SparePart = self.env["tagging.spare_part"].sudo()
-
-    #     if not plines:
-    #         return []
-
-    #     # CASE 1: sku adalah Char
-    #     if "sku" in plines._fields and plines._fields["sku"].type == "char":
-    #         sku_list = list(filter(None, plines.mapped("sku")))
-    #         return SparePart.search([("sku", "in", sku_list)]).ids
-
-    #     # CASE 2: sku adalah Many2one ke spare part
-    #     if "sku" in plines._fields and plines._fields["sku"].type == "many2one":
-    #         return plines.mapped("sku").ids
-
-    #     return []
-
+            wiz.allowed_spare_part_ids = SparePart.search(domain).ids
+            
     @api.model
     def default_get(self, fields_list):
         res = super().default_get(fields_list)
