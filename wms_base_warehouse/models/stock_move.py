@@ -14,13 +14,7 @@ class StockMove(models.Model):
         ('order', 'Order'),
         ('gratis', 'Gratis'),
     ], string="Order Selection", default='order')
-    gratis_locked = fields.Boolean(
-        compute='_compute_gratis_locked',
-        string="Gratis Locked",
-        help="True when this is a 'gratis' move whose sibling 'order' moves in the same "
-             "picking and for the same product are not fully done yet, so it must not be "
-             "reserved/processed.",
-    )
+    gratis_locked = fields.Boolean(compute='_compute_gratis_locked', string="Gratis Locked")
 
     def _compute_gratis_locked(self):
         for move in self:
@@ -184,23 +178,24 @@ class StockMove(models.Model):
 
     ## NOTE INI BELUM DITES DI QAS, TAPI NAIKIN AJA
     def _action_assign(self, **kwargs):
-        gratis_locked_moves = self.filtered(lambda m: m._is_gratis_locked())
-        if gratis_locked_moves:
-            reserved_locked_moves = gratis_locked_moves.filtered(
-                lambda m: m.state in ('partially_available', 'assigned'),
-            )
-            if reserved_locked_moves:
-                reserved_locked_moves._do_unreserve()
-
-        moves = self - gratis_locked_moves
-        if not moves:
-            return True
 
         bypass = self.env.context.get('bypass_adjust_demand', False)
-        moves_uu = moves.filtered(lambda m: m.picking_id.picking_type_id.uu_only)
-        moves_full_pallet = moves.filtered(lambda m: m.picking_id.picking_type_id.book_full_pallet and not bypass)
-        moves_split_package = moves.filtered(lambda m: m.picking_id.picking_type_id.split_package)
+        moves_uu = self.filtered(lambda m: m.picking_id.picking_type_id.uu_only)
+        moves_full_pallet = self.filtered(lambda m: m.picking_id.picking_type_id.book_full_pallet and not bypass)
+        moves_split_package = self.filtered(lambda m: m.picking_id.picking_type_id.split_package)
+        moves_order_selection = self.filtered(lambda m: m.picking_id.picking_type_id.check_order_selection)
 
+        gratis_locked_moves = self.env['stock.move']
+        if moves_order_selection:
+            gratis_locked_moves = self.filtered(lambda m: m._is_gratis_locked())
+            if gratis_locked_moves:
+                reserved_locked_moves = gratis_locked_moves.filtered(lambda m: m.state in ('partially_available', 'assigned'))
+                if reserved_locked_moves:
+                    reserved_locked_moves._do_unreserve()
+
+        moves = self - gratis_locked_moves
+        moves_uu = moves_uu - gratis_locked_moves
+        moves_full_pallet = moves_full_pallet - gratis_locked_moves
         moves_normal = moves - moves_uu - moves_full_pallet
         moves_fp_only = moves_full_pallet - moves_uu
 

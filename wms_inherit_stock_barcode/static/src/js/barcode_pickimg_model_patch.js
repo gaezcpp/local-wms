@@ -30,15 +30,9 @@ function isUnreservedSurplusLine(line, debugLabel) {
     return result;
 }
 
-// #fix minus quant scan — tracing sementara. Set true untuk menyalakan seluruh
-// log [WMS-SCAN], termasuk pembacaan ulang stock.quant di override `save()`.
-const WMS_SCAN_DEBUG = false;
-
-// Log isi setiap subline pada getter `groupedLines`. Berat karena getter itu
-// dipanggil pada SETIAP render, jadi biarkan false kecuali sedang dibutuhkan.
+const WMS_SCAN_DEBUG = true;
 const WMS_GROUPED_LINES_DEBUG = false;
 
-/** JSON aman-circular, supaya isi log bisa langsung di-copy sebagai teks. */
 function wmsJson(payload) {
     const seen = new WeakSet();
     try {
@@ -91,28 +85,39 @@ function dbgLine(line) {
     };
 }
 
+function logOperationType(model, where) {
+    const record = model.record || {};
+    const config = model.config || {};
+    console.log(`[WMS-SCANNER][operationType] ${where}`, {
+        picking_type_id: getRelId(record.picking_type_id),
+        picking_type_code: record.picking_type_code,
+        picking_name: record.name,
+        // wms_inherit_stock_barcode custom flags related to picking_type_id
+        checker_out: record.checker_out,
+        production_only: record.production_only,
+        picking_type_bypass_entire_packs: record.picking_type_bypass_entire_packs,
+        picking_type_entire_packs: record.picking_type_entire_packs,
+        autofill_pack_qty: record.autofill_pack_qty,
+        hide_zero_qty: record.hide_zero_qty,
+        uu_only: record.uu_only,
+        split_package: record.split_package,
+        check_scan_pallet: record.check_scan_pallet,
+        bulk_pallet_lot: record.bulk_pallet_lot,
+        // core stock_barcode picking-type config (this.config)
+        restrict_scan_source_location: config.restrict_scan_source_location,
+        restrict_scan_dest_location: config.restrict_scan_dest_location,
+        restrict_put_in_pack: config.restrict_put_in_pack,
+        lines_need_to_be_packed: config.lines_need_to_be_packed,
+        barcode_allow_extra_product: config.barcode_allow_extra_product,
+    });
+}
+
 patch(BarcodePickingModel.prototype, {
 
-    /**
-     * Untuk picking type ber-`bypass_entire_packs`, baris dikelompokkan per
-     * product + package — bukan product + lokasi asal + lokasi tujuan seperti
-     * bawaan core. Satu pallet jadi satu baris ringkasan, dan isi dropdown-nya
-     * otomatis menjadi per lot karena setiap move line dalam grup tersebut
-     * membawa lot yang berbeda.
-     *
-     * Sebelumnya flag ini mematikan grouping sepenuhnya (`groupingLinesEnabled`
-     * di-set false), sehingga tampilannya rata satu baris per lot.
-     *
-     * Baris tanpa package tetap memakai kunci core. Produk tanpa tracking juga
-     * tidak ikut dikelompokkan — core sudah menyaringnya lewat
-     * `lineCannotBeGrouped()`, dan itu memang konsisten karena detailnya per lot.
-     */
     groupKey(line) {
         if (this.record.picking_type_bypass_entire_packs) {
             const packageId = getRelId(line.package_id);
             if (packageId) {
-                // Prefiks `pkg` menjaga kunci ini tidak pernah bentrok dengan
-                // kunci core yang seluruhnya berupa angka (`product_loc_dest`).
                 return `${getRelId(line.product_id)}_pkg_${packageId}`;
             }
         }
@@ -296,6 +301,10 @@ patch(BarcodePickingModel.prototype, {
             console.error("[DEBUG] Gagal mengecek stock_type quant sumber:", error);
             return false;
         }
+        console.log("[WMS-SCANNER][quant] _getSourceStockType", {
+            domain,
+            stockType,
+        });
         line.__scannedStockType = stockType;
         return stockType;
     },
@@ -354,24 +363,22 @@ patch(BarcodePickingModel.prototype, {
     },
 
     async checkBarcode(barcode) {
+        console.log("[WMS-SCANNER][scan] checkBarcode:start", { barcode });
         const result = await super.checkBarcode(...arguments);
         await this._cleanupPackageSplitRemainder();
+        console.log("[WMS-SCANNER][scan] checkBarcode:end", { barcode });
         return result;
     },
 
-    /**
-     * #ai_fixed — jangan panggil `_cleanupPackageSplitRemainder()` dari sini.
-     *
-     * Core memanggil `_updateLineQty()` TANPA await (barcode_model.js:568), jadi
-     * versi `async` sebelumnya melepas promise yang berjalan bebas di tengah loop
-     * scan package. Di dalamnya ada `await this.save()`, yang bisa tumpang tindih
-     * dengan `save()` lain dan menggandakan move line.
-     *
-     * Cleanup tetap berjalan lewat `checkBarcode()` dan `_processBarcode()`, yang
-     * keduanya di-await, jadi tidak ada perilaku merge yang hilang — hanya
-     * waktunya bergeser ke akhir scan, bukan di tengah loop.
-     */
     _updateLineQty(line, args) {
+        console.log("[WMS-SCANNER][moveLine] _updateLineQty", {
+            id: line && line.id,
+            virtual_id: line && line.virtual_id,
+            move: getRelId(line && line.move_id),
+            product: getRelId(line && line.product_id),
+            qty_done_before: line && line.qty_done,
+            args_qty_done: args && args.qty_done,
+        });
         if (args && args.qty_done && line && line.order_selection === "gratis" && line.gratis_locked) {
             this._notifyGratisLockedBlocked();
             return;
@@ -678,11 +685,6 @@ patch(BarcodePickingModel.prototype, {
             return null;
         }
         const isPending = (l) => Boolean(l && l.result_package_id && !l.production_line_id);
-        // Normally the packed line stays selected, but when its demand isn't fully done,
-        // core's _assignEmptyPackage() splits it and moves selection to the new remainder
-        // line (which has no package yet). lastScannedLine still points at the line that
-        // was actually just packed in that case, so check it before falling back to a full
-        // scan of the page's lines.
         if (isPending(this.selectedLine)) {
             return this.selectedLine;
         }
@@ -707,7 +709,9 @@ patch(BarcodePickingModel.prototype, {
                 ["stock_type"],
                 { limit: 1 }
             );
-            return quants.length ? quants[0].stock_type : false;
+            const stockType = quants.length ? quants[0].stock_type : false;
+            console.log("[WMS-SCANNER][quant] _getPackageStockType", { packageId, stockType });
+            return stockType;
         } catch (error) {
             console.error("[DEBUG] Gagal mengecek stock_type package tujuan:", error);
             return false;
@@ -728,16 +732,6 @@ patch(BarcodePickingModel.prototype, {
             );
             if (!isExpectedSource) {
                 const userConfirmation = new Deferred();
-                // this.dialogService.add(ConfirmationDialog, {
-                //     title: _t("Peringatan: Pallet Tidak Terdaftar!"),
-                //     body: _t(
-                //         "Pallet %s tidak terdaftar sebagai Source Package pada transfer ini. Apakah Anda yakin ingin melanjutkan?",
-                //         recPackage.name
-                //     ),
-                //     confirm: () => userConfirmation.resolve(true),
-                //     cancel: () => userConfirmation.resolve(false),
-                //     close: () => userConfirmation.resolve(false),
-                // });
                 this.dialogService.add(ConfirmationDialog, {
                     title: _t("Peringatan: Pallet Tidak Terdaftar!"),
                     body: _t(
@@ -782,6 +776,13 @@ patch(BarcodePickingModel.prototype, {
         }
 
         // #fix minus quant scan
+        logOperationType(this, "_processPackage:start");
+        console.log("[WMS-SCANNER][package] _processPackage:package", {
+            id: recPackage && recPackage.id,
+            name: recPackage && recPackage.name,
+            location_id: recPackage && recPackage.location_id,
+            contained_quant_ids: recPackage && recPackage.contained_quant_ids,
+        });
         wmsLog("processPackage:START", {
             package: recPackage
                 ? {
@@ -807,14 +808,6 @@ patch(BarcodePickingModel.prototype, {
 
         await this._resetScannedPackageSourceLines(recPackage);
 
-        // Line baru bikinan core tidak membawa field kustom (`uom_bag_id`,
-        // `order_selection`, dst) karena dirakit di client, bukan dibaca dari
-        // server. Tandai supaya `_processBarcode()` menyimpannya setelah semua
-        // guard selesai — `save()` memicu `refreshCache()` yang mengisi ulang
-        // seluruh field dari server.
-        //
-        // Dibatasi ke picking type `checker_out` saja: di sanalah tampilan UoM BAG
-        // dan Bulk Entry dipakai, sehingga tambahan satu RPC per scan sepadan.
         this.__wmsPendingScanSave = Boolean(
             this.record.checker_out &&
                 recPackage &&
@@ -836,7 +829,6 @@ patch(BarcodePickingModel.prototype, {
         }
     },
 
-    /** #fix minus quant scan — isi quant pallet yang di-scan, urut sesuai yang diproses core. */
     _debugPackageQuants(recPackage) {
         if (!recPackage || !Array.isArray(recPackage.contained_quant_ids)) {
             return [];
@@ -860,36 +852,7 @@ patch(BarcodePickingModel.prototype, {
         });
     },
 
-    /**
-     * #fix minus quant scan
-     *
-     * Barcode sebuah package tidak membawa lot, sehingga di dalam core
-     * `_processPackage()` pencocokan line lewat `_findLine()` hanya memakai
-     * product + package — `_canOverrideTrackingNumber()` selalu meloloskan line
-     * yang lot-nya berbeda. Akibatnya qty milik quant lot A bisa mengisi line
-     * reservasi lot B; lalu saat giliran quant lot B diproses, line tadi sudah
-     * penuh dan line lama pun tidak bisa dipakai lagi
-     * (`_lineCannotBeTaken()` menolak line hasil scan package karena
-     * `result_package_id` terisi tanpa `reserved_uom_qty`), sehingga core membuat
-     * line BARU untuk lot B. Jadilah satu quant punya dua move line dan
-     * `reserved_quantity`-nya melebihi `quantity` — `available_quantity` negatif.
-     *
-     * Mengikuti proses manual yang sudah terbukti benar: reservasi lama untuk
-     * pallet yang di-scan dilepas dulu (move line-nya di-unlink, sama seperti
-     * tombol Unreserve), lalu scan dilanjutkan seperti semula sehingga core
-     * membuat line baru per quant dengan lot masing-masing.
-     *
-     * Line yang dilepas juga harus dibuang dari state client — kalau tidak,
-     * `_findLine()` masih melihatnya sebagai kandidat dan qty quant lot lain akan
-     * ditumpahkan ke situ lagi.
-     *
-     * Yang dilepas hanya line yang belum di-scan (`qty_done` 0) dan bukan
-     * entire-pack line, supaya flow package line bawaan core tidak ikut terganggu.
-     *
-     * @param {Object} recPackage package yang barusan di-scan
-     */
     async _resetScannedPackageSourceLines(recPackage) {
-        // Hint `move_id` dari scan sebelumnya tidak boleh bocor ke pallet lain.
         this.__wmsMoveHint = null;
         if (
             !recPackage ||
@@ -908,8 +871,6 @@ patch(BarcodePickingModel.prototype, {
             return;
         }
 
-        // Kalau pallet ini memang ditangani core lewat jalur entire-pack line,
-        // jangan diutak-atik — core sudah punya alurnya sendiri.
         if (
             this.packageLines.some((packageLine) =>
                 this._isPackageInPackage(packageLine.package_id, recPackage)
@@ -919,9 +880,6 @@ patch(BarcodePickingModel.prototype, {
             return;
         }
 
-        // Catatan: JANGAN pakai `result_package_id` sebagai penanda entire-pack di
-        // repo ini — `_autofill_result_package()` (wms_base_warehouse/stock_move.py)
-        // mengisinya pada line reservasi biasa, sehingga semua line ikut terlewat.
         const candidates = this.currentState.lines.filter(
             (line) => getRelId(line.package_id) === recPackage.id
         );
@@ -945,11 +903,6 @@ patch(BarcodePickingModel.prototype, {
             return;
         }
 
-        // Line yang dikosongkan membawa `move_id` yang benar. Line baru bikinan core
-        // dikirim TANPA `move_id` (`_createCommandVals()` tidak menyertakannya),
-        // sehingga server menebak sendiri lewat `_get_linkable_moves()` dan bisa
-        // salah jatuh ke move lain (mis. move 'gratis'). Jadi move-nya kita ingat
-        // di sini dan pasang kembali pada line baru untuk pallet yang sama.
         const moveByProduct = new Map();
         for (const line of linesToReset) {
             const productId = getRelId(line.product_id);
@@ -966,12 +919,6 @@ patch(BarcodePickingModel.prototype, {
             moveByProduct: Array.from(moveByProduct.entries()),
         });
 
-        // Line-nya dihapus, bukan sekadar di-nol-kan. `stock.move.line.unlink()`
-        // tetap melepas `reserved_quantity` pada quant (core stock_move_line.py:565)
-        // — persis yang dilakukan tombol Unreserve lewat `_do_unreserve()`. Kalau
-        // hanya di-set quantity 0, barisnya tetap ada di DB dan akan muncul kembali
-        // sebagai baris kosong begitu state di-refresh, karena `_createLinesState()`
-        // membangun ulang dari `picking.move_line_ids`.
         const idsToReset = linesToReset.map((line) => line.id).filter(Boolean);
         if (idsToReset.length) {
             wmsLog("reset:UNLINK", { model: "stock.move.line", ids: idsToReset });
@@ -997,11 +944,6 @@ patch(BarcodePickingModel.prototype, {
         });
     },
 
-    // ---------------------------------------------------------------------
-    // #fix minus quant scan — blok tracing. Aman dihapus kalau sudah tidak
-    // dibutuhkan; semuanya hanya console.log dan meneruskan return value core.
-    // ---------------------------------------------------------------------
-
     _findLine(barcodeData) {
         const found = super._findLine(...arguments);
         if (this.__wmsScanDebug) {
@@ -1024,6 +966,20 @@ patch(BarcodePickingModel.prototype, {
     },
 
     async updateLine(line, args) {
+        console.log("[WMS-SCANNER][moveLine] updateLine:start", {
+            id: line && line.id,
+            virtual_id: line && line.virtual_id,
+            move: getRelId(line && line.move_id),
+            product: getRelId(line && line.product_id),
+            qty_done: line && line.qty_done,
+            reserved_uom_qty: line && line.reserved_uom_qty,
+            lot: getRelId(line && line.lot_id),
+            package_id: getRelId(line && line.package_id),
+            result_package_id: getRelId(line && line.result_package_id),
+            location_id: getRelId(line && line.location_id),
+            state: line && line.state,
+            args,
+        });
         const before = this.__wmsScanDebug ? dbgLine(line) : null;
         const res = await super.updateLine(...arguments);
         if (this.__wmsScanDebug) {
@@ -1037,10 +993,20 @@ patch(BarcodePickingModel.prototype, {
     },
 
     async _createNewLine(params) {
+        console.log("[WMS-SCANNER][moveLine] _createNewLine:start", {
+            fieldsParams: (params && params.fieldsParams) || null,
+        });
         const newLine = await super._createNewLine(...arguments);
-
-        // #fix minus quant scan — kembalikan `move_id` line yang tadi dikosongkan,
-        // supaya server tidak menebak move lewat `_get_linkable_moves()`.
+        console.log("[WMS-SCANNER][moveLine] _createNewLine:created", {
+            id: newLine && newLine.id,
+            virtual_id: newLine && newLine.virtual_id,
+            move: getRelId(newLine && newLine.move_id),
+            product: getRelId(newLine && newLine.product_id),
+            qty_done: newLine && newLine.qty_done,
+            lot: getRelId(newLine && newLine.lot_id),
+            package_id: getRelId(newLine && newLine.package_id),
+            result_package_id: getRelId(newLine && newLine.result_package_id),
+        });
         const hint = this.__wmsMoveHint;
         if (hint && newLine && !getRelId(newLine.move_id)) {
             const productId = getRelId(newLine.product_id);
@@ -1073,14 +1039,25 @@ patch(BarcodePickingModel.prototype, {
         return newLine;
     },
 
-    /**
-     * #fix minus quant scan
-     *
-     * Core tidak mengirim `move_id` saat membuat move line baru, sehingga server
-     * memilih move sendiri lewat `_get_linkable_moves()` — yang hanya menyaring
-     * berdasarkan product dan bisa salah jatuh ke move 'gratis'. Kalau line-nya
-     * sudah membawa `move_id` (dipasang dari hint saat reset), ikutkan.
-     */
+    async splitLine(line) {
+        const newLine = await super.splitLine(...arguments);
+        if (newLine) {
+            if ("bag_qty" in newLine) {
+                newLine.bag_qty = 0;
+            }
+            if ("pallet_qty" in newLine) {
+                newLine.pallet_qty = 0;
+            }
+            console.log("[WMS-SCANNER][moveLine] splitLine:reset-pack-qty", {
+                virtual_id: newLine.virtual_id,
+                bag_qty: newLine.bag_qty,
+                pallet_qty: newLine.pallet_qty,
+                reserved_uom_qty: newLine.reserved_uom_qty,
+            });
+        }
+        return newLine;
+    },
+
     _createCommandVals(line) {
         const vals = super._createCommandVals(...arguments);
         const moveId = getRelId(line && line.move_id);
@@ -1099,26 +1076,6 @@ patch(BarcodePickingModel.prototype, {
         return command;
     },
 
-    /**
-     * #ai_fixed — cegah move line ganda.
-     *
-     * Core `save()` (barcode_model.js:481-488) baru mengosongkan `linesToSave`
-     * SETELAH RPC-nya selesai:
-     *
-     *     const { route, params } = this._getSaveCommand();   // baca linesToSave
-     *     if (route) { await rpc(route, params); await this.refreshCache(...); }
-     *     this.linesToSave = [];                              // baru dibersihkan
-     *
-     * Artinya dua pemanggilan `save()` yang saling tumpang tindih sama-sama
-     * membaca `linesToSave` yang belum kosong, lalu mengirim perintah
-     * `[0, 0, {dummy_id: N, ...}]` yang identik. Controller `save_barcode_data`
-     * hanya melakukan `write({move_line_ids: vals})` tanpa idempotensi, sehingga
-     * server membuat move line DUA KALI untuk satu line hasil scan.
-     *
-     * Di sini pemanggilan `save()` diserialkan: yang kedua menunggu yang pertama
-     * selesai, sehingga saat gilirannya tiba `linesToSave` sudah bersih dan ia
-     * menjadi no-op — bukan create kedua.
-     */
     save() {
         const previous = this.__wmsSaveChain || Promise.resolve();
         const current = previous.catch(() => {}).then(() => this.__wmsSaveOnce());
@@ -1126,7 +1083,37 @@ patch(BarcodePickingModel.prototype, {
         return current;
     },
 
+    /**
+     * Core's `splitLine()` marks BOTH the original line and the new "remainder" line
+     * dirty (see splitLine() override above). If the remainder line never received any
+     * physical qty (`qty_done` still 0 — nothing was scanned into it, it only carries
+     * the leftover `reserved_uom_qty`), saving it anyway creates an empty
+     * `stock.move.line` with no lot/package, which then fails server-side validation
+     * (e.g. "Destination Package belum diisi"). Such a line has nothing worth
+     * persisting yet, so drop it from `linesToSave` — it stays in `currentState.lines`
+     * as a client-side placeholder for the remaining demand, and will be saved for
+     * real once the user actually scans something into it.
+     */
+    _dropEmptySplitRemainders() {
+        if (!this.linesToSave || !this.linesToSave.length || !this.currentState) {
+            return;
+        }
+        const emptyVirtualIds = this.linesToSave.filter((virtualId) => {
+            const line = this.currentState.lines.find((l) => l.virtual_id === virtualId);
+            return line && !line.id && !line.qty_done;
+        });
+        if (emptyVirtualIds.length) {
+            console.log("[WMS-SCANNER][moveLine] dropEmptySplitRemainders", {
+                virtualIds: emptyVirtualIds,
+            });
+            this.linesToSave = this.linesToSave.filter(
+                (vId) => !emptyVirtualIds.includes(vId)
+            );
+        }
+    },
+
     async __wmsSaveOnce() {
+        this._dropEmptySplitRemainders();
         const res = await super.save();
         if (WMS_SCAN_DEBUG && this.__wmsScannedPackageId) {
             try {
@@ -1148,7 +1135,8 @@ patch(BarcodePickingModel.prototype, {
     },
 
     async _processBarcode(barcode) {
-        // #fix minus quant scan — hanya benar kalau di-set oleh scan kali ini.
+        console.log("[WMS-SCANNER][scan] _processBarcode:start", { barcode });
+        logOperationType(this, "_processBarcode:start");
         this.__wmsPendingScanSave = false;
         let lineBeforeScan = this.selectedLine || this.lastScannedLine;
         if (!lineBeforeScan && this.currentState && this.currentState.lines && this.currentState.lines.length > 0) {
@@ -1262,15 +1250,6 @@ patch(BarcodePickingModel.prototype, {
 
         await this._cleanupPackageSplitRemainder();
 
-        // #fix minus quant scan — simpan hasil scan pallet sekarang juga.
-        //
-        // Dijalankan setelah `_enforceUUStockType()`/`_enforceGratisLocked()`
-        // supaya line yang ditolak guard dibuang selagi masih di client saja; kalau
-        // disimpan lebih dulu, line yang kemudian dibuang akan tertinggal di DB.
-        //
-        // Menyimpan di sini juga membuat operasinya utuh: reservasi lama sudah
-        // di-unlink di server, jadi kalau line barunya tidak ikut tersimpan,
-        // pallet berakhir tanpa reservasi sama sekali.
         if (this.__wmsPendingScanSave) {
             this.__wmsPendingScanSave = false;
             if (this.linesToSave.length) {

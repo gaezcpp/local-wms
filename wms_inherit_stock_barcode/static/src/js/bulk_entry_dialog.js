@@ -56,6 +56,12 @@ export class BulkEntryDialog extends Component {
 
     setup() {
         this.state = useState({ qty: 0 });
+        console.log("[WMS-SCANNER][bulkEntry] BulkEntryDialog:setup", {
+            title: this.props.title,
+            maxQty: this.props.maxQty,
+            productName: this.props.productName,
+            packageName: this.props.packageName,
+        });
     }
 
     onKeydown(ev) {
@@ -65,11 +71,16 @@ export class BulkEntryDialog extends Component {
     }
 
     onConfirm() {
+        console.log("[WMS-SCANNER][bulkEntry] BulkEntryDialog:onConfirm", {
+            qty: this.state.qty,
+            maxQty: this.props.maxQty,
+        });
         this.props.onConfirm(this.state.qty);
         this.props.close();
     }
 
     onCancel() {
+        console.log("[WMS-SCANNER][bulkEntry] BulkEntryDialog:onCancel");
         this.props.close();
     }
 }

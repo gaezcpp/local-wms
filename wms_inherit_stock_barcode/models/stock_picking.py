@@ -318,14 +318,14 @@ class StockPicking(models.Model):
                 continue
             
             if picking.picking_type_id.mandatory_destination:
-                no_package = lines.filtered(lambda l: not l.result_package_id)
+                no_package = lines.filtered(lambda l: not l.result_package_id and l.quantity > 0)
                 if no_package:
                     raise ValidationError(
                         f"Destination Package belum diisi untuk picking {picking.name}.\n\n"
                         f"Silahkan isi dahulu Destination Package pada : {', '.join(no_package.mapped('product_reference_code') or '-')}"
                     )
             if picking.production_only:
-                no_production_line = lines.filtered(lambda l: not l.production_line_id)
+                no_production_line = lines.filtered(lambda l: not l.production_line_id and l.quantity > 0)
                 if no_production_line:
                     raise ValidationError(
                         f"Production Line belum diisi untuk picking {picking.name}.\n\n"

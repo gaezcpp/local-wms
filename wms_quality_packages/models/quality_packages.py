@@ -151,7 +151,7 @@ class QualityPackages(models.Model):
                     'uom_bag_id': quant.uom_bag_id.id or False,
                     'po_sap_id': quant.po_sap_id.id or False,
                     'pallet_ke': quant.pallet_ke or 0,
-                    'production_line_id': quant.production_line_id.id or False,
+                    'production_line_id': quant.lot_id.production_line_id.id or False,
                 })
 
             if lines_to_create:

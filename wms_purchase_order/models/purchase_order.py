@@ -195,7 +195,7 @@ class InheritPurchaseOrder(models.Model):
                     _logger.info(f"cron_synchronize_sap_po_sto product {product_code} skipped")
                     continue
                 
-                delivery_uom = (row.get('LDTYPE') or '').strip()
+                delivery_uom = (row.get('UOE') or '').strip()
                 uom_numerator = float(row.get('UMREZ'))
                 uom_denominator = float(row.get('UMREN'))
                 product_uom = product.uom_bag_id

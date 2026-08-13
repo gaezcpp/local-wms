@@ -4,7 +4,7 @@
         id="production_order_sap_menu_root"
         name="Production Order SAP"
         web_icon="wms_production_order_sap,static/description/icon.png"
-        action="wms_production_order_sap.qr_production_order_sap_client"
+        action="wms_production_order_sap.qr_gr_fg_scanner_client"
     />
 
     <menuitem
@@ -12,7 +12,8 @@
         name="QR Production Order"
         parent="wms_production_order_sap.production_order_sap_menu_root"
         action="wms_production_order_sap.qr_production_order_sap_client"
-        sequence="1"
+        active="False"
+        sequence="999"
     />
 
     <menuitem
@@ -20,7 +21,7 @@
         name="QR Scanner GR FG"
         parent="wms_production_order_sap.production_order_sap_menu_root"
         action="wms_production_order_sap.qr_gr_fg_scanner_client"
-        sequence="2"
+        sequence="1"
     />
 
     <menuitem

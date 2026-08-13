@@ -25,6 +25,7 @@ class InheritStockPickingType(models.Model):
     hide_edit_barcode = fields.Boolean(string="Hide Edit Barcode", default=False)
     check_scan_pallet = fields.Boolean(string="Check Scan Pallet", default=False)
     bulk_pallet_lot = fields.Boolean(string="Bulk Pallet Lot", default=False)
+    check_order_selection = fields.Boolean(string="Check Order Selection", default=False)
     
     @api.onchange('checker_only')
     def _onchange_checker_only(self):
