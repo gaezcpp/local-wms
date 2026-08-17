@@ -65,5 +65,17 @@
             <field name="key">query_so_sloc_to_sloc_sap</field>
             <field name="value">SELECT a.werks,  a.seqnr, a.trucknr, a.arrdate, a.ebeln, a.ebelp, a.matnr, a.qtypo, a.uoe, a.erfmg, a.meins, d.umren, d.umrez,c.slocto as kesloc,c.slocfrom as darisloc FROM ZMM_TS_STO_NCD a JOIN zmm_ts_arr_pool b ON a.werks = b.werks AND a.seqnr = b.seqnr AND a.trucknr = b.trucknr AND a.arrdate = b.arrdate JOIN ZMM_TS_STO_NCH c ON a.werks = c.werks AND a.seqnr = c.seqnr AND a.trucknr = c.trucknr AND a.arrdate = c.arrdate JOIN MARM d ON a.matnr = d.matnr AND a.uoe = d.meinh WHERE b.srctab = 'ZMM_TS_OSTO_NCSL' and b.w_odoo = ' '</field>
         </record>
+        <record id="query_mat_doc_gr_sap" model="ir.config_parameter">
+            <field name="key">query_mat_doc_gr_sap</field>
+            <field name="value">select a.picking_id, a.mblnr, a.mjahr from zpp_od_dl a where a.plant = '1601'</field>
+        </record>
+        <record id="query_mat_doc_gi_sap" model="ir.config_parameter">
+            <field name="key">query_mat_doc_gi_sap</field>
+            <field name="value">SELECT distinct a.ebeln,a.vbeln,a.mblnr,a.mjahr from zmm_gi_od a where a.werks = '1601' and a.created_at BETWEEN TO_CHAR(TRUNC(SYSDATE)-1,'YYYYMMDD') AND TO_CHAR(TRUNC(SYSDATE),'YYYYMMDD')</field>
+        </record>
+        <record id="query_mat_doc_aft_sap" model="ir.config_parameter">
+            <field name="key">query_mat_doc_aft_sap</field>
+            <field name="value">SELECT a.picking_id, a.line_id, a.mblnr, a.mjahr from zmm_tf_oddtl a where a.werks ='1601'</field>
+        </record>
     </data>
 </odoo>

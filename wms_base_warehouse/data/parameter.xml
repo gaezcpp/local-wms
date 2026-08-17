@@ -41,5 +41,17 @@
             <field name="key">query_sales_return_sap</field>
             <field name="value">select a.werks, b.vbeln, a.mjahr, a.arrdate, a.lgort, a.trucknr, b.kunnr, c.posnr, c.matnr, a.doqty, a.vrkme, d.umrez, d.umren, a.bktxt from zmm_ts_ret_bgh a left join zmm_ts_ret_bgd b on a.werks = b.werks AND a.seqnr = b.seqnr AND a.trucknr = b.trucknr AND a.arrdate = b.arrdate LEFT JOIN vbap c ON b.vbeln = c.vbeln LEFT JOIN marm d ON c.matnr = d.matnr AND c.vrkme = d.meinh where a.mblnr != ' '</field>
         </record>
+        <record id="mattomat_move_type_sap" model="ir.config_parameter">
+            <field name="key">mattomat_move_type_sap</field>
+            <field name="value">309</field>
+        </record>
+        <record id="upload_stock" model="ir.config_parameter">
+            <field name="key">upload_stock</field>
+            <field name="value">False</field>
+        </record>
+        <record id="company_upload_stock" model="ir.config_parameter">
+            <field name="key">company_upload_stock</field>
+            <field name="value">1481</field>
+        </record>
     </data>
 </odoo>

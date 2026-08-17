@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- 1. Definisi Ukuran Kertas Setengah F4 -->
+    <record id="paperformat_half_f4" model="report.paperformat">
+        <field name="name">Kertas Setengah F4</field>
+        <field name="default" eval="False"/>
+        <field name="format">custom</field>
+        <field name="page_width">210</field> <!-- Lebar asli kertas F4 -->
+        <field name="page_height">165</field> <!-- Setengah dari tinggi F4 (330 / 2) -->
+        <field name="orientation">Portrait</field> <!-- Portrait karena dimensinya sudah melebar (210 > 165) -->
+        <field name="margin_top">15</field>
+        <field name="margin_bottom">10</field>
+        <field name="margin_left">5</field>
+        <field name="margin_right">5</field>
+        <field name="header_line" eval="False"/>
+        <field name="header_spacing">10</field>
+        <field name="dpi">90</field>
+    </record>
+
+    <!-- 2. Template Report -->
+    <template id="report_do_sale_order" name="report_do_sale_order">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="doc">
+                <!-- Menggunakan basic_layout agar bersih dari logo/header bawaan Odoo -->
+                <t t-call="web.basic_layout">
+                    
+                    <!-- Header Kustom: Hanya Nama Perusahaan -->
+                    <div class="header">
+                        <div class="row">
+                            <div class="col-12 text-center" style="font-size: 20px; font-weight: bold; border-bottom: 2px solid black; padding-bottom: 5px;">
+                                <span t-field="doc.company_id.name"/>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="page" style="font-size: 12px;">
+                        <div class="row mt-3">
+                            <div class="col-12 text-center mb-3">
+                                <h3>Delivery Order</h3>
+                            </div>
+                        </div>
+                        <table class="table table-sm table-bordered mb-3">
+                            <thead>
+                                <tr>
+                                    <!-- Menggunakan tag <strong> agar benar-benar tercetak tebal di wkhtmltopdf -->
+                                    <th class="text-center"><strong>Date</strong></th>
+                                    <th class="text-center"><strong>Nomor DO</strong></th>
+                                    <th class="text-center"><strong>Nomor PO</strong></th>
+                                    <th class="text-center"><strong>Nomor SO SAP</strong></th>
+                                    <th class="text-center"><strong>Delivery Method</strong></th>
+                                    <th class="text-center"><strong>Nomor Polisi</strong></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td class="text-center"><span t-field="doc.date_order" t-options='{"widget": "date"}'/></td>
+                                    <td class="text-center"><span t-field="doc.do_sap"/></td>
+                                    <td class="text-center"><span t-field="doc.po_sap"/></td>
+                                    <td class="text-center"><span t-field="doc.so_sap"/></td>
+                                    <td class="text-center"><span t-field="doc.carrier_id.name"/></td>
+                                    <td class="text-center"><span t-field="doc.nomor_polisi_desc"/></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        
+                        <table class="table table-sm table-bordered">
+                            <thead>
+                                <tr>
+                                    <th class="text-center"><strong>Order Seq</strong></th>
+                                    <th class="text-center"><strong>Order Type</strong></th>
+                                    <th class="text-center"><strong>Product</strong></th>
+                                    <th class="text-center"><strong>Qty</strong></th>
+                                    <th class="text-center"><strong>Unit</strong></th>
+                                    <th class="text-center"><strong>Barcode Product</strong></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <t t-foreach="doc.order_line" t-as="line">
+                                    <tr>
+                                        <td class="text-center"><span t-field="line.order_seq"/></td>
+                                        <td class="text-center"><span t-field="line.order_selection"/></td>
+                                        <td class="text-left"><span t-field="line.product_id.name"/></td>
+                                        <td class="text-right"><span t-field="line.product_uom_qty"/></td>
+                                        <td class="text-center"><span t-field="line.product_uom_id.name"/></td>
+                                        <td class="text-center">
+                                            <img t-if="line.product_id.barcode" 
+                                                 t-att-src="'/report/barcode/?barcode_type=%s&amp;value=%s&amp;width=%s&amp;height=%s' % ('Code128', line.product_id.barcode, 400, 100)" 
+                                                 alt="Barcode" 
+                                                 style="height:25px;"/>
+                                        </td>
+                                    </tr>
+                                </t>
+                            </tbody>
+                        </table>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+
+    <!-- 3. Action Report -->
+    <record id="action_report_do_sale_order" model="ir.actions.report">
+        <field name="name">Report DO Sale Order</field>
+        <field name="model">sale.order</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">wms_sale_order_sap.report_do_sale_order</field>
+        <field name="report_file">wms_sale_order_sap.report_do_sale_order</field>
+        <field name="print_report_name">'DO-Sale-Order-%s-[%s]' % (object.name, object.do_sap)</field>
+        <field name="binding_model_id" ref="wms_sale_order_sap.model_sale_order"/>
+        <field name="binding_type">report</field>
+        <!-- Menautkan format kertas ke report action ini -->
+        <field name="paperformat_id" ref="paperformat_half_f4"/>
+    </record>
+</odoo>

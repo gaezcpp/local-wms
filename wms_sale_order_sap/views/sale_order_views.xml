@@ -1,6 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <data>
+        <record model="ir.ui.view" id="inherit_wms_sale_order_search_view">
+            <field name="name">inherit.wms.sale.order.search</field>
+            <field name="model">sale.order</field>
+            <field name="inherit_id" ref="sale.view_sales_order_filter"/>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='name']" position="before">
+                    <field name="do_sap"/>
+                    <field name="po_sap"/>
+                    <field name="so_sap"/>
+                </xpath>
+            </field>
+        </record>
+
         <record model="ir.ui.view" id="inherit_wms_sale_order_tree_views">
             <field name="name">inherit.wms.sale.order.tree</field>
             <field name="model">sale.order</field>
@@ -37,16 +50,6 @@
                     <field name="sloc_to" force_save="1" readonly="1"/>
                     <field name="carrier_id" readonly="1" options="{'no_open': True, 'no_create': True}"/>
                 </xpath>
-                <xpath expr="//field[@name='tag_ids']" position="after">
-                    <field name="is_sap" force_save="1" readonly="1"/>
-                    <field name="so_sto" force_save="1" readonly="1"/>
-                    <field name="sloc_to_sloc" force_save="1" readonly="1"/>
-                    <field name="sales_sap_name" force_save="1" readonly="1"/>
-                    <label for="nomor_polisi_desc" string="Nomor Polisi" class="oe_grey"/>
-                    <div style="border: 1px solid #ccc; padding: 6px; margin-bottom: 12px; max-height: 180px; overflow-y: auto; background: #fafafa;">
-                        <field name="nomor_polisi_desc"/>
-                    </div>
-                </xpath>
                 <xpath expr="//field[@name='order_line']/list/field[@name='currency_id']" position="after">
                     <field name="sap_sequence" readonly="1" optional="show"/>
                     <field name="order_seq" readonly="1" optional="show"/>
@@ -54,6 +57,31 @@
                 </xpath>
                 <xpath expr="//field[@name='order_line']/list" position="attributes">
                     <attribute name="default_order">order_seq asc</attribute>
+                </xpath>
+                <xpath expr="//page[@name='other_information']" position="before">
+                    <page string="SAP Information">
+                        <group>
+                            <group name="sc_left">
+                                <field name="is_sap" string="SAP Synhronize" readonly="1"/>
+                                <field name="so_sap" readonly="1"/>
+                                <field name="do_sap" readonly="1"/>
+                                <field name="po_sap" readonly="1"/>
+                                <field name="sales_sap_name" readonly="1"/>
+                                <label for="nomor_polisi_desc" string="Nomor Polisi" class="oe_grey"/>
+                                <div style="border: 1px solid #ccc; padding: 6px; margin-bottom: 12px; max-height: 180px; overflow-y: auto; background: #fafafa;">
+                                    <field name="nomor_polisi_desc" readonly="1"/>
+                                </div>
+                            </group>
+                            <group name="sc_right">
+                                <field name="aft_mat_doc" readonly="1"/>
+                                <field name="aft_mat_doc_year" readonly="1"/>
+                                <field name="date_order_sap" readonly="1"/>
+                                <field name="so_sto" readonly="1"/>
+                                <field name="sloc_to_sloc" readonly="1"/>
+                                <field name="sloc_to" readonly="1"/>
+                            </group>
+                        </group>
+                    </page>
                 </xpath>
                 <!--PEMBATASAN USER-->
                 <xpath expr="//form" position="attributes">

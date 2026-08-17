@@ -1,6 +1,7 @@
 import io
 import csv
 import base64
+import xlsxwriter
 from odoo import api, fields, models, exceptions, _
 
 
@@ -144,6 +145,76 @@ class QueryDeluxe(models.Model):
             'res_model': self._name,
             'res_id': self.id,
             'mimetype': 'text/csv'
+        })
+
+        # 5. Kembalikan action URL untuk memicu unduhan di browser
+        return {
+            'type': 'ir.actions.act_url',
+            'url': f'/web/content/{attachment.id}?download=true',
+            'target': 'self',
+        }
+        
+    def action_download_xlsx(self):
+        """
+        Fungsi untuk mengeksekusi query dan mengunduh hasilnya dalam format XLSX (Excel).
+        """
+        # Pastikan hanya satu record yang diproses
+        self.ensure_one() 
+        
+        if not self.name:
+            raise exceptions.UserError(_("Tidak ada query yang dieksekusi."))
+
+        # 1. Ambil data dari fungsi bawaan
+        headers, datas = self._get_result_from_query(self.name)
+
+        if not headers and not datas:
+            raise exceptions.UserError(_("Query tidak menghasilkan data untuk diunduh."))
+
+        # 2. Buat file XLSX di dalam memori
+        output = io.BytesIO()
+        workbook = xlsxwriter.Workbook(output, {'in_memory': True})
+        worksheet = workbook.add_worksheet('Query Result')
+
+        # Format untuk Header
+        header_format = workbook.add_format({
+            'bold': True, 
+            'bg_color': '#D3D3D3', 
+            'border': 1
+        })
+        
+        # Format untuk data (opsional, untuk border)
+        data_format = workbook.add_format({'border': 1})
+
+        # Tulis Header
+        if headers:
+            for col_num, header_title in enumerate(headers):
+                worksheet.write(0, col_num, header_title, header_format)
+            
+        # Tulis Data (Baris per Baris)
+        for row_num, data in enumerate(datas, start=1):
+            for col_num, value in enumerate(data):
+                # Ubah nilai None menjadi string kosong, selain itu ubah ke string 
+                # (Anda juga bisa membiarkan tipe datanya dinamis jika ingin format angka tetap angka)
+                display_value = '' if value is None else str(value)
+                worksheet.write(row_num, col_num, display_value, data_format)
+
+        # Tutup workbook agar data tertulis ke output buffer
+        workbook.close()
+        output.seek(0)
+        xlsx_content = output.read()
+        output.close()
+
+        # 3. Encode data XLSX ke format Base64 yang dibutuhkan Odoo Attachment
+        xlsx_base64 = base64.b64encode(xlsx_content)
+
+        # 4. Buat Attachment di Odoo
+        attachment = self.env['ir.attachment'].create({
+            'name': 'query_result.xlsx',
+            'type': 'binary',
+            'datas': xlsx_base64,
+            'res_model': self._name,
+            'res_id': self.id,
+            'mimetype': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         })
 
         # 5. Kembalikan action URL untuk memicu unduhan di browser

@@ -20,6 +20,7 @@
 				<header>
 					<button name="print_result_pdf" string="Print PDF" type="object" class="oe_highlight btn-danger"/>
 					<button name="action_download_csv" string="CSV" type="object" class="oe_highlight"/>
+					<button name="action_download_xlsx" string="XLSX" type="object" class="oe_highlight btn-warning"/>
 				</header>
 
 				<sheet>

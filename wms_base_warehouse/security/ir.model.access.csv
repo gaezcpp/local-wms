@@ -12,3 +12,6 @@ access_user_storage_location,user_storage_location,model_storage_location,base.g
 access_user_stock_lot_aft,user_stock_lot_aft,model_stock_lot_aft,base.group_user,1,1,1,1
 access_user_product_wip,user_product_wip,model_product_wip,base.group_user,1,1,1,1
 access_user_stock_warehouse_category,access_user_stock_warehouse_category,model_stock_warehouse_category,base.group_user,1,1,1,1
+access_user_mat_to_mat,access_user_mat_to_mat,model_mat_to_mat,base.group_user,1,1,1,1
+access_user_mat_to_mat_source,access_user_mat_to_mat_source,model_mat_to_mat_source,base.group_user,1,1,1,1
+access_user_mat_to_mat_destination,access_user_mat_to_mat_destination,model_mat_to_mat_destination,base.group_user,1,1,1,1

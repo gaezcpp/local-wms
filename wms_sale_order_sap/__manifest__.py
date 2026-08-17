@@ -24,7 +24,9 @@ Long description of module's purpose
     'data': [
         'data/parameter.xml',
         'data/cron.xml',
+        'reports/report_do_sale_order.xml',
         'views/sale_order_views.xml',
+        'views/stock_picking_views.xml',
     ],
 }
 

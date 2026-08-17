@@ -478,7 +478,7 @@ class StockPicking(models.Model):
 
     def split_restrict_upp(self):
         for picking in self.filtered(lambda p: p.split_package):
-            valid_move_lines = picking.move_line_ids.filtered(lambda ml: ml.result_package_id)
+            valid_move_lines = picking.move_line_ids.filtered(lambda ml: ml.result_package_id != ml.package_id)
             if not valid_move_lines:
                 continue
 
@@ -522,7 +522,7 @@ class StockPicking(models.Model):
         self._check_production_order_sap()
         self.remove_package_customer_location()
         self.restrict_customer_location()
-        self.split_restrict_upp()
+        # self.split_restrict_upp()
         if self.checker_only or self.checker_out:
             status, product, diff_qty = self._has_missing_qty()
             konversi = False

@@ -153,12 +153,12 @@ class InheritPurchaseOrder(models.Model):
                 continue
             
             picking_type = operation_type_model.search([
-                ('move_type_sap', '=', str(picking_type_po)),
+                ('barcode', '=', str(picking_type_po)),
                 ('warehouse_id', '=', warehouse.id),
                 ('company_id', '=', company.id)
             ], limit=1)
             if not picking_type:
-                _logger.info(f"cron_synchronize_sap_po_sto move type {picking_type_po} & warehouse lot stock {warehouse.lot_stock_id.sloc_id.code} skipped")
+                _logger.info(f"cron_synchronize_sap_po_sto barcode {picking_type_po} & warehouse lot stock {warehouse.lot_stock_id.sloc_id.code} skipped")
                 continue
                 
             po = po_model.search([

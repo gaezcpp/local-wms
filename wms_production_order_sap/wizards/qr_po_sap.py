@@ -7,8 +7,11 @@ from PIL import Image
 
 from odoo import fields, models
 from odoo.exceptions import ValidationError
+from odoo.tools import file_open
 
 _logger = logging.getLogger(__name__)
+
+QR_LOGO_PATH = 'wms_production_order_sap/assets/image/image.jpeg'
 
 
 class QrPoSap(models.TransientModel):
@@ -37,20 +40,47 @@ class QrPoSap(models.TransientModel):
         qr.make(fit=True)
         qr_img = qr.make_image(fill_color="black", back_color="white").get_image().convert("RGB")
 
-        logo_data = self.po_sap_id.company_id.logo
-        if logo_data:
+        logo_img = self._get_qr_logo_image()
+        if logo_img:
             try:
-                self._paste_logo_on_qr(qr_img, logo_data)
+                self._paste_logo_on_qr(qr_img, logo_img)
             except Exception:
-                _logger.warning("Gagal menempelkan logo company ke QR PO SAP Line", exc_info=True)
+                _logger.warning("Gagal menempelkan logo ke QR PO SAP Line", exc_info=True)
 
         buffer = io.BytesIO()
         qr_img.save(buffer, format="PNG")
         return base64.b64encode(buffer.getvalue()).decode()
 
+    def _get_qr_logo_image(self):
+        """Logo tengah QR: pakai gambar asset modul dulu, fallback ke logo company."""
+        self.ensure_one()
+        try:
+            with file_open(QR_LOGO_PATH, 'rb') as logo_file:
+                return Image.open(io.BytesIO(logo_file.read())).convert("RGBA")
+        except Exception:
+            _logger.debug("Asset logo QR %s tidak terbaca, fallback ke logo company", QR_LOGO_PATH, exc_info=True)
+
+        logo_data = self.po_sap_id.company_id.logo
+        if not logo_data:
+            return None
+        try:
+            company_logo = Image.open(io.BytesIO(base64.b64decode(logo_data))).convert("RGBA")
+        except Exception:
+            _logger.warning("Logo company tidak bisa dibaca untuk QR PO SAP Line", exc_info=True)
+            return None
+        # Logo company biasanya berwarna, sedangkan label QR dicetak hitam putih.
+        return self._to_grayscale(company_logo)
+
     @staticmethod
-    def _paste_logo_on_qr(qr_img, logo_data):
-        logo_img = Image.open(io.BytesIO(base64.b64decode(logo_data))).convert("RGBA")
+    def _to_grayscale(img):
+        """Ubah logo berwarna jadi hitam putih tanpa menghilangkan transparansi."""
+        alpha = img.getchannel("A")
+        gray = img.convert("L").convert("RGBA")
+        gray.putalpha(alpha)
+        return gray
+
+    @staticmethod
+    def _paste_logo_on_qr(qr_img, logo_img):
         qr_width, qr_height = qr_img.size
         logo_size = qr_width // 4
         logo_img.thumbnail((logo_size, logo_size), Image.LANCZOS)

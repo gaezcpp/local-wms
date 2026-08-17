@@ -30,3 +30,5 @@ class QualityPackagesSummaryLine(models.Model):
     po_sap_id = fields.Many2one(comodel_name='production.order.sap')
     pallet_ke = fields.Integer(string="Pallet Ke-")
     production_line_id = fields.Many2one(comodel_name='production.line', string="Line")
+    aft_mat_doc = fields.Char(string="Mat Doc")
+    aft_mat_doc_year = fields.Char(string="Mat Doc Year")

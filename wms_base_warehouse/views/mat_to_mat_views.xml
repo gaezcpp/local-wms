@@ -1,52 +1,52 @@
 <?xml version='1.0' encoding='utf-8'?>
 <odoo>
     <!-- Search View -->
-    <record model="ir.ui.view" id="quality_packages_search_views">
-        <field name="name">quality.packages.search</field>
-        <field name="model">quality.packages</field>
+    <record model="ir.ui.view" id="mat_to_mat_search_views">
+        <field name="name">mat.to.mat.search</field>
+        <field name="model">mat.to.mat</field>
         <field name="arch" type="xml">
             <search>
                 <field name="name"/>
-                <field name="product_id"/>
-                <field name="lot_id"/>
-                <field name="location_id"/>
                 <field name="state"/>
+                <field name="product_id"/>
+                <field name="company_id"/>
+                <field name="location_id"/>
+                <field name="warehouse_id"/>
                 <group>
                     <filter name="gr_state" string="State" context="{'group_by':'state'}"/>
                     <filter name="gr_product" string="Product" context="{'group_by':'product_id'}"/>
-                    <filter name="gr_lot" string="Lot" context="{'group_by':'lot_id'}"/>
+                    <filter name="gr_date_done" string="Date Done" context="{'group_by':'date_done'}"/>
                     <filter name="gr_location" string="Location" context="{'group_by':'location_id'}"/>
                 </group>
             </search>
         </field>
     </record>
 
-    <record id="quality_packages_view_list" model="ir.ui.view">
-        <field name="name">quality.packages.view.list</field>
-        <field name="model">quality.packages</field>
+    <record id="mat_to_mat_view_list" model="ir.ui.view">
+        <field name="name">mat.to.mat.view.list</field>
+        <field name="model">mat.to.mat</field>
         <field name="arch" type="xml">
-            <list string="Quality Packages">
+            <list string="Mat To Mat">
                 <field name="name"/>
-                <field name="product_id" string="SKU"/>
-                <field name="lot_id" string="Production Code"/>
+                <field name="product_id"/>
+                <field name="product_dest_id"/>
                 <field name="location_id"/>
-                <field name="action_aft_id"/>
-                <field name="state" widget="badge" decoration-danger="state == 'cancel'" decoration-warning="state == 'in_progress'" decoration-success="state == 'done'"/>
+                <field name="state" widget="badge" decoration-danger="state == 'cancel'" decoration-warning="state == 'ready'" decoration-success="state == 'done'"/>
                 <field name="company_id"/>
             </list>
         </field>
     </record>
 
-    <record id="quality_packages_view_form" model="ir.ui.view">
-        <field name="name">quality.packages.view.form</field>
-        <field name="model">quality.packages</field>
+    <record id="mat_to_mat_view_form" model="ir.ui.view">
+        <field name="name">mat.to.mat.view.form</field>
+        <field name="model">mat.to.mat</field>
         <field name="arch" type="xml">
-            <form string="Quality Packages">
+            <form string="Mat To Mat">
                 <header>
-					<button name="check_availability" string="Check Availability" type="object" class="btn btn-oe_highlight" invisible="state != 'draft'"/>
-					<button name="action_in_progress" string="Confirm" type="object" confirm="Pastikan semua Data sudah sesuai" class="oe_highlight" invisible="state != 'draft'"/>
-					<button name="action_done" string="Done" type="object" confirm="Pastikan semua Data sudah sesuai" class="btn oe_highlight" invisible="state != 'in_progress'"/>
-					<button name="action_open_aft_wizard" string="Cancel" type="object" class="btn btn-danger" invisible="state != 'in_progress'"/>
+					<button name="action_check_availibility" string="Check Availability" type="object" class="btn btn-oe_highlight" invisible="state != 'draft'"/>
+					<button name="action_mat_ready" string="Confirm" type="object" confirm="Pastikan semua Data sudah sesuai" class="oe_highlight" invisible="state != 'draft'"/>
+					<button name="action_mat_done" string="Done" type="object" confirm="Pastikan semua Data sudah sesuai" class="btn oe_highlight" invisible="state != 'ready'"/>
+					<button name="action_mat_cancel" string="Cancel" type="object" confirm="Pastikan semua Data sudah sesuai" class="btn-danger" invisible="state != 'done'"/>
                     <field name="state" widget="statusbar"/>
                 </header>
                 <sheet>
@@ -55,43 +55,35 @@
                         <field name="name" force_save="1" readonly="1"/>
                     </h1>
                     <group>
-                        <group name="aft_left">
+                        <group name="mattomat_left">
                             <field name="warehouse_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" domain="[('company_id', '=', company_id)]" required="1"/>
+                            <field name="product_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" domain="[('company_id', '=', company_id)]"/>
                             <field name="date_done" readonly="state != 'draft'"/>
-                            <field name="product_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" domain="[('company_id', '=', company_id)]" string="SKU"/>
-                            <field name="lot_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" domain="product_id and [('company_id', '=', company_id), ('product_id', '=', product_id)] or [('company_id', '=', company_id)]" string="Production Code"/>
-                            <field name="location_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" domain="[('company_id', '=', company_id), ('id', 'child_of', lot_stock_id)]"/>
-                            <field name="production_shift_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" domain="[('company_ids', 'in', company_id)]"/>
-                            <field name="production_line_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" domain="[('company_id', '=', company_id)]"/>
-                            <field name="action_aft_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" required="1"/>
+                            <field name="product_dest_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" domain="[('company_id', '=', company_id)]"/>
+                            <field name="location_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" domain="[('company_id', '=', company_id)]"/>
                             <field name="notes" placeholder="e.g Packages sedang rusak" readonly="state != 'draft'"/>
                             <field name="select_all" readonly="state != 'draft'" invisible="not is_checked"/>
                         </group>
-                        <group name="aft_right">
+                        <group name="mattomat_right">
                             <field name="company_id" force_save="1" readonly="1" options="{'no_open': True, 'no_create': True}" required="1"/>
-                            <field name="lot_stock_id" force_save="1" readonly="1" options="{'no_open': True, 'no_create': True}"/>
-                            <field name="is_checked" readonly="1"/>
-                            <field name="category_aft_id" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1"/>
-                            <field name="block_action_id" options="{'no_open': True, 'no_create': True}" force_save="1" readonly="1"/>
-                            <field name="other_reason" force_save="1" readonly="1"/>
+                            <field name="product_dest_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" domain="[('company_id', '=', company_id)]"/>
                         </group>
                     </group>
                     <notebook>
-                        <page name="packages" string="Packages">
-                            <field name="quality_line_ids" mode="list,kanban">
+                        <page name="mat_to_mat_source" string="Source">
+                            <field name="mat_source_ids" mode="list,kanban">
 								<list create="0" delete="0" editable="bottom">
                                     <field name="is_selected" readonly="parent.state != 'draft'" widget="boolean_toggle"/>
-                                    <field name="quality_packages_id" column_invisible="1" options="{'no_open': True, 'no_create': True}" readonly="1"/>
+                                    <field name="mat_to_mat_id" column_invisible="1" options="{'no_open': True, 'no_create': True}" readonly="1"/>
+                                    <field name="quant_id" options="{'no_open': True, 'no_create': True}" readonly="1"/>
                                     <field name="product_id" options="{'no_open': True, 'no_create': True}" readonly="1"/>
-                                    <field name="pallet_ke" readonly="1"/>
                                     <field name="package_id" options="{'no_open': True, 'no_create': True}" readonly="1"/>
                                     <field name="location_id" options="{'no_open': True, 'no_create': True}" readonly="1"/>
                                     <field name="lot_id" options="{'no_open': True, 'no_create': True}" readonly="1"/>
                                     <field name="quantity" sum="Total" readonly="1"/>
                                     <field name="uom_id" options="{'no_open': True, 'no_create': True}" readonly="1"/>
-                                    <field name="bag_qty" sum="Total" readonly="1"/>
-                                    <field name="uom_bag_id" options="{'no_open': True, 'no_create': True}" readonly="1"/>
-                                    <field name="production_line_id" options="{'no_open': True, 'no_create': True}" readonly="1"/>
+                                    <field name="pack_qty" sum="Total" readonly="1"/>
+                                    <field name="pack_uom_id" options="{'no_open': True, 'no_create': True}" readonly="1"/>
 								</list>
 								<form create="0" edit="0" delete="0">
                                     <group>
@@ -105,41 +97,32 @@
                                 <kanban class="o_kanban_mobile" create="0" edit="0" delete="0" duplicate="0" quick_create="0">
                                     <templates>
                                         <t t-name="card">
-                                            <field name="pallet_ke" readonly="1"/>
                                             <field name="package_id" class="fw-bold" options="{'no_open': True, 'no_create': True}"/>
                                             <field name="lot_id" options="{'no_open': True, 'no_create': True}"/>
                                             <div class="d-flex">
-                                                <field name="bag_qty"/>
-                                                <field class="mx-2" name="uom_bag_id" groups="uom.group_uom" options="{'no_open': True, 'no_create': True}"/>
+                                                <field name="pack_qty"/>
+                                                <field class="mx-2" name="pack_uom_id" groups="uom.group_uom" options="{'no_open': True, 'no_create': True}"/>
                                             </div>
                                         </t>
                                     </templates>
                                 </kanban>
 							</field>
 						</page>
-                        <page name="summary_packages" string="Summary">
-                            <field name="quality_summary_line_ids" readonly="1" mode="list,kanban">
+                        <page name="mat_to_mat_dest" string="Destination">
+                            <field name="mat_destination_ids" readonly="1" mode="list,kanban">
 								<list create="0" delete="0" edit="0">
-                                    <field name="quality_packages_id" column_invisible="1" options="{'no_open': True, 'no_create': True}"/>
+                                    <field name="mat_to_mat_id" column_invisible="1" options="{'no_open': True, 'no_create': True}"/>
                                     <field name="product_id" options="{'no_open': True, 'no_create': True}"/>
-                                    <field name="pallet_ke"/>
                                     <field name="package_id" options="{'no_open': True, 'no_create': True}"/>
                                     <field name="location_id" options="{'no_open': True, 'no_create': True}"/>
                                     <field name="lot_id" options="{'no_open': True, 'no_create': True}"/>
                                     <field name="quantity" sum="Total"/>
                                     <field name="uom_id" options="{'no_open': True, 'no_create': True}"/>
-                                    <field name="bag_qty" sum="Total Bag"/>
-                                    <field name="uom_bag_id" options="{'no_open': True, 'no_create': True}"/>
-                                    <field name="stock_type_from"/>
-                                    <field name="stock_type_to"/>
-                                    <field name="production_line_id" options="{'no_open': True, 'no_create': True}" readonly="1"/>
-                                    <field name="aft_mat_doc"/>
-                                    <field name="aft_mat_doc_year"/>
+                                    <field name="pack_qty" sum="Total Bag"/>
+                                    <field name="pack_uom_id" options="{'no_open': True, 'no_create': True}"/>
 								</list>
 								<form create="0" edit="0" delete="0">
                                     <group>
-                                        <field name="aft_mat_doc"/>
-                                        <field name="aft_mat_doc_year"/>
                                         <field name="product_id" options="{'no_open': True, 'no_create': True}"/>
                                         <field name="package_id" options="{'no_open': True, 'no_create': True}"/>
                                         <field name="location_id" options="{'no_open': True, 'no_create': True}"/>
@@ -151,16 +134,11 @@
                                 <kanban class="o_kanban_mobile" create="0" edit="0" delete="0" duplicate="0" quick_create="0">
                                     <templates>
                                         <t t-name="card">
-                                            <field name="pallet_ke" readonly="1"/>
                                             <field name="package_id" class="fw-bold" options="{'no_open': True, 'no_create': True}"/>
                                             <field name="lot_id" options="{'no_open': True, 'no_create': True}"/>
                                             <div class="d-flex">
-                                                <field name="bag_qty"/>
-                                                <field class="mx-2" name="uom_bag_id" groups="uom.group_uom" options="{'no_open': True, 'no_create': True}"/>
-                                            </div>
-                                            <div class="d-flex">
-                                                <field name="stock_type_from"/>
-                                                <field class="mx-2" name="stock_type_to"/>
+                                                <field name="pack_qty"/>
+                                                <field class="mx-2" name="pack_uom_id" groups="uom.group_uom" options="{'no_open': True, 'no_create': True}"/>
                                             </div>
                                         </t>
                                     </templates>
@@ -174,17 +152,16 @@
         </field>
     </record>
 
-    <record id="quality_packages_view_kanban" model="ir.ui.view">
-        <field name="name">quality.packages.view.kanban</field>
-        <field name="model">quality.packages</field>
+    <record id="mat_to_mat_view_kanban" model="ir.ui.view">
+        <field name="name">mat.to.mat.view.kanban</field>
+        <field name="model">mat.to.mat</field>
         <field name="arch" type="xml">
             <kanban quick_create="0" quick_edit="0" records_draggable="0" class="o_kanban_mobile">
                 <field name="name"/>
                 <field name="product_id"/>
-                <field name="lot_id"/>
+                <field name="product_dest_id"/>
                 <field name="location_id"/>
-                <field name="action_aft_id"/>
-                <field name="state" decoration-danger="state == 'cancel'" decoration-warning="state == 'in_progress'" decoration-success="state == 'done'"/>
+                <field name="state" decoration-danger="state == 'cancel'" decoration-warning="state == 'ready'" decoration-success="state == 'done'"/>
                 <templates>
                     <t t-name="card">
                         <div class="oe_kanban_card oe_kanban_global_click">
@@ -193,12 +170,7 @@
                                     <strong><field name="name"/></strong>
                                 </div>
                                 <div class="col-4 text-right">
-                                    <field name="state" widget="badge" decoration-danger="state == 'cancel'" decoration-warning="state == 'in_progress'" decoration-success="state == 'done'"/>
-                                </div>
-                            </div>
-                            <div class="row mb-1">
-                                <div class="col-12 text-muted">
-                                    <field name="action_aft_id"/>
+                                    <field name="state" widget="badge" decoration-danger="state == 'cancel'" decoration-warning="state == 'ready'" decoration-success="state == 'done'"/>
                                 </div>
                             </div>
                             <div class="row mb-1" t-if="record.product_id.raw_value">
@@ -206,9 +178,9 @@
                                     <field name="product_id"/>
                                 </div>
                             </div>
-                            <div class="row mb-1" t-if="record.lot_id.raw_value">
+                            <div class="row mb-1" t-if="record.product_dest_id.raw_value">
                                 <div class="col-12 text-muted">
-                                    <field name="lot_id"/>
+                                    <field name="product_dest_id"/>
                                 </div>
                             </div>
                             <div class="row mb-1" t-if="record.location_id.raw_value">
@@ -223,9 +195,9 @@
         </field>
     </record>
 
-    <record id="quality_packages_action" model="ir.actions.act_window">
-        <field name="name">Quality Packages</field>
-        <field name="res_model">quality.packages</field>
+    <record id="mat_to_mat_action" model="ir.actions.act_window">
+        <field name="name">Mat To Mat</field>
+        <field name="res_model">mat.to.mat</field>
         <field name="view_mode">kanban,list,form</field>
     </record>
 </odoo>

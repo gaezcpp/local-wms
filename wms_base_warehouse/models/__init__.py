@@ -21,3 +21,4 @@ from . import stock_lot
 from . import stock_lot_aft
 from . import product_wip
 from . import stock_warehouse_category
+from . import mat_to_mat

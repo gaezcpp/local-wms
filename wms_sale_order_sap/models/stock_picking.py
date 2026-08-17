@@ -5,6 +5,9 @@ import pytz
 
 class SaleStockPicking(models.Model):
     _inherit = 'stock.picking'
+    
+    aft_mat_doc = fields.Char(string="Mat Doc")
+    aft_mat_doc_year = fields.Char(string="Mat Doc Year")
 
     def _find_sale_for_sequence(self, vals):
         Sale = self.env['sale.order'].sudo()

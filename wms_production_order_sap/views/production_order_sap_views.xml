@@ -49,6 +49,11 @@
                                     <field name="product_id"/>
                                 </div>
                             </div>
+                            <div class="row mb-1">
+                                <div class="col-12 text-muted">
+                                    Order Type: <field name="order_type"/>
+                                </div>
+                            </div>
                             <div class="row">
                                 <div class="col-6">
                                     Qty: <strong><field name="order_qty"/></strong>

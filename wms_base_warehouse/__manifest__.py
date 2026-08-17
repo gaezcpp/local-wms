@@ -27,6 +27,7 @@ Long description of module's purpose
         'wizard/unpack_stock_package_views.xml',
         'data/parameter.xml',
         'data/cron.xml',
+        'data/sequence.xml',
         'views/production_line_views.xml',
         'views/production_shift_views.xml',
         'views/production_code_views.xml',
@@ -48,6 +49,7 @@ Long description of module's purpose
         'views/product_template_views.xml',
         # 'views/res_users_views.xml',
         'views/stock_warehouse_category_views.xml',
+        'views/mat_to_mat_views.xml',
         'views/menuitem.xml',
     ],
 }

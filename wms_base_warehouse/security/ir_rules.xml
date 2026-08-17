@@ -46,5 +46,11 @@
             <field name="model_id" ref="model_production_code"/>
             <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
         </record>
+
+        <record id="multi_company_mat_to_mat" model="ir.rule">
+            <field name="name">Mat To Mat multi-company</field>
+            <field name="model_id" ref="model_mat_to_mat"/>
+            <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
+        </record>
     </data>
 </odoo>

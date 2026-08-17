@@ -9,7 +9,6 @@ patch(MainComponent.prototype, {
         super.setup(...arguments);
 
         const context = this.props.action.context || {};
-        console.log("AAAAAAAAAAAAAAAA", context)
 
         this._defaultLocationBarcode = context.default_location_barcode || "";
         this._autoSubmitBarcode = context.auto_submit_barcode || false;

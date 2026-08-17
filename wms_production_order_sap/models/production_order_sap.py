@@ -408,7 +408,7 @@ class ProductionOrderSAP(models.Model):
         po_sap = self.search([('po_number', '=', po_number)], limit=1)
         if not po_sap:
             raise ValidationError(f"PO SAP dengan nomor {po_number} tidak ditemukan")
-        production_line = self.env['production.line'].search([('code', '=', production_line_code)], limit=1)
+        production_line = self.env['production.line'].sudo().search([('code', '=', production_line_code),('company_id', '=', po_sap.company_id.id)], limit=1)
         if not production_line:
             raise ValidationError(f"Production Line dengan kode {production_line_code} tidak ditemukan")
         return po_sap.action_picking_po_sap(production_line_id=production_line.id)

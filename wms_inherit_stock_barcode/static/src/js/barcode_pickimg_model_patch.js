@@ -362,13 +362,12 @@ patch(BarcodePickingModel.prototype, {
         return originalGroups;
     },
 
-    async checkBarcode(barcode) {
-        console.log("[WMS-SCANNER][scan] checkBarcode:start", { barcode });
-        const result = await super.checkBarcode(...arguments);
-        await this._cleanupPackageSplitRemainder();
-        console.log("[WMS-SCANNER][scan] checkBarcode:end", { barcode });
-        return result;
-    },
+    // Dulu ada override `checkBarcode()` di sini. Core stock_barcode tidak
+    // punya method bernama `checkBarcode` sama sekali (yang ada
+    // `_checkBarcode(barcodeData)`, sinkron, dipanggil dari `_processBarcode`),
+    // jadi override itu dead code: tidak pernah terpanggil, dan `super.checkBarcode`
+    // di dalamnya akan melempar TypeError kalau sampai terpanggil.
+    // `_cleanupPackageSplitRemainder()` tetap dijalankan dari `_processBarcode()`.
 
     _updateLineQty(line, args) {
         console.log("[WMS-SCANNER][moveLine] _updateLineQty", {
@@ -435,15 +434,37 @@ patch(BarcodePickingModel.prototype, {
         }
     },
 
-    _getSaveLineCommand(...args) {
-        const line = args.find(
-            (a) => a && typeof a === "object" && ("virtual_id" in a || "package_id" in a)
-        );
-
-        if (this.record.hide_zero_qty && line && line.__isSurplusSkip) {
-            return null;
+    /**
+     * Membuang line "surplus" hasil `_cleanupPackageSplitRemainder()` dari
+     * daftar yang akan disimpan.
+     *
+     * BUG LAMA: method ini ditulis seolah menerima sebuah line dan
+     * mengembalikan satu command. Signature core-nya `_getSaveLineCommand()`
+     * TANPA argumen dan mengembalikan ARRAY command untuk seluruh
+     * `linesToSave` (barcode_model.js). Akibatnya `args` selalu kosong, filter
+     * `__isSurplusSkip` tidak pernah aktif, dan kalau sampai aktif ia
+     * mengembalikan `null` -- lalu core `_getSaveCommand()` membaca
+     * `commands.length` dan melempar TypeError, sehingga save gagal diam-diam.
+     *
+     * Penyaringan yang benar dilakukan di `linesToSave`, sama seperti
+     * `_dropEmptySplitRemainders()`.
+     */
+    _getSaveLineCommand() {
+        if (this.record.hide_zero_qty && this.linesToSave && this.linesToSave.length) {
+            const skipped = this.linesToSave.filter((virtualId) => {
+                const line = this.currentState.lines.find((l) => l.virtual_id === virtualId);
+                // Line surplus selalu belum punya id (lihat isUnreservedSurplusLine),
+                // jadi membuangnya tidak pernah meninggalkan qty basi di DB.
+                return line && line.__isSurplusSkip && !line.id;
+            });
+            if (skipped.length) {
+                wmsLog("saveCommand:SKIP-SURPLUS", { virtualIds: skipped });
+                this.linesToSave = this.linesToSave.filter(
+                    (virtualId) => !skipped.includes(virtualId)
+                );
+            }
         }
-        return super._getSaveLineCommand(...args);
+        return super._getSaveLineCommand(...arguments);
     },
 
     get barcodeInfo() {
@@ -666,9 +687,29 @@ patch(BarcodePickingModel.prototype, {
         return fields;
     },
 
+    /**
+     * BUG LAMA: `_createCommandVals` dideklarasikan DUA KALI di object literal
+     * patch ini. Kunci kedua menimpa yang pertama tanpa error, sehingga
+     * `production_line_id` tidak pernah ikut terkirim saat create walaupun
+     * `_getFieldToWrite()` menambahkannya. Kedua versi digabung di sini.
+     */
     _createCommandVals(line) {
-        const values = super._createCommandVals(line);
-        values.production_line_id = this._fieldToValue(line.production_line_id);
+        const values = super._createCommandVals(...arguments);
+        if (!values) {
+            return values;
+        }
+        values.production_line_id = this._fieldToValue(line.production_line_id) || false;
+
+        // `move_id` hanya dikirim kalau memang sengaja dipasang lewat
+        // `__wmsMoveHint` (jalur _resetScannedPackageSourceLines). Untuk scan
+        // biasa, core sengaja TIDAK mengirim move_id supaya server yang memilih
+        // move lewat `_get_linkable_moves()` -- di situlah guard `gratis_locked`
+        // milik wms_base_warehouse bekerja. Memaksa move_id untuk semua line
+        // mem-bypass guard itu dan bisa menempelkan qty ke move gratis terkunci,
+        // yang kemudian di-`_do_unreserve()` oleh `_action_assign()`.
+        if (line && line.__wmsForcedMoveId && values.move_id === undefined) {
+            values.move_id = line.__wmsForcedMoveId;
+        }
         return values;
     },
 
@@ -806,7 +847,7 @@ patch(BarcodePickingModel.prototype, {
             linesBefore: this.currentState.lines.map(dbgLine),
         });
 
-        await this._resetScannedPackageSourceLines(recPackage);
+        // await this._resetScannedPackageSourceLines(recPackage);
 
         this.__wmsPendingScanSave = Boolean(
             this.record.checker_out &&
@@ -818,15 +859,54 @@ patch(BarcodePickingModel.prototype, {
         this.__wmsScanDebug = true;
         this.__wmsScannedPackageId = recPackage ? recPackage.id : false;
         try {
-            return await super._processPackage(...arguments);
+            const res = await super._processPackage(...arguments);
+            this._settleScannedPackageReset(recPackage);
+            return res;
+        } catch (error) {
+            // Core berhenti di tengah jalan: batalkan antrian hapus supaya
+            // line lama tidak ikut hilang bersama scan yang gagal.
+            this._restoreResetLines();
+            throw error;
         } finally {
             this.__wmsScanDebug = false;
             wmsLog("processPackage:END", {
                 quants: this._debugPackageQuants(recPackage),
                 linesAfter: this.currentState.lines.map(dbgLine),
                 linesToSave: this.linesToSave,
+                pendingUnlink: this.__wmsPendingUnlinkIds || [],
             });
         }
+    },
+
+    /**
+     * Menentukan nasib antrian hapus yang dibuat `_resetScannedPackageSourceLines()`,
+     * setelah core selesai memproses pallet.
+     *
+     * Core `_processPackage()` punya beberapa early-return yang tidak membentuk
+     * line sama sekali (produk ekstra tidak diizinkan, pallet bukan sublokasi
+     * source, pallet sudah ter-scan penuh, user membatalkan dialog). Kalau itu
+     * yang terjadi, line lama TIDAK boleh dihapus -- kalau tidak, picking
+     * ditinggal tanpa stock.move.line.
+     */
+    _settleScannedPackageReset(recPackage) {
+        if (!(this.__wmsPendingUnlinkIds || []).length) {
+            return;
+        }
+        const packageId = recPackage && recPackage.id;
+        const replacements = (this.currentState.lines || []).filter(
+            (line) => getRelId(line.package_id) === packageId && this.getQtyDone(line) > 0
+        );
+        if (!replacements.length) {
+            wmsLog("reset:ROLLBACK", {
+                alasan: "core tidak membentuk line pengganti -> pembatalan penghapusan",
+                ids: this.__wmsPendingUnlinkIds,
+            });
+            this._restoreResetLines();
+            return;
+        }
+        // Ada pengganti: wajib tersimpan pada scan ini juga, berapa pun nilai
+        // `checker_out`, supaya DB tidak pernah berada dalam keadaan kosong.
+        this.__wmsPendingScanSave = true;
     },
 
     _debugPackageQuants(recPackage) {
@@ -852,8 +932,28 @@ patch(BarcodePickingModel.prototype, {
         });
     },
 
+    /**
+     * Melepas line reservasi lama milik pallet yang di-scan supaya core bisa
+     * membentuk ulang line-nya dari quant (#fix minus quant scan).
+     *
+     * BUG LAMA: method ini memanggil `this.orm.unlink("stock.move.line", ...)`
+     * secara langsung, SEBELUM line pengganti ada di mana pun selain memori
+     * browser, dan tanpa transaksi apa pun yang mengikat keduanya. Begitu core
+     * `_processPackage()` berhenti lewat salah satu early-return-nya, atau
+     * `save()` tidak pernah jalan (dulu hanya dijadwalkan kalau `checker_out`
+     * true), picking ditinggal TANPA stock.move.line sama sekali -- line lama
+     * sudah terhapus permanen, line baru tidak pernah tersimpan.
+     *
+     * Sekarang penghapusan ditunda: id-nya diantrikan di `__wmsPendingUnlinkIds`
+     * beserta snapshot line-nya, dan baru benar-benar di-unlink oleh
+     * `_flushPendingLineUnlink()` tepat sebelum RPC save yang membawa line
+     * pengganti. Kalau ternyata tidak ada pengganti, `_restoreResetLines()`
+     * mengembalikan line lama ke state dan tidak ada yang terhapus.
+     */
     async _resetScannedPackageSourceLines(recPackage) {
         this.__wmsMoveHint = null;
+        this.__wmsResetSnapshot = null;
+        this.__wmsPendingUnlinkIds = [];
         if (
             !recPackage ||
             !Array.isArray(recPackage.contained_quant_ids) ||
@@ -903,6 +1003,32 @@ patch(BarcodePickingModel.prototype, {
             return;
         }
 
+        // Core menyusun daftar produk yang boleh masuk dari `currentState.lines`
+        // (`barcode_allow_extra_product`, barcode_picking_model.js). Kalau line
+        // ini dilepas duluan, produknya bisa hilang dari daftar itu dan core
+        // menolak SELURUH pallet dengan "This package contains extra products"
+        // -- padahal line lama sudah terlanjur diantrikan untuk dihapus.
+        // Untuk konfigurasi itu, biarkan core memakai line lama apa adanya.
+        if (!this.config.barcode_allow_extra_product) {
+            const keptProductIds = new Set(
+                this.currentState.lines
+                    .filter((line) => !linesToReset.includes(line))
+                    .map((line) => getRelId(line.product_id))
+            );
+            const droppedProductIds = [
+                ...new Set(linesToReset.map((line) => getRelId(line.product_id))),
+            ].filter((productId) => productId && !keptProductIds.has(productId));
+            if (droppedProductIds.length) {
+                wmsLog("reset:SKIP", {
+                    alasan:
+                        "barcode_allow_extra_product=false dan reset akan " +
+                        "menghapus satu-satunya line untuk produk ini",
+                    droppedProductIds,
+                });
+                return;
+            }
+        }
+
         const moveByProduct = new Map();
         for (const line of linesToReset) {
             const productId = getRelId(line.product_id);
@@ -919,11 +1045,19 @@ patch(BarcodePickingModel.prototype, {
             moveByProduct: Array.from(moveByProduct.entries()),
         });
 
+        // Tidak ada `orm.unlink()` di sini -- lihat docstring. Yang dilakukan
+        // hanyalah melepas line dari state client dan mengantrikan id-nya.
         const idsToReset = linesToReset.map((line) => line.id).filter(Boolean);
-        if (idsToReset.length) {
-            wmsLog("reset:UNLINK", { model: "stock.move.line", ids: idsToReset });
-            await this.orm.unlink("stock.move.line", idsToReset);
-        }
+        this.__wmsResetSnapshot = {
+            lines: linesToReset.slice(),
+            selectedLineVirtualId: this.selectedLineVirtualId,
+        };
+        this.__wmsPendingUnlinkIds = idsToReset;
+        wmsLog("reset:QUEUE-UNLINK", {
+            model: "stock.move.line",
+            ids: idsToReset,
+            catatan: "penghapusan ditunda sampai line pengganti siap disimpan",
+        });
 
         for (const line of linesToReset) {
             const index = this.currentState.lines.indexOf(line);
@@ -942,6 +1076,50 @@ patch(BarcodePickingModel.prototype, {
             dikosongkan: linesToReset.length,
             sisaLineDiState: this.currentState.lines.map(dbgLine),
         });
+    },
+
+    /**
+     * Mengembalikan line yang sudah dilepas `_resetScannedPackageSourceLines()`
+     * ke `currentState` dan membatalkan antrian hapus. Dipakai ketika ternyata
+     * tidak ada line pengganti yang terbentuk. Karena penghapusan ditunda,
+     * pembatalan ini murni operasi di client -- data di DB tidak pernah hilang.
+     */
+    _restoreResetLines() {
+        const snapshot = this.__wmsResetSnapshot;
+        this.__wmsResetSnapshot = null;
+        this.__wmsPendingUnlinkIds = [];
+        this.__wmsMoveHint = null;
+        if (!snapshot || !this.currentState) {
+            return false;
+        }
+        for (const line of snapshot.lines) {
+            if (!this.currentState.lines.includes(line)) {
+                this.currentState.lines.push(line);
+            }
+        }
+        if (!this.selectedLineVirtualId && snapshot.selectedLineVirtualId) {
+            this.selectedLineVirtualId = snapshot.selectedLineVirtualId;
+        }
+        wmsLog("reset:RESTORED", { dikembalikan: snapshot.lines.map(dbgLine) });
+        return true;
+    },
+
+    /**
+     * Benar-benar menghapus line lama yang sudah diantrikan. Sengaja dipanggil
+     * tepat sebelum RPC save yang membawa line penggantinya (lihat
+     * `__wmsSaveOnce()`), sehingga jendela waktu "DB tanpa line" mengecil
+     * menjadi satu pasang RPC, dan penghapusan tidak pernah terjadi kalau tidak
+     * ada yang akan disimpan.
+     */
+    async _flushPendingLineUnlink() {
+        const ids = this.__wmsPendingUnlinkIds || [];
+        if (!ids.length) {
+            return;
+        }
+        this.__wmsPendingUnlinkIds = [];
+        this.__wmsResetSnapshot = null;
+        wmsLog("reset:UNLINK", { model: "stock.move.line", ids });
+        await this.orm.unlink("stock.move.line", ids);
     },
 
     _findLine(barcodeData) {
@@ -1015,6 +1193,9 @@ patch(BarcodePickingModel.prototype, {
                 hint.moveByProduct.has(productId)
             ) {
                 newLine.move_id = hint.moveByProduct.get(productId);
+                // Penanda eksplisit: hanya line inilah yang boleh mengirim
+                // `move_id` ke server (lihat `_createCommandVals`).
+                newLine.__wmsForcedMoveId = newLine.move_id;
                 wmsLog("createNewLine:MOVE-HINT-DIPASANG", {
                     virtual_id: newLine.virtual_id,
                     product: productId,
@@ -1042,6 +1223,14 @@ patch(BarcodePickingModel.prototype, {
     async splitLine(line) {
         const newLine = await super.splitLine(...arguments);
         if (newLine) {
+            // Penanda: HANYA line hasil split inilah yang boleh dibuang oleh
+            // `_dropEmptySplitRemainders()`. Tanpa penanda ini, setiap line baru
+            // yang qty_done-nya masih 0 -- termasuk line produk baru yang sah,
+            // yang menunggu scan lot pada operasi dengan use_existing_lots /
+            // use_create_lots (`_incrementTrackedLine()` = false) -- ikut
+            // dibuang, tidak pernah tersimpan, tidak pernah dapat `id`, dan
+            // `MainComponent.onOpenProductPage()` crash saat membuka line itu.
+            newLine.__wmsSplitRemainder = true;
             if ("bag_qty" in newLine) {
                 newLine.bag_qty = 0;
             }
@@ -1056,15 +1245,6 @@ patch(BarcodePickingModel.prototype, {
             });
         }
         return newLine;
-    },
-
-    _createCommandVals(line) {
-        const vals = super._createCommandVals(...arguments);
-        const moveId = getRelId(line && line.move_id);
-        if (moveId && vals && vals.move_id === undefined) {
-            vals.move_id = moveId;
-        }
-        return vals;
     },
 
     _getSaveCommand() {
@@ -1093,6 +1273,14 @@ patch(BarcodePickingModel.prototype, {
      * persisting yet, so drop it from `linesToSave` — it stays in `currentState.lines`
      * as a client-side placeholder for the remaining demand, and will be saved for
      * real once the user actually scans something into it.
+     *
+     * PENTING: filternya HARUS dibatasi pada line bertanda `__wmsSplitRemainder`
+     * (dipasang di `splitLine()`). Sebelumnya filter ini mengenai SEMUA line baru
+     * ber-qty 0, sehingga line produk baru hasil scan pada operasi bertracking lot
+     * (qty_done sengaja 0 sampai lot di-scan, lihat `_incrementTrackedLine()`)
+     * ikut dibuang dari `linesToSave`. Line itu jadi tidak pernah tersimpan,
+     * `line.id` tetap undefined, dan core `onOpenProductPage()` melempar
+     * "Cannot read properties of undefined (reading 'id')".
      */
     _dropEmptySplitRemainders() {
         if (!this.linesToSave || !this.linesToSave.length || !this.currentState) {
@@ -1100,7 +1288,7 @@ patch(BarcodePickingModel.prototype, {
         }
         const emptyVirtualIds = this.linesToSave.filter((virtualId) => {
             const line = this.currentState.lines.find((l) => l.virtual_id === virtualId);
-            return line && !line.id && !line.qty_done;
+            return line && line.__wmsSplitRemainder && !line.id && !line.qty_done;
         });
         if (emptyVirtualIds.length) {
             console.log("[WMS-SCANNER][moveLine] dropEmptySplitRemainders", {
@@ -1114,6 +1302,12 @@ patch(BarcodePickingModel.prototype, {
 
     async __wmsSaveOnce() {
         this._dropEmptySplitRemainders();
+        // Baru di sini line lama benar-benar dihapus, dan hanya kalau ada line
+        // pengganti yang ikut terkirim pada RPC save berikutnya. Kalau tidak ada
+        // yang perlu disimpan, antrian dibiarkan utuh -- tidak ada yang hilang.
+        if (this.linesToSave && this.linesToSave.length) {
+            await this._flushPendingLineUnlink();
+        }
         const res = await super.save();
         if (WMS_SCAN_DEBUG && this.__wmsScannedPackageId) {
             try {
@@ -1213,6 +1407,9 @@ patch(BarcodePickingModel.prototype, {
         if (isUUOnly) {
             const wasBlocked = await this._enforceUUStockType(stockTypeSnapshot);
             if (wasBlocked) {
+                // Scan ditolak -> line pengganti sudah dibuang lagi, jadi line
+                // lama tidak boleh ikut terhapus.
+                this._restoreResetLines();
                 this.trigger("update");
                 return;
             }
@@ -1220,6 +1417,7 @@ patch(BarcodePickingModel.prototype, {
 
         const wasGratisBlocked = await this._enforceGratisLocked(gratisSnapshot);
         if (wasGratisBlocked) {
+            this._restoreResetLines();
             this.trigger("update");
             return;
         }
@@ -1257,6 +1455,18 @@ patch(BarcodePickingModel.prototype, {
                 wmsLog("scan:SAVED", { lines: this.currentState.lines.map(dbgLine) });
                 this.trigger("update");
             }
+        }
+
+        // Jaring pengaman: antrian hapus tidak boleh menyeberang ke scan
+        // berikutnya. Kalau sampai sini masih ada isinya, berarti tidak ada save
+        // yang membawa line pengganti -> batalkan, jangan hapus apa pun.
+        if ((this.__wmsPendingUnlinkIds || []).length) {
+            wmsLog("reset:ROLLBACK", {
+                alasan: "scan selesai tanpa save yang membawa line pengganti",
+                ids: this.__wmsPendingUnlinkIds,
+            });
+            this._restoreResetLines();
+            this.trigger("update");
         }
 
         const lastScan = this.scanHistory[0];

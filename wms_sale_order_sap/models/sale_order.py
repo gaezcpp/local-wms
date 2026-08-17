@@ -23,6 +23,8 @@ class InheritSaleOrderSAP(models.Model):
     so_sto = fields.Boolean(string="STO", default=False)
     sloc_to_sloc = fields.Boolean(string="Sloc to Sloc", default=False)
     sloc_to = fields.Char(string="SLOC To", readonly=True)
+    aft_mat_doc = fields.Char(string="Mat Doc")
+    aft_mat_doc_year = fields.Char(string="Mat Doc Year")
 
     def now_jakarta(self):
         tz = pytz.timezone('Asia/Jakarta')
@@ -161,7 +163,9 @@ class InheritSaleOrderSAP(models.Model):
             first = rows[0]
             nomor_so = first.get('SALES_ORDER_NO')
             customer_ref = first.get('SOLD_TO_CODE')
+            customer_name = first.get('SOLD_TO_NAME')
             delivery_ref = first.get('SHIP_TO_CODE')
+            delivery_name = first.get('SHIP_TO_NAME')
             erdat = first.get('ERDAT')
             company_registry = first.get('WERKS')
             ernam = first.get('ERNAM')
@@ -175,7 +179,7 @@ class InheritSaleOrderSAP(models.Model):
                 _logger.info(f"cron_synchronize_sap_sale_order PARTNER {customer_ref} CREATED NEW")
                 partner = partner_model.create({
                     'ref': customer_ref,
-                    'name': customer_ref,
+                    'name': customer_name,
                     'sap_synchronize': True,
                     'type': 'contact',
                     'company_type': 'person',
@@ -185,9 +189,9 @@ class InheritSaleOrderSAP(models.Model):
             partner_shipping = partner_model.search([('ref', '=', delivery_ref)], limit=1)
             if not partner_shipping:
                 _logger.info(f"cron_synchronize_sap_sale_order PARTNER {delivery_ref} CREATED NEW")
-                partner = partner_model.create({
+                partner_shipping = partner_model.create({
                     'ref': delivery_ref,
-                    'name': delivery_ref,
+                    'name': delivery_name,
                     'sap_synchronize': True,
                     'type': 'contact',
                     'company_type': 'person',
@@ -933,3 +937,164 @@ class InheritSaleOrderSAP(models.Model):
                 if need_update.do_sap != vbeln:
                     need_update.write({'do_sap': vbeln})
                     need_update.message_post(body=f"DO SAP Updated from cron_update_do_sap")
+                    
+    @api.model
+    def cron_synhronize_sap_mat_doc_gr(self):
+        data_list = self._fetch_sap_data(
+            config_key='query_mat_doc_gr_sap',
+            cron_name='cron_synhronize_sap_mat_doc_gr',
+        )
+        
+        if not data_list:
+            return True
+            
+        _logger.info(f"TOTAL DATA cron_synhronize_sap_mat_doc_gr: {len(data_list)}")
+        picking_model = self.env['stock.picking'].sudo()
+        for data in data_list:
+            raw_picking_id = data.get('PICKING_ID')
+            if not raw_picking_id:
+                continue
+                
+            try:
+                picking_id = int(raw_picking_id)
+            except ValueError:
+                _logger.warning(f"Format PICKING_ID tidak valid (bukan angka): {raw_picking_id}")
+                continue
+
+            mblnr = data.get('MBLNR')
+            mjahr = data.get('MJAHR')
+            
+            vals = {
+                'aft_mat_doc': mblnr,
+                'aft_mat_doc_year': mjahr,
+            }
+            
+            existing_picking = picking_model.browse(picking_id)
+            
+            if existing_picking.exists():
+                if self._needs_update(existing_picking, vals):
+                    existing_picking.write(vals)
+            else:
+                _logger.warning(f"Picking ID {picking_id} Skipped")
+                
+        return True
+    
+    @api.model
+    def cron_synhronize_sap_mat_doc_gi(self):
+        data_list = self._fetch_sap_data(
+            config_key='query_mat_doc_gi_sap',
+            cron_name='cron_synhronize_sap_mat_doc_gi',
+        )
+        
+        if not data_list:
+            return True
+            
+        _logger.info(f"TOTAL DATA cron_synhronize_sap_mat_doc_gi: {len(data_list)}")
+        
+        sale_order_model = self.env['sale.order'].sudo()
+        
+        for data in data_list:
+            ebeln = data.get('EBELN') # po_sap
+            vbeln = data.get('VBELN') # do_sap
+            mblnr = data.get('MBLNR')
+            mjahr = data.get('MJAHR')
+            
+            vals = {
+                'aft_mat_doc': mblnr,
+                'aft_mat_doc_year': mjahr,
+            }
+            
+            domain = [('po_sap', '=', ebeln)] if ebeln else []
+            so_record = sale_order_model.search(domain, limit=1) if domain else False
+            
+            if not so_record and vbeln:
+                so_record = sale_order_model.search([('do_sap', '=', vbeln)], limit=1)
+            _logger.info(f"SO RECORD {so_record}")
+            if so_record:
+                if self._needs_update(so_record, vals):
+                    so_record.write(vals)
+                
+                valid_pickings = so_record.picking_ids.filtered(lambda p: p.picking_type_id.code == 'outgoing')
+                _logger.info(f"VALID PICK {valid_pickings}")
+                for picking in valid_pickings:
+                    if self._needs_update(picking, vals):
+                        picking.write(vals)
+            # else:
+            #     _logger.warning(f"Sale Order tidak ditemukan untuk PO SAP: {ebeln} atau DO SAP: {vbeln}")
+                
+        return True
+
+    @api.model
+    def cron_synhronize_sap_mat_doc_aft(self):
+        data_list = self._fetch_sap_data(
+            config_key='query_mat_doc_aft_sap',
+            cron_name='cron_synhronize_sap_mat_doc_aft',
+        )
+        if not data_list:
+            return True
+            
+        _logger.info(f"TOTAL DATA cron_synhronize_sap_mat_doc_aft: {len(data_list)}")
+        
+        aft_model = self.env['quality.packages'].sudo()
+        aft_summary_model = self.env['quality.packages.summary.line'].sudo()
+        
+        from collections import defaultdict
+        grouped_data = defaultdict(list)
+        
+        for row in data_list:
+            raw_picking_id = row.get('PICKING_ID')
+            try:
+                picking_id = int(raw_picking_id)
+            except (ValueError, TypeError):
+                _logger.warning(f"Format PICKING_ID tidak valid: {raw_picking_id}")
+                continue
+            if picking_id:
+                grouped_data[picking_id].append(row)
+        
+        for picking_id, rows in grouped_data.items():
+            existing_aft = aft_model.browse(picking_id)
+            if not existing_aft.exists():
+                _logger.info(f"cron_synhronize_sap_mat_doc_aft AFT ID {picking_id} skipped")
+                continue
+            
+            for row in rows:
+                raw_line_id = row.get('LINE_ID')
+                mblnr = row.get('MBLNR')
+                mjahr = row.get('MJAHR')
+                
+                try:
+                    line_id = int(raw_line_id)
+                except (ValueError, TypeError):
+                    _logger.warning(f"Format LINE_ID tidak valid: {raw_line_id}")
+                    continue
+                
+                existing_line = aft_summary_model.search([
+                    ('quality_packages_id', '=', existing_aft.id),
+                    ('id', '=', line_id)
+                ], limit=1)
+                
+                vals = {
+                    'aft_mat_doc': mblnr,
+                    'aft_mat_doc_year': mjahr,
+                }
+                
+                if existing_line:
+                    # Cara benar mengecek apakah model memiliki field tersebut
+                    if 'aft_mat_doc' in existing_line._fields and 'aft_mat_doc_year' in existing_line._fields:
+                        if self._needs_update(existing_line, vals):
+                            existing_line.write(vals)
+
+    @api.model
+    def cron_run_mat_doc(self):
+        crons = [
+            self.cron_synhronize_sap_mat_doc_gr,
+            self.cron_synhronize_sap_mat_doc_gi,
+            self.cron_synhronize_sap_mat_doc_aft,
+        ]
+        for cron in crons:
+            try:
+                cron()
+            except Exception as e:
+                _logger.error(f"cron_run_mat_doc: {cron.__name__} FAILED — {e}")
+        
+        return True

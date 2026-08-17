@@ -1,0 +1,19 @@
+<templates xml:space="preserve">
+    <t t-inherit="stock_barcode.MainComponent" t-inherit-mode="extension">
+        <xpath expr="//div[@t-if='env.model.printButtons']" position="before">
+            <div>
+                <div class="w-100 my-2 d-flex justify-contents-center">
+                    <hr class="flex-grow-1"/>
+                    <span class="fs-5 fw-bold text-center text-muted mt-1 px-2">
+                        <i class="fa fa-refresh me-1"/>Maintenance
+                    </span>
+                    <hr class="flex-grow-1"/>
+                </div>
+                <button class="o_hard_refresh w-100 fs-4 btn btn-secondary mb-2 py-2"
+                        t-on-click="hardRefresh">
+                    Hard Refresh
+                </button>
+            </div>
+        </xpath>
+    </t>
+</templates>

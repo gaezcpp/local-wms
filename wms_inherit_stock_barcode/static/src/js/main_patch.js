@@ -1,13 +1,14 @@
 /** @odoo-module **/
 
 import { patch } from "@web/core/utils/patch";
+import { browser } from "@web/core/browser/browser";
+import { _t } from "@web/core/l10n/translation";
 import MainComponent from "@stock_barcode/components/main";
 
 patch(MainComponent.prototype, {
 
     setup() {
         super.setup(...arguments);
-        console.log("INI MAIN PATCH");
 
         if (!this.env.model.openSlocPackaging) {
             this.env.model.openSlocPackaging = () => {
@@ -69,6 +70,68 @@ patch(MainComponent.prototype, {
                 return this.env.model._createNewPicking();
             };
         }
+    },
+
+    /**
+     * Core (`stock_barcode/components/main.js`) mencari ulang line yang belum
+     * punya `id` lewat `pageLines.find((l) => l.dummy_id === virtualId)`. Kalau
+     * line itu -- karena alasan apa pun -- tidak ikut tersimpan pada `save()` di
+     * atasnya, `find()` mengembalikan `undefined` dan `getEditedLineParams(line)`
+     * langsung melempar "Cannot read properties of undefined (reading 'id')",
+     * sehingga seluruh layar barcode mati.
+     *
+     * Di sini pencarian ditambah fallback ke `virtual_id` (line yang masih murni
+     * client-side belum punya `dummy_id`), lalu ke objek line aslinya. Jaring
+     * pengaman: tidak boleh ada klik edit line yang berujung crash.
+     */
+    async onOpenProductPage(line) {
+        if (line && !line.id && line.virtual_id) {
+            const virtualId = line.virtual_id;
+            await this.env.model.save();
+            const pageLines = this.env.model.pageLines || [];
+            const resolved =
+                pageLines.find((l) => l.dummy_id === virtualId) ||
+                pageLines.find((l) => l.virtual_id === virtualId) ||
+                line;
+            if (!resolved.id) {
+                console.warn(
+                    "[WMS-SCANNER][moveLine] onOpenProductPage: line belum tersimpan",
+                    { virtual_id: virtualId, product: resolved.product_id }
+                );
+            }
+            this._editedLineParams = this.env.model.getEditedLineParams(resolved);
+            this.changeView("productPage");
+            return;
+        }
+        return super.onOpenProductPage(...arguments);
+    },
+
+    async hardRefresh() {
+        this.blockUIMessage = _t("Hard refreshing...");
+        this.blockUI();
+        try {
+            await this._revalidateAssets();
+        } catch (error) {
+            console.warn("Asset revalidation failed, reloading anyway", error);
+        }
+        browser.location.reload();
+    },
+
+    async _revalidateAssets() {
+        const origin = browser.location.origin;
+        const urls = new Set([browser.location.href]);
+        const nodes = document.querySelectorAll("script[src], link[rel='stylesheet'][href]");
+        for (const node of nodes) {
+            const url = node.src || node.href;
+            if (url && url.startsWith(origin)) {
+                urls.add(url);
+            }
+        }
+        await Promise.all(
+            [...urls].map((url) =>
+                browser.fetch(url, { cache: "reload", credentials: "same-origin" })
+            )
+        );
     },
 
     async saveFormView(lineRecord) {

@@ -36,6 +36,7 @@
                 <field name="location_id"/>
                 <field name="stock_type_from"/>
                 <field name="stock_type_to"/>
+                <field name="aft_mat_doc"/>
             </list>
         </field>
     </record>
@@ -63,6 +64,8 @@
                             <field name="uom_bag_id" options="{'no_open': True, 'no_create': True}"/>
                             <field name="stock_type_from"/>
                             <field name="stock_type_to"/>
+                            <field name="aft_mat_doc"/>
+                            <field name="aft_mat_doc_year"/>
                         </group>
                     </group>
                 </sheet>

@@ -78,4 +78,12 @@
         action="wms_base_warehouse.stock_warehouse_category_action"
         sequence="55"
     />
+
+    <menuitem
+        id="mat_to_mat_menu"
+        name="Mat To Mat"
+        parent="stock.menu_stock_transfers"
+        action="wms_base_warehouse.mat_to_mat_action"
+        sequence="30"
+    />
 </odoo>
