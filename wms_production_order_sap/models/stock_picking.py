@@ -78,6 +78,9 @@ class InheritBaseStockPicking(models.Model):
                 raise ValidationError(f"Tidak bisa melakukan Validate karena {picking.picking_type_id.name} membutuhkan PO SAP")
             if picking.po_sap_id and (not picking.po_sap_id.active or picking.po_sap_id.state in ('teco', 'closed')):
                 raise ValidationError("Tidak dapat melakukan Validate. PO SAP tidak aktif atau berstatus TECO!")
+            if picking.po_sap_id and picking.picking_type_id.production_only:
+                qty_to_validate = sum(picking.move_ids.mapped('quantity'))
+                picking.po_sap_id.over_tolerance(additional_qty=qty_to_validate)
         
         res = super().button_validate()
         Shift = self.env['production.shift'].sudo()

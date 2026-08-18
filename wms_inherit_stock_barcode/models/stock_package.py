@@ -68,3 +68,23 @@ class InheritStockPackage(models.Model):
             
             pkg.pallet_status = pallet_status
             pkg.can_be_use = (pallet_status == 'eceran')
+            
+    @api.model
+    def get_last_do_sap(self, package_id):
+        if not package_id:
+            return False
+        line = self.env['stock.move.line'].sudo().search([
+            ('package_id', '=', package_id),
+            ('state', '=', 'done'),
+        ],order='date desc, id desc', limit=1)
+        if not line:
+            return False
+        sale = line.picking_id.sale_id
+        no_do = sale.name
+        if sale.do_sap:
+            no_do = sale.do_sap
+        return {
+            'do_sap': no_do,
+            'picking_name': line.picking_id.name,
+            'date': line.date,
+        }

@@ -338,6 +338,20 @@ class ProductionOrderSAP(models.Model):
 
             _logger.info(f"PROD ORDER {po_number} total line {len(rows)}")
             
+    def over_tolerance(self, additional_qty=0.0):
+        tolerance_po_sap = self.env['ir.config_parameter'].sudo().get_param('production_order_tolerance_sap', '0')
+        tolerance_percentage = float(tolerance_po_sap) / 100.0
+        for rec in self:
+            max_allowed_qty = rec.order_qty + (rec.order_qty * tolerance_percentage)
+            safe_additional_qty = additional_qty if additional_qty > 0 else 0
+            total_future_qty = rec.gr_kg_qty + safe_additional_qty
+            if total_future_qty > max_allowed_qty:
+                raise ValidationError(
+                    f"Tidak bisa diproses karena melebihi toleransi order!\n"
+                    f"- Max Allowed : {max_allowed_qty}\n"
+                    f"- GR Saat Ini : {rec.gr_kg_qty}\n"
+                    f"- Tambahan Qty: {safe_additional_qty}"
+                )
         
     def action_picking_po_sap(self, production_line_id=False):
         operation_type_barcode_fg = self.env['ir.config_parameter'].sudo().get_param('operation_type_barcode_fg')
@@ -358,6 +372,7 @@ class ProductionOrderSAP(models.Model):
                 raise ValidationError("Tidak bisa melakukan GR FG karena State sudah TECO")
             # if rec.finish_date and today > rec.finish_date:
             #     raise ValidationError(f"Tidak bisa melakukan GR WIP karena {today} sudah melebihi Finish Date {rec.finish_date}")
+            rec.over_tolerance(additional_qty=rec.remaining_qty)
             
             bag_qty = ((rec.remaining_qty * rec.uom_id.factor) / 1000)
             picking = self.env['stock.picking'].sudo().create({

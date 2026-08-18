@@ -37,7 +37,8 @@ class MatToMat(models.Model):
         for vals in vals_list:
             if vals.get('name', 'New') == 'New':
                 vals['name'] = self.env['ir.sequence'].next_by_code('mat.to.mat') or 'New'
-                
+            if not vals.get('move_type', ''):
+                vals['move_type'] = self.env['ir.config_parameter'].sudo().get_param('mattomat_move_type_sap')
         return super().create(vals_list)
     
     @api.onchange('warehouse_id', 'product_id', 'lot_id', 'location_id')
@@ -54,7 +55,78 @@ class MatToMat(models.Model):
                 rec.is_selected = False
                 
     def action_check_availibility(self):
-        pass
+        quant_model = self.env['stock.quant'].sudo()
+        source_mtm_model = self.env['mat.to.mat.source'].sudo()
+        dest_mtm_model = self.env['mat.to.mat.destination'].sudo()
+        
+        for rec in self:
+            if rec.state != 'draft':
+                continue
+            
+            rec.mat_source_ids.sudo().unlink()
+            rec.mat_destination_ids.sudo().unlink()
+        
+            source_domain = [
+                ('company_id', '=', rec.company_id.id),
+                ('location_id.usage', '=', 'internal'),
+            ]
+            dest_domain = [
+                ('company_id', '=', rec.company_id.id),
+                ('location_id.usage', '=', 'internal'),
+            ]
+            
+            if rec.warehouse_id:
+                source_domain.append(('warehouse_id', '=', rec.warehouse_id.id))
+                dest_domain.append(('warehouse_id', '=', rec.warehouse_id.id))
+            if rec.product_id:
+                source_domain.append(('product_id', '=', rec.product_id.id))
+            if rec.product_dest_id:
+                dest_domain.append(('product_id', '=', rec.product_dest_id.id))
+            if rec.location_id:
+                source_domain.append(('location_id', 'child_of', rec.location_id.id))
+                dest_domain.append(('location_id', 'child_of', rec.location_id.id))
+            
+            source_quant = quant_model.search(source_domain)
+            dest_quant = quant_model.search(dest_domain)
+            if not source_quant and not dest_quant:
+                raise ValidationError("Data tidak ditemukan!")
+            
+            source_to_create = []
+            dest_to_create = []
+            
+            for quant in source_quant:
+                source_to_create.append({
+                    'mat_to_mat_id': rec.id,
+                    'quant_id': quant.id,
+                    'product_id': quant.product_id.id or False,
+                    'package_id': quant.package_id.id or False,
+                    'location_id': quant.location_id.id,
+                    'lot_id': quant.lot_id.id,
+                    'quantity': quant.quantity,
+                    'uom_id': quant.product_uom_id.id,
+                    'pack_qty': quant.bag_qty,
+                    'pack_uom_id': quant.uom_bag_id.id or False,
+                })
+            for quant in dest_quant:
+                dest_to_create.append({
+                    'mat_to_mat_id': rec.id,
+                    'quant_id': quant.id,
+                    'product_id': quant.product_id.id or False,
+                    'package_id': quant.package_id.id or False,
+                    'location_id': quant.location_id.id,
+                    'lot_id': quant.lot_id.id,
+                    'quantity': quant.quantity,
+                    'uom_id': quant.product_uom_id.id,
+                    'pack_qty': quant.bag_qty,
+                    'pack_uom_id': quant.uom_bag_id.id or False,
+                })
+            
+            if source_to_create:
+                source_mtm_model.create(source_to_create)
+            if dest_to_create:
+                dest_mtm_model.create(dest_to_create)
+        
+            rec.is_checked = True
                 
     def action_mat_ready(self):
         pass

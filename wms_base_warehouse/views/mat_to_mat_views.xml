@@ -57,16 +57,16 @@
                     <group>
                         <group name="mattomat_left">
                             <field name="warehouse_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" domain="[('company_id', '=', company_id)]" required="1"/>
-                            <field name="product_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" domain="[('company_id', '=', company_id)]"/>
+                            <field name="product_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" domain="[('company_id', '=', company_id),('id', '!=', product_dest_id)]" required="1"/>
                             <field name="date_done" readonly="state != 'draft'"/>
-                            <field name="product_dest_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" domain="[('company_id', '=', company_id)]"/>
                             <field name="location_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" domain="[('company_id', '=', company_id)]"/>
-                            <field name="notes" placeholder="e.g Packages sedang rusak" readonly="state != 'draft'"/>
                             <field name="select_all" readonly="state != 'draft'" invisible="not is_checked"/>
                         </group>
                         <group name="mattomat_right">
+                            <field name="is_checked" readonly="1" invisible="1"/>
                             <field name="company_id" force_save="1" readonly="1" options="{'no_open': True, 'no_create': True}" required="1"/>
-                            <field name="product_dest_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" domain="[('company_id', '=', company_id)]"/>
+                            <field name="product_dest_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" domain="[('company_id', '=', company_id),('id', '!=', product_id)]" required="1"/>
+                            <field name="notes" placeholder="e.g Packages sedang rusak" readonly="state != 'draft'"/>
                         </group>
                     </group>
                     <notebook>

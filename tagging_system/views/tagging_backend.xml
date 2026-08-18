@@ -158,7 +158,7 @@
                   
                   <field name="description" readonly="1"/>
               </group>
-              <group string="Close Evidence" invisible="status not in ('validated','closed')">
+              <group string="Close Evidence" invisible="status not in ('validated', 'open_wo', 'closed')">
                   <field name="close_start_date" string="Work Start Date" readonly="status == 'closed'" />
                   <field name="close_end_date" string="Work End Date" readonly="status == 'closed'" />
                   <field name="close_description" placeholder="e.g Mesin sudah disesuaikan" readonly="status == 'closed'" />

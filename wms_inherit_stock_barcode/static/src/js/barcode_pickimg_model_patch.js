@@ -772,13 +772,28 @@ patch(BarcodePickingModel.prototype, {
                 (line) => getRelId(line.package_id) === recPackage.id
             );
             if (!isExpectedSource) {
+                let lastDoLabel = _t("tidak ditemukan");
+                try {
+                    const lastDo = await this.orm.call(
+                        "stock.package",
+                        "get_last_do_sap",
+                        [recPackage.id]
+                    );
+                    if (lastDo && lastDo.do_sap) {
+                        lastDoLabel = `${lastDo.do_sap} (${lastDo.picking_name})`;
+                    }
+                } catch (error) {
+                    console.error("[DEBUG] Gagal mengambil DO terakhir pallet:", error);
+                }
                 const userConfirmation = new Deferred();
                 this.dialogService.add(ConfirmationDialog, {
                     title: _t("Peringatan: Pallet Tidak Terdaftar!"),
                     body: _t(
-                        "Pallet %s tidak terdaftar pada DO yang sedang diproses!",
-                        recPackage.name
+                        "Pallet %s tidak terdaftar di dokumen ini, transaksi pallet terakhir berada di DO %s",
+                        recPackage.name,
+                        lastDoLabel
                     ),
+                    confirm: () => userConfirmation.resolve(true),
                     cancel: () => userConfirmation.resolve(false),
                     close: () => userConfirmation.resolve(false),
                 });
