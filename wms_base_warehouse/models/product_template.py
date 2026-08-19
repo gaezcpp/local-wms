@@ -16,6 +16,47 @@ class InheritProductTemplate(models.Model):
     product_wip_line_ids = fields.One2many(comodel_name='product.wip', inverse_name='parent_product_id')
     
     @api.model
+    def _needs_update(self, model, vals):
+        for field, new_val in vals.items():
+            if field not in model._fields:
+                continue
+
+            field_def = model._fields[field]
+            old_val = model[field]
+
+            if field_def.type == 'many2one':
+                old_id = old_val.id if old_val else False
+                if old_id != (new_val or False):
+                    return True
+
+            elif field_def.type in ('many2many', 'one2many'):
+                if isinstance(new_val, list):
+                    new_ids = set()
+                    for cmd in new_val:
+                        # Jika ada command create(0), update(1), delete(2), unlink(3), clear(5) 
+                        # berarti dipastikan butuh diupdate
+                        if cmd[0] in (0, 1, 2, 3, 5):
+                            return True
+                        elif cmd[0] == 6:
+                            new_ids = set(cmd[2])
+                        elif cmd[0] == 4:
+                            new_ids.add(cmd[1])
+                    old_ids = set(old_val.ids)
+                    if old_ids != new_ids:
+                        return True
+                else:
+                    # PERBAIKAN DI SINI: Tangani nilai False/None
+                    new_val_iterable = new_val if new_val else []
+                    if set(old_val.ids) != set(new_val_iterable):
+                        return True
+
+            else:
+                if (old_val or False) != (new_val or False):
+                    return True
+
+        return False
+    
+    @api.model
     def _fetch_sap_data(self, config_key, cron_name):
         icp = self.env['ir.config_parameter'].sudo()
         x_i_api_key = icp.get_param('x_i_api_key')
@@ -191,7 +232,8 @@ class InheritProductTemplate(models.Model):
                     existing_uom = uom_model.create(vals_uom)
                     uom_name_map[uom_name] = existing_uom
                 else:
-                    existing_uom.write(vals_uom)
+                    if self._needs_update(existing_uom, vals_uom):
+                        existing_uom.write(vals_uom)
 
                 if vrkme.upper() != 'KG' and existing_uom.id not in uom_ids:
                     uom_ids.append(existing_uom.id)
@@ -233,7 +275,8 @@ class InheritProductTemplate(models.Model):
                 category = category_model.create(categ_vals)
                 category_map[categ_name] = category
             else:
-                category.write(categ_vals)
+                if self._needs_update(category, categ_vals):
+                    category.write(categ_vals)
 
             vals = {
                 'name': product_name,
@@ -283,7 +326,8 @@ class InheritProductTemplate(models.Model):
                 if wip_lines_to_write:
                     vals['product_wip_line_ids'] = wip_lines_to_write
                 
-                write_map[tmpl.id] = vals
+                if self._needs_update(tmpl, vals):
+                    write_map[tmpl.id] = vals
 
             else:
                 create_key = (matnr, company.id)

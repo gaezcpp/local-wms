@@ -404,10 +404,10 @@ class InheritBaseStockPicking(models.Model):
         grouped_data = defaultdict(list)
 
         for row in data_list:
-            vblen = row.get('VBLEN')
-            if vblen:
-                grouped_data[vblen].append(row)
-        for vblen, rows in grouped_data.items():
+            vbeln = row.get('VBELN')
+            if vbeln:
+                grouped_data[vbeln].append(row)
+        for vbeln, rows in grouped_data.items():
             first = rows[0]
             werks = (first.get('WERKS') or '').strip()
             arrdate = (first.get('ARRDATE') or '').strip()
@@ -424,8 +424,15 @@ class InheritBaseStockPicking(models.Model):
 
             partner = partner_model.search([('ref', '=', kunnr)], limit=1)
             if not partner:
-                _logger.info(f"cron_synhronize_sap_sales_return PARTNER {kunnr} SKIPPED")
-                continue
+                _logger.info(f"cron_synchronize_sap_sale_order PARTNER {kunnr} CREATED NEW")
+                partner = partner_model.create({
+                    'ref': kunnr,
+                    'name': kunnr,
+                    'sap_synchronize': True,
+                    'type': 'contact',
+                    'company_type': 'person',
+                    'comment': "Created from cron_synchronize_sap_sale_order",
+                })
             
             warehouse = wh_model.search([
                 ('lot_stock_id.sloc_id.code', '=', lgort),
@@ -448,22 +455,23 @@ class InheritBaseStockPicking(models.Model):
             if arrdate and len(arrdate) == 8:
                 schedule_date = datetime.strptime(arrdate, "%Y%m%d")
 
-            sales_return = picking_model.search([('origin', '=', vblen),('company_id', '=', company.id),('state', '!=', 'cancel')], limit=1)
+            sales_return = picking_model.search([('origin', '=', vbeln),('company_id', '=', company.id),('state', '!=', 'cancel')], limit=1)
             vals = {
                 'partner_id': partner.id,
                 'picking_type_id': operation_type.id,
                 'location_dest_id': operation_type.default_location_dest_id.id,
                 'synchronize_sap': True,
-                'origin': vblen,
+                'origin': vbeln,
                 'scheduled_date': schedule_date,
                 'company_id': company.id,
                 'note': note,
             }
             if not sales_return:
                 sales_return = sales_return.create(vals)
-                sales_return.message_post(body=f"SALES RETURN {vblen} Created from Cron")
-                _logger.info(f"SALES RETURN {vblen}")
+                sales_return.message_post(body=f"SALES RETURN {vbeln} Created from Cron")
+                _logger.info(f"SALES RETURN {vbeln}")
             else:
+                _logger.info(f"cron_synhronize_sap_sales_return {vbeln} UPDATE")
                 if self._needs_update(sales_return, vals):
                     sales_return.write(vals)
 
@@ -514,4 +522,4 @@ class InheritBaseStockPicking(models.Model):
                 else:
                     move_model.create(vals_line)
 
-            _logger.info(f"SALES RETUR {vblen} total line {len(rows)}")
+            _logger.info(f"SALES RETUR {vbeln} total line {len(rows)}")

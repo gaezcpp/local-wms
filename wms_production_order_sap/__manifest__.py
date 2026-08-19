@@ -45,6 +45,7 @@ Long description of module's purpose
             "wms_production_order_sap/static/src/xml/qr_production_order_sap_template.xml",
             "wms_production_order_sap/static/src/js/qr_gr_fg_scanner.js",
             "wms_production_order_sap/static/src/xml/qr_gr_fg_scanner_template.xml",
+            "wms_production_order_sap/static/src/js/barcode_picking_model_wip_patch.js",
         ],
     },
 }

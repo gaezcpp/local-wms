@@ -19,3 +19,11 @@ class StockMoveLineProduction(models.Model):
                 line.valid_wip_product_ids = [(6, 0, wip_product_ids)]
             else:
                 line.valid_wip_product_ids = False
+
+    def _get_fields_stock_barcode(self):
+        # Dipakai Barcode app untuk memvalidasi product hasil scan pada
+        # picking type production_only (domain yang sama dengan Add Product).
+        res = super()._get_fields_stock_barcode()
+        if 'valid_wip_product_ids' not in res:
+            res.append('valid_wip_product_ids')
+        return res
