@@ -1,6 +1,8 @@
 /** @odoo-module **/
 
+import { _t } from "@web/core/l10n/translation";
 import { patch } from "@web/core/utils/patch";
+import { ConfirmationDialog } from "@web/core/confirmation_dialog/confirmation_dialog";
 import BarcodePickingModel from "@stock_barcode/models/barcode_picking_model";
 
 patch(BarcodePickingModel.prototype, {
@@ -35,7 +37,26 @@ patch(BarcodePickingModel.prototype, {
     },
 
     async _openQuantityBackorder() {
-        console.log("INI openQuantityBackorder");
+        // Konfirmasi dulu sebelum menjalankan aksi (atribut `confirm` pada template OWL
+        // tidak berfungsi — itu hanya untuk button form view backend).
+        const confirmed = await new Promise((resolve) => {
+            this.dialogService.add(
+                ConfirmationDialog,
+                {
+                    title: _t("Check Quantity"),
+                    body: _t("Yakin ingin melakukan Check Quantity?"),
+                    confirmLabel: _t("Ya"),
+                    cancelLabel: _t("Batal"),
+                    confirm: () => resolve(true),
+                    cancel: () => resolve(false),
+                },
+                { onClose: () => resolve(false) }
+            );
+        });
+        if (!confirmed) {
+            return;
+        }
+
         const context = { barcode_view: true };
 
         const result = await this.orm.call(

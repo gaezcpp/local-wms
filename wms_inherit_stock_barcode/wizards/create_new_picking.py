@@ -17,7 +17,6 @@ class CreateNewPicking(models.TransientModel):
             raise ValidationError("Referensi Picking asal tidak ditemukan untuk membuat Picking baru.")
             
         orig_picking = self.picking_id
-        # sales_pick_type = orig_picking.picking_type_id
         sales_pick_type = orig_picking.sale_id.warehouse_id.pick_type_id
         
         new_picking = self.env['stock.picking'].with_context(sequence_sale_order_id=orig_picking.sale_id.id).create({

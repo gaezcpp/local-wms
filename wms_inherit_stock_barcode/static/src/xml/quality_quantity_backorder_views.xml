@@ -9,7 +9,7 @@
             <!--QUANTITY PINDAH KE VALIDATE-->
             <button t-if="env.model.isCheckerOnly() or env.model.isCheckerOut()"
                     t-on-click="env.model.openQuantityBackorder"
-                    class="btn btn-danger" confirm="Yakin ingin melakukan Check Quantity?">
+                    class="btn btn-danger">
                 Check Quantity
             </button>
             <button t-if="env.model.isCreateNewPicking()"

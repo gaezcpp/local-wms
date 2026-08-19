@@ -503,7 +503,7 @@ class PlanMaintenanceWorkOrder(models.Model):
             
             equipment = equip_model.search([('equipment_no', '=', sub_equip),('company_id', '=', company.id)], limit=1)
             if not equipment:
-                _logger.info(f"Sub Equipment {sub_equip} cron_synhronize_sap_work_order skipped")
+                _logger.info(f"{nomor_wo} Sub Equipment {sub_equip} cron_synhronize_sap_work_order skipped")
                 continue
             else:
                 if not equipment.parent_equipment_id:
@@ -802,6 +802,193 @@ class PlanMaintenanceWorkOrder(models.Model):
                     
                     jasa_vals = {
                         'pm_work_order_id': wo_preventif.id,
+                        'material_desc': txz01,
+                        'sku_desc': sku_desc,
+                        'gr_doc': banfn,
+                        'is_gr': True,
+                    }
+                    
+                    if not existing_jasa:
+                        wo_jasa_line_model.create(jasa_vals)
+                    else:
+                        if self._needs_update(existing_jasa, jasa_vals):
+                            existing_jasa.write(jasa_vals)
+            
+    @api.model
+    def cron_synhronize_sap_refurbish_work_order(self):
+        data_list = self._fetch_sap_data(
+            config_key='query_work_order_refurbish_sap',
+            cron_name='cron_synhronize_sap_refurbish_work_order',
+        )
+        if not data_list:
+            return True
+        
+        _logger.info(f"TOTAL DATA cron_synhronize_sap_refurbish_work_order: {len(data_list)}")
+        
+        pm_wo_model = self.env['pm.work.order'].sudo()
+        equip_model = self.env['maintenance.equipment'].sudo()
+        company_model = self.env['res.company'].sudo()
+        spare_part_model = self.env['tagging.spare_part'].sudo()
+        wo_material_line_model = self.env['pm.work.order.material.line'].sudo()
+        wo_jasa_line_model = self.env['pm.work.order.jasa.line'].sudo()
+        grouped_data = defaultdict(list)
+        
+        for row in data_list:
+            nomor_wo = row.get('AUFNR')
+            if nomor_wo:
+                grouped_data[nomor_wo].append(row)
+            
+        for nomor_wo, rows in grouped_data.items():
+            is_header_valid = False
+            for row in rows:
+                has_rsnum = bool((row.get('RSNUM') or '').strip())
+                has_banfn = bool((row.get('BANFN') or '').strip())
+                is_kzear_x = (row.get('KZEAR') or '').strip() == 'X'
+                is_kzabn_x = (row.get('KZABN') or '').strip() == 'X'
+                
+                row_is_valid = False
+                if has_rsnum and has_banfn:
+                    row_is_valid = is_kzear_x and is_kzabn_x
+                elif has_rsnum and not has_banfn:
+                    row_is_valid = is_kzear_x
+                elif has_banfn and not has_rsnum:
+                    row_is_valid = is_kzabn_x
+                    
+                if row_is_valid:
+                    is_header_valid = True
+                    break
+            
+            if not is_header_valid:
+                _logger.warning(f"AUFNR {nomor_wo} - TIDAK DIPROSES: Tidak ada satupun baris yang memenuhi syarat final (X).")
+                continue
+
+            first = rows[0]
+            type_mo = first.get('AUART')
+            priority = first.get('PRIOKX')
+            sub_equip = (first.get('EQUNR') or "").lstrip('0')
+            company_registry = first.get('WERKS')
+            ktext = first.get('KTEXT')
+            strmn = first.get('STRMN', '')
+            strur = first.get('STRUR', '')
+            ltrmn = first.get('LTRMN', '')
+            ltrur = first.get('LTRUR', '')
+            
+            company = company_model.search([('company_registry', '=', company_registry),('sync_pm', '=', True)], limit=1)
+            if not company:
+                _logger.info(f"Company Plant {company_registry} cron_synhronize_sap_refurbish_work_order skipped")
+                continue
+            
+            equipment = equip_model.search([('equipment_no', '=', sub_equip),('company_id', '=', company.id)], limit=1)
+            if not equipment:
+                _logger.info(f"{nomor_wo} Sub Equipment {sub_equip} cron_synhronize_sap_refurbish_work_order skipped")
+                continue
+            else:
+                if not equipment.parent_equipment_id:
+                    equipment_id = equipment.id
+                    sub_equipment_id = equip_model.search([('parent_equipment_id', '=', equipment_id)], limit=1).id
+                else:
+                    equipment_id = equipment.parent_equipment_id.id
+                    sub_equipment_id = equipment.id
+            
+            starttime = self._parse_string_datetime(strmn, strur)
+            endtime = self._parse_string_datetime(ltrmn, ltrur)
+            if not endtime:
+                endtime = starttime
+            
+            work_order = pm_wo_model.search([('wo_sap', '=', nomor_wo),('company_id', '=', company.id)], limit=1)
+            vals = {
+                'wo_sap': nomor_wo,
+                'type_mo': type_mo,
+                'priority': priority,
+                'sap_synchronize': True,
+                'system_id': equipment.system_id.id,
+                'sub_system_id': equipment.sub_system_id.id,
+                'equipment_id': equipment_id,
+                'sub_equipment_id': sub_equipment_id,
+                'company_id': company.id,
+                'description': ktext,
+                'start_time': starttime,
+                'end_time': endtime,
+            }
+            if not work_order:
+                work_order = pm_wo_model.create(vals)
+                work_order.message_post(body=f"WORK ORDER REFURBISH {nomor_wo} Created from Cron")
+                _logger.info(f"WORK ORDER REFURBISH Created {nomor_wo}")
+            else:
+                if self._needs_update(work_order, vals):
+                    work_order.write(vals)
+            
+            for row in rows:
+                has_rsnum = bool((row.get('RSNUM') or '').strip())
+                has_banfn = bool((row.get('BANFN') or '').strip())
+                is_kzear_x = (row.get('KZEAR') or '').strip() == 'X'
+                is_kzabn_x = (row.get('KZABN') or '').strip() == 'X'
+                
+                row_is_valid = False
+                if has_rsnum and has_banfn:
+                    row_is_valid = is_kzear_x and is_kzabn_x
+                elif has_rsnum and not has_banfn:
+                    row_is_valid = is_kzear_x
+                elif has_banfn and not has_rsnum:
+                    row_is_valid = is_kzabn_x
+                    
+                if not row_is_valid:
+                    continue
+                
+                # material
+                matnr = row.get('MATNR')
+                maktx = row.get('MAKTX')
+                qty = float(row.get('ENMNG') or 0.0)
+                rsnum = row.get('RSNUM')
+                kzear = (row.get('KZEAR') or '').strip()
+                # jasa
+                txz01 = row.get('TXZ01')
+                sku_desc = row.get('SKU')
+                banfn = row.get('BANFN')
+                kzabn = (row.get('KZABN') or '').strip()
+                
+                sparepart = spare_part_model.search([
+                    ('active', '=', True),
+                    ('sku', '=', matnr),
+                    ('company_id', '=', company.id)
+                ], limit=1)
+                
+                if not sparepart and matnr:
+                    sparepart = spare_part_model.create({
+                        'name': maktx,
+                        'sku': matnr,
+                        'company_id': company.id
+                    })
+                
+                if has_rsnum and is_kzear_x:
+                    existing_material = wo_material_line_model.search([
+                        ('pm_work_order_id', '=', work_order.id),
+                        ('product_sparepart_id', '=', sparepart.id),
+                    ], limit=1)
+                    
+                    mat_vals = {
+                        'pm_work_order_id': work_order.id,
+                        'product_sparepart_id': sparepart.id,
+                        'product_material': maktx,
+                        'quantity': qty,
+                        'gi_doc': rsnum,
+                        'is_gi': True,
+                    }
+                    
+                    if not existing_material:
+                        wo_material_line_model.create(mat_vals)
+                    else:
+                        if self._needs_update(existing_material, mat_vals):
+                            existing_material.write(mat_vals)
+                
+                if has_banfn and is_kzabn_x:
+                    existing_jasa = wo_jasa_line_model.search([
+                        ('pm_work_order_id', '=', work_order.id),
+                        ('gr_doc', '=', banfn),
+                    ], limit=1)
+                    
+                    jasa_vals = {
+                        'pm_work_order_id': work_order.id,
                         'material_desc': txz01,
                         'sku_desc': sku_desc,
                         'gr_doc': banfn,
