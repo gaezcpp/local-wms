@@ -15,7 +15,7 @@
   wms.conf
 
   - Port: 8019
-  - Database: DB_WMS_DEV_005
+  - Database: DB_WMS_DEV_007
   - Includes: addons_custom
 
 - Default Configuration:
@@ -463,7 +463,7 @@ python odoo-bin -c wms.conf -u <module_name>
 ## Run Tests
 
 ```bash
-python odoo-bin -c wms.conf --test-enable -d DB_WMS_DEV_005 --stop-after-init -u <module_name>
+python odoo-bin -c wms.conf --test-enable -d DB_WMS_DEV_007 --stop-after-init -u <module_name>
 ```
 
 ## Ruff

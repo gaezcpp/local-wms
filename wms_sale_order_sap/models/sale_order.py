@@ -96,6 +96,13 @@ class InheritSaleOrderSAP(models.Model):
     def _needs_update(self, model, vals):
         return bool(self._changed_vals(model, vals))
 
+    def _is_sap_sync_locked(self):
+        self.ensure_one()
+        return any(
+            picking.state == 'done' and picking.picking_type_id.code == 'internal' and picking.picking_type_id.move_type_sap
+            for picking in self.picking_ids
+        )
+
     def _assign_order_selection(self):
         """Group each order's lines by product. When the same product appears
         on more than one line (different order_seq/qty), the line with the
@@ -264,18 +271,20 @@ class InheritSaleOrderSAP(models.Model):
                 'nomor_polisi_desc': trucknr,
             }
             is_new_so = False
+            sap_locked = False
             if not so:
                 so = sale_order_model.create(vals)
                 so.message_post(body=f"SO SAP {nomor_do} Created from Cron")
                 _logger.info(f"SO Created {nomor_do}")
                 is_new_so = True
             else:
-                changed_vals = self._changed_vals(so, vals)
-                if changed_vals:
-                    # update_delivery_shipping_partner: propagate a real shipping
-                    # address change straight to the pickings instead of letting
-                    # sale_stock schedule a warning activity on each of them.
-                    so.with_context(update_delivery_shipping_partner=True).write(changed_vals)
+                sap_locked = so._is_sap_sync_locked()
+                if sap_locked:
+                    _logger.info(f"SO {nomor_do} SKIPPED UPDATE: internal picking with SAP move type already exists")
+                else:
+                    changed_vals = self._changed_vals(so, vals)
+                    if changed_vals:
+                        so.with_context(update_delivery_shipping_partner=True).write(changed_vals)
 
             for row in rows:
                 product_code = (row.get('MATNR')).lstrip('0')
@@ -313,6 +322,8 @@ class InheritSaleOrderSAP(models.Model):
                 }
 
                 if existing_line:
+                    if sap_locked:
+                        continue
                     changed_line_vals = self._changed_vals(existing_line, {
                         'product_uom_qty': qty,
                         'product_uom_id': product_uom.id,
@@ -322,7 +333,8 @@ class InheritSaleOrderSAP(models.Model):
                 else:
                     sale_order_line_model.create(vals_line)
 
-            so._assign_order_selection()
+            if not sap_locked:
+                so._assign_order_selection()
 
             _logger.info(f"SO cron_synchronize_sap_sale_order {nomor_do} total line {len(rows)}")
 
@@ -420,15 +432,20 @@ class InheritSaleOrderSAP(models.Model):
                 'po_sap': po_sap,
             }
             is_new_so = False
+            sap_locked = False
             if not so:
                 so = so_model.create(vals)
                 so.message_post(body=f"SO SAP {nomor_do} Created from Cron")
                 _logger.info(f"SO Created {nomor_do}")
                 is_new_so = True
             else:
-                changed_vals = self._changed_vals(so, vals)
-                if changed_vals:
-                    so.write(changed_vals)
+                sap_locked = so._is_sap_sync_locked()
+                if sap_locked:
+                    _logger.info(f"SO STO {nomor_do} SKIPPED UPDATE: internal picking with SAP move type already exists")
+                else:
+                    changed_vals = self._changed_vals(so, vals)
+                    if changed_vals:
+                        so.write(changed_vals)
 
             for row in rows:
                 product_code = (row.get('MATNR') or '').lstrip('0')
@@ -468,7 +485,7 @@ class InheritSaleOrderSAP(models.Model):
                 
                 if not existing_line:
                     so_line_model.create(vals_line)
-                else:
+                elif not sap_locked:
                     changed_line_vals = self._changed_vals(existing_line, {
                         'product_uom_qty': qty,
                         'product_uom_id': product_uom.id,
@@ -476,7 +493,8 @@ class InheritSaleOrderSAP(models.Model):
                     if changed_line_vals:
                         existing_line.write(changed_line_vals)
 
-            so._assign_order_selection()
+            if not sap_locked:
+                so._assign_order_selection()
 
             if is_new_so:
                 so.with_context(sequence_sale_order_id=so.id).action_confirm()
@@ -713,15 +731,20 @@ class InheritSaleOrderSAP(models.Model):
                 'company_id': company.id,
             }
             is_new_so = False
+            sap_locked = False
             if not so:
                 so = so_model.create(vals)
                 so.message_post(body=f"SO SAP {po_sap} Created from Cron")
                 _logger.info(f"SO Created {po_sap}")
                 is_new_so = True
             else:
-                changed_vals = self._changed_vals(so, vals)
-                if changed_vals:
-                    so.write(changed_vals)
+                sap_locked = so._is_sap_sync_locked()
+                if sap_locked:
+                    _logger.info(f"SO SLOC to SLOC {po_sap} SKIPPED UPDATE: internal picking with SAP move type already exists")
+                else:
+                    changed_vals = self._changed_vals(so, vals)
+                    if changed_vals:
+                        so.write(changed_vals)
             
             for row in rows:
                 product_code = (row.get('MATNR') or "").lstrip('0')
@@ -776,7 +799,7 @@ class InheritSaleOrderSAP(models.Model):
                 
                 if not existing_line:
                     so_line_model.create(vals_line)
-                else:
+                elif not sap_locked:
                     changed_line_vals = self._changed_vals(existing_line, {
                         'product_uom_qty': qty,
                         'product_uom_id': product_uom_id,
@@ -784,7 +807,8 @@ class InheritSaleOrderSAP(models.Model):
                     if changed_line_vals:
                         existing_line.write(changed_line_vals)
 
-            so._assign_order_selection()
+            if not sap_locked:
+                so._assign_order_selection()
 
             if is_new_so:
                 so.with_context(sequence_sale_order_id=so.id).action_confirm()

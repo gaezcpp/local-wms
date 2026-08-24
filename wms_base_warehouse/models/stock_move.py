@@ -16,6 +16,23 @@ class StockMove(models.Model):
     ], string="Order Selection", default='order')
     gratis_locked = fields.Boolean(compute='_compute_gratis_locked', string="Gratis Locked")
 
+    # depends core-nya diulang di sini karena override compute mengganti daftar trigger
+    @api.depends('origin', 'picking_id.name', 'scrap_id.name', 'location_dest_usage',
+                 'is_inventory', 'inventory_name')
+    def _compute_reference(self):
+        """Isi reference dari origin untuk move yang tidak punya picking.
+
+        _compute_reference core memakai picking_id.name, jadi move yang dibuat
+        langsung tanpa picking (mis. konversi mat.to.mat) reference-nya kosong dan
+        tidak bisa diisi lewat create vals karena selalu ditimpa compute ini.
+        Hanya mengisi kalau core memang tidak menghasilkan apa-apa, jadi tidak
+        pernah menimpa nilai yang sudah benar.
+        """
+        super()._compute_reference()
+        for move in self:
+            if not move.reference and move.origin:
+                move.reference = move.origin
+
     def _compute_gratis_locked(self):
         for move in self:
             move.gratis_locked = move._is_gratis_locked()

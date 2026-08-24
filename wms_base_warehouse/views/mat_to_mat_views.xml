@@ -76,11 +76,11 @@
                         </group>
                         <group name="mattomat_right">
                             <field name="is_checked" readonly="1" invisible="1"/>
-                            <field name="warehouse_dest_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" domain="[('company_id', '=', company_id)]"/>
-                            <field name="location_dest_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" domain="[('company_id', '=', company_id),('id', '!=', location_id)]"/>
-                            <field name="product_dest_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" domain="[('company_id', '=', company_id),('id', '!=', product_id)]" required="1"/>
-                            <field name="move_type" readonly="1"/>
                             <field name="date_done" readonly="1"/>
+                            <field name="warehouse_dest_id" required="1" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" domain="[('company_id', '=', company_id)]"/>
+                            <field name="product_dest_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" domain="[('company_id', '=', company_id),('id', '!=', product_id)]" required="1"/>
+                            <field name="location_dest_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" domain="[('company_id', '=', company_id),('id', '!=', location_id)]"/>
+                            <field name="move_type" readonly="1"/>
                             <field name="picking_id" readonly="1" invisible="not picking_id"/>
                         </group>
                     </group>
@@ -95,6 +95,7 @@
                                     <field name="package_id" options="{'no_open': True, 'no_create': True}" readonly="1"/>
                                     <field name="location_id" options="{'no_open': True, 'no_create': True}" readonly="1"/>
                                     <field name="lot_id" options="{'no_open': True, 'no_create': True}" readonly="1"/>
+                                    <field name="stock_type"/>
                                     <field name="quantity" sum="Total" readonly="1"/>
                                     <field name="uom_id" options="{'no_open': True, 'no_create': True}" readonly="1"/>
                                     <field name="pack_qty" sum="Total" readonly="1"/>
@@ -131,6 +132,7 @@
                                     <field name="package_id" options="{'no_open': True, 'no_create': True}"/>
                                     <field name="location_id" options="{'no_open': True, 'no_create': True}"/>
                                     <field name="lot_id" options="{'no_open': True, 'no_create': True}"/>
+                                    <field name="stock_type"/>
                                     <field name="quantity" sum="Total"/>
                                     <field name="uom_id" options="{'no_open': True, 'no_create': True}"/>
                                     <field name="pack_qty" sum="Total Bag"/>
