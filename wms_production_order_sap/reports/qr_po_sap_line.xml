@@ -23,18 +23,15 @@
                 <t t-call="web.basic_layout">
                     <div class="page" style="margin: 0 auto; padding: 2px; width: 100%; height: 100%; box-sizing: border-box;">
                         <center>
-                            <!-- 1. Ubah width menjadi 100% agar responsif terhadap batas kertas 3x4 cm -->
                             <table class="table-borderless" style="width: 100%; margin: 0 auto; padding: 0; border-collapse: collapse; border: none; table-layout: fixed;">
                                 <tr>
                                     <td style="border: none; padding: 0;">
-                                        <!-- 2. Gambar mengisi lebar sel; sel ini yang jadi acuan lebar semua teks di bawahnya -->
                                         <img t-if="doc.po_sap_id.po_number and doc.production_line_id.code"
                                             t-att-src="'data:image/png;base64,%s' % doc._get_qr_image_base64()"
-                                            alt="QR Code" style="width: 100%; max-width: 100%; height: auto; object-fit: contain; margin: 0 auto; display: block;"/>
+                                            alt="QR Code" style="width: 90%; max-width: 90%; height: auto; object-fit: contain; margin: 0 auto; display: block;"/>
                                     </td>
                                 </tr>
                                 <tr>
-                                    <!-- 3. Teks rata tengah, dibatasi lebar sel (= lebar gambar) -->
                                     <td style="font-size: 28px; font-weight: bold; line-height: 1; padding-top: 4px; border: none; word-wrap: break-word; overflow-wrap: break-word; text-align: center;">
                                         <t t-esc="doc.po_sap_id.po_number"/>
                                     </td>

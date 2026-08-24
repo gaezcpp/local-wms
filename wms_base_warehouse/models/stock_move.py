@@ -97,17 +97,23 @@ class StockMove(models.Model):
 
     def _force_full_pallet_dest_moves(self, move):
         need_reassign = self.env['stock.move'].sudo()
+        touched_pickings = self.env['stock.picking'].sudo()
         dest_moves = move.move_dest_ids.filtered(lambda m: m.picking_id.picking_type_id.book_full_pallet)
         while dest_moves:
             for dest_move in dest_moves:
-                for line in dest_move.move_line_ids.filtered('package_id'):
+                lines = dest_move.move_line_ids.filtered('package_id')
+                if not lines:
+                    continue
+                for line in lines:
                     if self._force_full_pallet_line(line):
                         need_reassign |= dest_move
+                touched_pickings |= dest_move.picking_id
             dest_moves = dest_moves.move_dest_ids.filtered(lambda m: m.picking_id.picking_type_id.book_full_pallet)
-        return need_reassign
+        return need_reassign, touched_pickings
 
     def _book_full_pallet(self, moves_full_pallet, moves_uu):
         need_reassign = self.env['stock.move'].sudo()
+        touched_pickings = self.env['stock.picking'].sudo()
 
         for move in moves_full_pallet:
             lines = move.move_line_ids.filtered('package_id')
@@ -125,11 +131,14 @@ class StockMove(models.Model):
             if not has_partial or float_compare(move.quantity, total_actual_qty, precision_rounding=rounding) >= 0:
                 continue
 
+            touched_pickings |= move.picking_id
             for line in lines:
                 if self._force_full_pallet_line(line, actual_qty_by_line[line]):
                     need_reassign |= move
 
-            need_reassign |= self._force_full_pallet_dest_moves(move)
+            dest_need_reassign, dest_touched_pickings = self._force_full_pallet_dest_moves(move)
+            need_reassign |= dest_need_reassign
+            touched_pickings |= dest_touched_pickings
 
         if need_reassign:
             need_reassign._do_unreserve()
@@ -140,6 +149,19 @@ class StockMove(models.Model):
                 super(StockMove, need_reassign_others)._action_assign()
             if need_reassign_uu:
                 super(StockMove, need_reassign_uu.with_context(uu_only=True))._action_assign()
+
+        # After bumping lines to a full pallet, quantities may now exactly
+        # match the package contents, but core's _check_entire_pack() already
+        # ran (in super()._action_assign(), before this method) against the
+        # pre-bump partial quantities, so result_package_id was never set.
+        # Re-run it here so entire-pack detection stays core behavior.
+        pickings_to_check = touched_pickings.filtered(
+            lambda p: p.move_line_ids.filtered(
+                lambda ml: ml.package_id and not ml.result_package_id and ml.state not in ('done', 'cancel'),
+            ),
+        )
+        if pickings_to_check:
+            pickings_to_check._check_entire_pack()
 
     def _autofill_result_package(self, moves):
         for line in moves.move_line_ids.filtered(lambda l: l.package_id and not l.result_package_id):

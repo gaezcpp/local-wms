@@ -39,7 +39,28 @@ class InheritSaleOrderSAP(models.Model):
             name = '%s - [%s]' % (so_name, do_sap)
             rec.display_name = name
     
-    def _needs_update(self, model, vals):
+    def _normalize_value(self, field_def, value):
+        """Bring a raw SAP value and an ORM value into the same shape so they
+        can be compared. SAP feeds `datetime` objects for Date fields, which
+        would otherwise never compare equal to the stored `date`."""
+        if not value:
+            return False
+        if field_def.type == 'date':
+            return fields.Date.to_date(value)
+        if field_def.type == 'datetime':
+            return fields.Datetime.to_datetime(value)
+        return value
+
+    def _changed_vals(self, model, vals):
+        """Return only the entries of `vals` that actually differ from the
+        current values of `model`.
+
+        Writing just this subset instead of the whole dict avoids no-op writes,
+        and with them the side effects Odoo attaches to the mere *presence* of
+        a key in `write()` — e.g. `sale_stock` schedules a "delivery address
+        has been changed" activity on every open picking whenever
+        `partner_shipping_id` is passed, even when the value is unchanged."""
+        changed = {}
         for field, new_val in vals.items():
             if field not in model._fields:
                 continue
@@ -49,8 +70,8 @@ class InheritSaleOrderSAP(models.Model):
 
             if field_def.type == 'many2one':
                 old_id = old_val.id if old_val else False
-                if old_id != new_val:
-                    return True
+                if old_id != (new_val or False):
+                    changed[field] = new_val
 
             elif field_def.type in ('many2many', 'one2many'):
                 if isinstance(new_val, list):
@@ -60,18 +81,20 @@ class InheritSaleOrderSAP(models.Model):
                             new_ids = set(cmd[2])
                         elif cmd[0] == 4:
                             new_ids.add(cmd[1])
-                    old_ids = set(old_val.ids)
-                    if old_ids != new_ids:
-                        return True
+                    if set(old_val.ids) != new_ids:
+                        changed[field] = new_val
                 else:
                     if set(old_val.ids) != set(new_val):
-                        return True
+                        changed[field] = new_val
 
             else:
-                if (old_val or False) != (new_val or False):
-                    return True
+                if self._normalize_value(field_def, old_val) != self._normalize_value(field_def, new_val):
+                    changed[field] = new_val
 
-        return False
+        return changed
+
+    def _needs_update(self, model, vals):
+        return bool(self._changed_vals(model, vals))
 
     def _assign_order_selection(self):
         """Group each order's lines by product. When the same product appears
@@ -247,8 +270,12 @@ class InheritSaleOrderSAP(models.Model):
                 _logger.info(f"SO Created {nomor_do}")
                 is_new_so = True
             else:
-                if self._needs_update(so, vals):
-                    so.write(vals)
+                changed_vals = self._changed_vals(so, vals)
+                if changed_vals:
+                    # update_delivery_shipping_partner: propagate a real shipping
+                    # address change straight to the pickings instead of letting
+                    # sale_stock schedule a warning activity on each of them.
+                    so.with_context(update_delivery_shipping_partner=True).write(changed_vals)
 
             for row in rows:
                 product_code = (row.get('MATNR')).lstrip('0')
@@ -286,11 +313,12 @@ class InheritSaleOrderSAP(models.Model):
                 }
 
                 if existing_line:
-                    if self._needs_update(existing_line, vals_line):
-                        existing_line.write({
-                            'product_uom_qty': qty,
-                            'product_uom_id': product_uom.id,
-                        })
+                    changed_line_vals = self._changed_vals(existing_line, {
+                        'product_uom_qty': qty,
+                        'product_uom_id': product_uom.id,
+                    })
+                    if changed_line_vals:
+                        existing_line.write(changed_line_vals)
                 else:
                     sale_order_line_model.create(vals_line)
 
@@ -398,9 +426,10 @@ class InheritSaleOrderSAP(models.Model):
                 _logger.info(f"SO Created {nomor_do}")
                 is_new_so = True
             else:
-                if self._needs_update(so, vals):
-                    so.write(vals)
-            
+                changed_vals = self._changed_vals(so, vals)
+                if changed_vals:
+                    so.write(changed_vals)
+
             for row in rows:
                 product_code = (row.get('MATNR') or '').lstrip('0')
                 product = product_model.search([('default_code', '=', product_code),('company_id', '=', company.id)], limit=1)
@@ -440,11 +469,12 @@ class InheritSaleOrderSAP(models.Model):
                 if not existing_line:
                     so_line_model.create(vals_line)
                 else:
-                    if self._needs_update(existing_line, vals_line):
-                        existing_line.write({
-                            'product_uom_qty': qty,
-                            'product_uom_id': product_uom.id,
-                        })
+                    changed_line_vals = self._changed_vals(existing_line, {
+                        'product_uom_qty': qty,
+                        'product_uom_id': product_uom.id,
+                    })
+                    if changed_line_vals:
+                        existing_line.write(changed_line_vals)
 
             so._assign_order_selection()
 
@@ -546,7 +576,6 @@ class InheritSaleOrderSAP(models.Model):
                             
     @api.model
     def cron_auto_done_sale_order_do(self):
-        raise ValidationError("KAYAKNYA cron_auto_done_sale_order_do GA KEPAKE")
         data_list = self._fetch_sap_data(
             config_key='query_auto_done_sale_order_do_sap',
             cron_name='cron_auto_done_sale_order_do',
@@ -562,7 +591,7 @@ class InheritSaleOrderSAP(models.Model):
             if not mblnr:
                 continue
             
-            nomor_do = data.get('LE_VBELN')
+            nomor_do = data.get('VBELV')
             picking = pick_delivery_model.search([
                 ('sale_id.do_sap', '=', nomor_do),
                 ('picking_type_id.code', '=', 'outgoing'),
@@ -690,8 +719,9 @@ class InheritSaleOrderSAP(models.Model):
                 _logger.info(f"SO Created {po_sap}")
                 is_new_so = True
             else:
-                if self._needs_update(so, vals):
-                    so.write(vals)
+                changed_vals = self._changed_vals(so, vals)
+                if changed_vals:
+                    so.write(changed_vals)
             
             for row in rows:
                 product_code = (row.get('MATNR') or "").lstrip('0')
@@ -747,11 +777,12 @@ class InheritSaleOrderSAP(models.Model):
                 if not existing_line:
                     so_line_model.create(vals_line)
                 else:
-                    if hasattr(self, '_needs_update') and self._needs_update(existing_line, vals_line):
-                        existing_line.write({
-                            'product_uom_qty': qty,
-                            'product_uom_id': product_uom_id,
-                        })
+                    changed_line_vals = self._changed_vals(existing_line, {
+                        'product_uom_qty': qty,
+                        'product_uom_id': product_uom_id,
+                    })
+                    if changed_line_vals:
+                        existing_line.write(changed_line_vals)
 
             so._assign_order_selection()
 
@@ -972,8 +1003,9 @@ class InheritSaleOrderSAP(models.Model):
             existing_picking = picking_model.browse(picking_id)
             
             if existing_picking.exists():
-                if self._needs_update(existing_picking, vals):
-                    existing_picking.write(vals)
+                changed_vals = self._changed_vals(existing_picking, vals)
+                if changed_vals:
+                    existing_picking.write(changed_vals)
             else:
                 _logger.warning(f"Picking ID {picking_id} Skipped")
                 
@@ -1011,14 +1043,16 @@ class InheritSaleOrderSAP(models.Model):
                 so_record = sale_order_model.search([('do_sap', '=', vbeln)], limit=1)
             _logger.info(f"SO RECORD {so_record}")
             if so_record:
-                if self._needs_update(so_record, vals):
-                    so_record.write(vals)
-                
+                changed_vals = self._changed_vals(so_record, vals)
+                if changed_vals:
+                    so_record.write(changed_vals)
+
                 valid_pickings = so_record.picking_ids.filtered(lambda p: p.picking_type_id.code == 'outgoing')
                 _logger.info(f"VALID PICK {valid_pickings}")
                 for picking in valid_pickings:
-                    if self._needs_update(picking, vals):
-                        picking.write(vals)
+                    changed_picking_vals = self._changed_vals(picking, vals)
+                    if changed_picking_vals:
+                        picking.write(changed_picking_vals)
             # else:
             #     _logger.warning(f"Sale Order tidak ditemukan untuk PO SAP: {ebeln} atau DO SAP: {vbeln}")
                 
@@ -1081,8 +1115,9 @@ class InheritSaleOrderSAP(models.Model):
                 if existing_line:
                     # Cara benar mengecek apakah model memiliki field tersebut
                     if 'aft_mat_doc' in existing_line._fields and 'aft_mat_doc_year' in existing_line._fields:
-                        if self._needs_update(existing_line, vals):
-                            existing_line.write(vals)
+                        changed_vals = self._changed_vals(existing_line, vals)
+                        if changed_vals:
+                            existing_line.write(changed_vals)
 
     @api.model
     def cron_run_mat_doc(self):

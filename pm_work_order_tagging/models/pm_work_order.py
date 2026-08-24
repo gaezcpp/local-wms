@@ -878,17 +878,17 @@ class PlanMaintenanceWorkOrder(models.Model):
                 _logger.info(f"Company Plant {company_registry} cron_synhronize_sap_refurbish_work_order skipped")
                 continue
             
-            equipment = equip_model.search([('equipment_no', '=', sub_equip),('company_id', '=', company.id)], limit=1)
-            if not equipment:
-                _logger.info(f"{nomor_wo} Sub Equipment {sub_equip} cron_synhronize_sap_refurbish_work_order skipped")
-                continue
-            else:
-                if not equipment.parent_equipment_id:
-                    equipment_id = equipment.id
-                    sub_equipment_id = equip_model.search([('parent_equipment_id', '=', equipment_id)], limit=1).id
-                else:
-                    equipment_id = equipment.parent_equipment_id.id
-                    sub_equipment_id = equipment.id
+            # equipment = equip_model.search([('equipment_no', '=', sub_equip),('company_id', '=', company.id)], limit=1)
+            # if not equipment:
+            #     _logger.info(f"{nomor_wo} Sub Equipment {sub_equip} cron_synhronize_sap_refurbish_work_order skipped")
+            #     continue
+            # else:
+            #     if not equipment.parent_equipment_id:
+            #         equipment_id = equipment.id
+            #         sub_equipment_id = equip_model.search([('parent_equipment_id', '=', equipment_id)], limit=1).id
+            #     else:
+            #         equipment_id = equipment.parent_equipment_id.id
+            #         sub_equipment_id = equipment.id
             
             starttime = self._parse_string_datetime(strmn, strur)
             endtime = self._parse_string_datetime(ltrmn, ltrur)
@@ -901,10 +901,10 @@ class PlanMaintenanceWorkOrder(models.Model):
                 'type_mo': type_mo,
                 'priority': priority,
                 'sap_synchronize': True,
-                'system_id': equipment.system_id.id,
-                'sub_system_id': equipment.sub_system_id.id,
-                'equipment_id': equipment_id,
-                'sub_equipment_id': sub_equipment_id,
+                # 'system_id': equipment.system_id.id,
+                # 'sub_system_id': equipment.sub_system_id.id,
+                # 'equipment_id': equipment_id,
+                # 'sub_equipment_id': sub_equipment_id,
                 'company_id': company.id,
                 'description': ktext,
                 'start_time': starttime,

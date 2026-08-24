@@ -6,6 +6,7 @@
             <field name="code">mat.to.mat</field>
             <field name="prefix">M2M</field>
             <field name="padding">6</field>
+            <field name="company_id" eval="False"/>
         </record>
     </data>
 </odoo>

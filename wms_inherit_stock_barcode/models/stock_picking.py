@@ -368,6 +368,15 @@ class StockPicking(models.Model):
             if picking.po_sap_id and (not picking.po_sap_id.active or picking.po_sap_id.state in ('teco', 'closed')):
                 raise ValidationError("Tidak dapat melakukan Validate. PO SAP tidak aktif atau berstatus TECO!")
     
+    def _create_backorder(self, backorder_moves=None):
+        backorders = super()._create_backorder(backorder_moves=backorder_moves)
+        # Backorders (mis. CO dengan create_backorder='always') tidak pernah
+        # dijangkau oleh pemanggilan _fill_next_transfer_result_package() di
+        # button_validate karena itu hanya melihat move_dest_ids, bukan
+        # backorder. Panggil ulang di sini agar result_package_id tetap terisi.
+        backorders._fill_next_transfer_result_package()
+        return backorders
+
     def _fill_next_transfer_result_package(self):
         pickings = self.filtered(
             lambda p: p.picking_type_id.book_full_pallet
@@ -375,7 +384,7 @@ class StockPicking(models.Model):
             and not p.picking_type_id.split_package
         )
         for picking in pickings:
-            for ml in picking.move_line_ids:
+            for ml in picking.move_line_ids.filtered(lambda l: l.state not in ('done', 'cancel')):
                 if not ml.result_package_id:
                     ml.write({'result_package_id': ml.package_id})
                     

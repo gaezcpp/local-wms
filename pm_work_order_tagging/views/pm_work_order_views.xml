@@ -47,7 +47,7 @@
             <form string="Work Order" create="0" delete="0">
                 <header>
                     <button name="action_waiting_sap" string="Submit" type="object" class="oe_highlight" invisible="state != 'draft'"/>
-                    <button name="action_close" string="Close" type="object" class="oe_highlight" invisible="state != 'waiting_sap'"/>
+                    <!-- <button name="action_close" string="Close" type="object" class="oe_highlight" invisible="state != 'waiting_sap'"/> -->
                     <field name="state" widget="statusbar" statusbar_visible="draft,waiting_sap,confirm"/>
                 </header>
                 <sheet>
@@ -140,12 +140,12 @@
             <xpath expr="//group[@name='close_evidence']" position="attributes">
                 <attribute name="invisible">1</attribute>
             </xpath>
-            <xpath expr="//button[@name='action_waiting_sap']" position="attributes">
+            <!-- <xpath expr="//button[@name='action_waiting_sap']" position="attributes">
                 <attribute name="invisible">1</attribute>
             </xpath>
             <xpath expr="//button[@name='action_close']" position="attributes">
                 <attribute name="invisible">1</attribute>
-            </xpath>
+            </xpath> -->
         </field>
     </record>
 

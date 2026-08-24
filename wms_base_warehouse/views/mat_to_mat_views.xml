@@ -46,27 +46,42 @@
 					<button name="action_check_availibility" string="Check Availability" type="object" class="btn btn-oe_highlight" invisible="state != 'draft'"/>
 					<button name="action_mat_ready" string="Confirm" type="object" confirm="Pastikan semua Data sudah sesuai" class="oe_highlight" invisible="state != 'draft'"/>
 					<button name="action_mat_done" string="Done" type="object" confirm="Pastikan semua Data sudah sesuai" class="btn oe_highlight" invisible="state != 'ready'"/>
-					<button name="action_mat_cancel" string="Cancel" type="object" confirm="Pastikan semua Data sudah sesuai" class="btn-danger" invisible="state != 'done'"/>
+					<button name="action_mat_cancel" string="Cancel" type="object" confirm="Pastikan semua Data sudah sesuai" class="btn-danger" invisible="state != 'ready'"/>
                     <field name="state" widget="statusbar"/>
                 </header>
                 <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_stock_moves" type="object" class="oe_stat_button" icon="fa-arrows-alt">
+                            <field name="move_count" widget="statinfo" string="Stock Moves"/>
+                        </button>
+                        <button name="action_view_stock_move_lines" type="object" class="oe_stat_button" icon="fa-list">
+                            <field name="move_line_count" widget="statinfo" string="Move Lines"/>
+                        </button>
+                        <button name="action_view_stock_quants" type="object" class="oe_stat_button" icon="fa-cubes">
+                            <field name="quant_count" widget="statinfo" string="Stock Quants"/>
+                        </button>
+                    </div>
                     <label for="name" class="oe_edit_only"/>
                     <h1>
                         <field name="name" force_save="1" readonly="1"/>
                     </h1>
                     <group>
                         <group name="mattomat_left">
+                            <field name="company_id" force_save="1" readonly="1" options="{'no_open': True, 'no_create': True}" required="1"/>
                             <field name="warehouse_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" domain="[('company_id', '=', company_id)]" required="1"/>
                             <field name="product_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" domain="[('company_id', '=', company_id),('id', '!=', product_dest_id)]" required="1"/>
-                            <field name="date_done" readonly="state != 'draft'"/>
                             <field name="location_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" domain="[('company_id', '=', company_id)]"/>
+                            <field name="notes" placeholder="e.g Packages sedang rusak" readonly="state != 'draft'"/>
                             <field name="select_all" readonly="state != 'draft'" invisible="not is_checked"/>
                         </group>
                         <group name="mattomat_right">
                             <field name="is_checked" readonly="1" invisible="1"/>
-                            <field name="company_id" force_save="1" readonly="1" options="{'no_open': True, 'no_create': True}" required="1"/>
+                            <field name="warehouse_dest_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" domain="[('company_id', '=', company_id)]"/>
+                            <field name="location_dest_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" domain="[('company_id', '=', company_id),('id', '!=', location_id)]"/>
                             <field name="product_dest_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" domain="[('company_id', '=', company_id),('id', '!=', product_id)]" required="1"/>
-                            <field name="notes" placeholder="e.g Packages sedang rusak" readonly="state != 'draft'"/>
+                            <field name="move_type" readonly="1"/>
+                            <field name="date_done" readonly="1"/>
+                            <field name="picking_id" readonly="1" invisible="not picking_id"/>
                         </group>
                     </group>
                     <notebook>
@@ -75,7 +90,7 @@
 								<list create="0" delete="0" editable="bottom">
                                     <field name="is_selected" readonly="parent.state != 'draft'" widget="boolean_toggle"/>
                                     <field name="mat_to_mat_id" column_invisible="1" options="{'no_open': True, 'no_create': True}" readonly="1"/>
-                                    <field name="quant_id" options="{'no_open': True, 'no_create': True}" readonly="1"/>
+                                    <field name="quant_id" readonly="1"/>
                                     <field name="product_id" options="{'no_open': True, 'no_create': True}" readonly="1"/>
                                     <field name="package_id" options="{'no_open': True, 'no_create': True}" readonly="1"/>
                                     <field name="location_id" options="{'no_open': True, 'no_create': True}" readonly="1"/>

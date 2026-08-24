@@ -85,10 +85,31 @@ class InheritBaseStockPicking(models.Model):
 
                 if processed_qty > demand_qty:
                     raise ValidationError("Tidak bisa melanjutkan proses dikarenakan quantity melebihi demand!")
+    
+    def cancel_unprocessed_picking(self):
+        for picking in self:
+            if picking.sale_id and picking.picking_type_id.move_type_sap: # ini final
+                # cari picking sesuai sale idnya selain GI
+                unprocessed = self.env['stock.picking'].sudo().search([
+                    ('id', '!=', picking.id),
+                    ('sale_id', '=', picking.sale_id.id),
+                    ('state', '!=', 'done'),
+                    ('picking_type_id.code', '!=', 'outgoing')
+                ])
+                
+                if unprocessed:
+                    log_data = ", ".join([
+                        f"[ID={up.id} NAME={up.name} DO={up.sale_id.do_sap or up.sale_id.po_sap}]" 
+                        for up in unprocessed
+                    ])
+                    _logger.info(f"UNPROCESSED YANG DICANCEL SELAIN GI: {log_data}")
+                    unprocessed.action_cancel()
+                    # unprocessed.message_post(body=f"Cancel otomatis berdasarkan {picking.name}")
 
     def button_validate(self):
         self._check_restrict_over_demand()
         res = super(InheritBaseStockPicking, self).button_validate()
+        self.cancel_unprocessed_picking()
         if isinstance(res, dict):
             return res
 
