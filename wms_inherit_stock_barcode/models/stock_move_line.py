@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 from odoo import models, fields, api
 from odoo.exceptions import ValidationError
 from odoo.tools import float_compare
@@ -34,8 +36,24 @@ class StockMoveLine(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
+        # Nested package tidak dipakai di deployment ini, jadi
+        # outermost_result_package_id selalu dipaksa False. Tapi field itu
+        # computed+inverse: mengisinya memicu
+        # _inverse_outermost_result_package_id() per baris walau tidak ada yang
+        # perlu dilepas. Jadi cukup diisi untuk baris yang benar-benar berkaitan
+        # dengan package bersarang -- satu browse untuk seluruh batch.
+        nested_package_ids = set()
+        candidate_ids = {
+            vals.get('result_package_id') for vals in vals_list
+            if vals.get('result_package_id')
+        }
+        if candidate_ids:
+            packages = self.env['stock.package'].browse(candidate_ids)
+            nested_package_ids = {p.id for p in packages if p.package_dest_id}
+
         for vals in vals_list:
-            vals['outermost_result_package_id'] = False
+            if vals.get('outermost_result_package_id') or vals.get('result_package_id') in nested_package_ids:
+                vals['outermost_result_package_id'] = False
 
             self._validate_bag_qty(vals)
             self._sync_qty_from_bag(vals)
@@ -46,12 +64,42 @@ class StockMoveLine(models.Model):
         records = super().create(filtered_vals_list)
         return records
 
+    def _needs_outermost_package_reset(self, vals):
+        """True kalau ada nesting package yang benar-benar perlu dilepas.
+
+        Dipakai supaya `outermost_result_package_id = False` hanya ditulis saat
+        berpengaruh. `write()` dipanggil puluhan kali per Validate (core menulis
+        picked/state/date per baris); tanpa penjagaan ini setiap panggilan ikut
+        menjalankan inverse-nya, yang menelusuri rantai package dan menulis
+        `package_dest_id` walau tidak ada yang berubah.
+        """
+        if vals.get('outermost_result_package_id'):
+            return True
+        return bool(self.result_package_id.package_dest_id)
+
     def write(self, vals):
-        vals['outermost_result_package_id'] = False
+        if self._needs_outermost_package_reset(vals):
+            vals = dict(vals, outermost_result_package_id=False)
 
         self._validate_bag_qty(vals, records=self)
         self._sync_qty_from_bag(vals, records=self)
         self._validate_qty_packaging_sap(vals)
+        if (
+            'quantity' in vals
+            and len(self) == 1
+            and not self.env.context.get('skip_pallet_lot_spread')
+            # Core menulis ulang `quantity` dengan nilai yang sama beberapa kali
+            # per Validate. Penyebarannya hanya relevan kalau qty benar-benar
+            # berubah, dan pemeriksaan ini menghemat 2 search per penulisan.
+            and float_compare(
+                vals['quantity'] or 0.0, self.quantity,
+                precision_rounding=(self.product_uom_id or self.product_id.uom_id).rounding or 0.01,
+            ) != 0
+        ):
+            # Barcode selalu menulis per baris ((1, id, vals) dari move_line_ids),
+            # jadi cukup menangani recordset tunggal; write massal dibiarkan apa
+            # adanya dan tetap dijaga _check_package_lot_capacity().
+            vals = self._spread_pallet_lot_excess(vals)
         # fix negative stock: is_reserved doesn't recompute on cancel/done since it has no real
         # dependency path to stock.move.line state, so trigger it explicitly here
         packages_to_recompute = (self.package_id | self.result_package_id) if 'state' in vals else self.env['stock.package']
@@ -119,6 +167,123 @@ class StockMoveLine(models.Model):
                 continue
             computed_qty = bag_qty * (uom_bag.factor / 1000)
             vals['qty_done'] = computed_qty
+
+    def _spread_pallet_lot_excess(self, vals):
+        """Pecah kelebihan qty hasil scan pallet ke lot lain di pallet yang sama.
+
+        Aturan bisnisnya: scan satu pallet = ambil seluruh isinya, tapi reservasi
+        tiap lot tidak boleh melebihi qty lot itu di pallet tersebut. Client
+        Barcode core melanggar aturan kedua: `_findLine()` mencocokkan line hasil
+        scan hanya lewat product + package (lot dilewati karena scan pallet tidak
+        membawa lot), sehingga qty lot lain menumpuk di satu baris.
+
+        Di sini kelebihannya dikembalikan ke tempat yang benar: baris yang ditulis
+        dipotong sampai sebesar isi lot-nya, dan sisanya dipindahkan ke baris lot
+        lain di pallet yang sama (dibuat kalau belum ada), juga dibatasi isi lot
+        masing-masing. Hasil akhirnya sama dengan yang dilihat operator: seluruh
+        isi pallet terambil, tiap lot dengan qty-nya sendiri.
+
+        Dikerjakan di server supaya tidak bergantung pada versi asset JS yang
+        ter-cache di scanner.
+        """
+        self.ensure_one()
+        line = self
+        if (
+            line.state in ('done', 'cancel')
+            or not line.package_id
+            or not line.lot_id
+            or not line.product_id.is_storable
+            or not line.location_id
+            or line.location_id.should_bypass_reservation()
+        ):
+            return vals
+
+        uom = line.product_id.uom_id
+        asked = line.product_uom_id._compute_quantity(
+            vals['quantity'], uom, rounding_method='HALF-UP',
+        )
+        quants = self.env['stock.quant'].sudo().search([
+            ('package_id', '=', line.package_id.id),
+            ('location_id', '=', line.location_id.id),
+            ('product_id', '=', line.product_id.id),
+        ])
+        if not quants:
+            # Pallet belum berisi produk ini di lokasi tersebut (mis. baris rantai
+            # MTO yang barangnya belum tiba): kapasitasnya belum bisa dinilai.
+            return vals
+
+        capacity = sum(quants.filtered(lambda q: q.lot_id == line.lot_id).mapped('quantity'))
+        excess = asked - capacity
+        if float_compare(excess, 0.0, precision_rounding=uom.rounding) <= 0:
+            return vals
+
+        siblings = self.search([
+            ('id', '!=', line.id),
+            ('move_id', '=', line.move_id.id),
+            ('package_id', '=', line.package_id.id),
+            ('location_id', '=', line.location_id.id),
+            ('state', 'not in', ('done', 'cancel')),
+        ])
+        result_package = (
+            line.result_package_id.id
+            if line.result_package_id == line.package_id
+            else False
+        )
+
+        other_quants = quants.filtered(
+            lambda q: q.lot_id and q.lot_id != line.lot_id and q.quantity > 0
+        ).sorted(key=lambda q: -q.quantity)
+        for quant in other_quants:
+            if float_compare(excess, 0.0, precision_rounding=uom.rounding) <= 0:
+                break
+            lot_lines = siblings.filtered(lambda l: l.lot_id == quant.lot_id)
+            booked = sum(lot_lines.mapped('quantity_product_uom'))
+            take = min(quant.quantity - booked, excess)
+            if float_compare(take, 0.0, precision_rounding=uom.rounding) <= 0:
+                continue
+
+            if lot_lines:
+                target = lot_lines[0]
+                target.with_context(skip_pallet_lot_spread=True).write({
+                    'quantity': uom._compute_quantity(
+                        booked + take, target.product_uom_id, rounding_method='HALF-UP',
+                    ),
+                })
+            else:
+                self.with_context(skip_pallet_lot_spread=True).create({
+                    'move_id': line.move_id.id,
+                    'picking_id': line.picking_id.id,
+                    'product_id': line.product_id.id,
+                    'product_uom_id': line.product_uom_id.id,
+                    'quantity': uom._compute_quantity(
+                        take, line.product_uom_id, rounding_method='HALF-UP',
+                    ),
+                    'lot_id': quant.lot_id.id,
+                    'package_id': line.package_id.id,
+                    'result_package_id': result_package,
+                    'location_id': line.location_id.id,
+                    'location_dest_id': line.location_dest_id.id,
+                    'owner_id': quant.owner_id.id or False,
+                    'company_id': line.company_id.id,
+                    'picked': vals.get('picked', line.picked),
+                    'production_line_id': quant.production_line_id.id or False,
+                    'pallet_ke': quant.pallet_ke or 0,
+                })
+            _logger.info(
+                "[PALLET-LOT] pallet %s: %s %s dipindahkan dari baris lot %s ke lot %s",
+                line.package_id.name, take, uom.name, line.lot_id.name, quant.lot_id.name,
+            )
+            excess -= take
+
+        if float_compare(excess, 0.0, precision_rounding=uom.rounding) > 0:
+            # Sisa yang tidak muat di lot mana pun: biarkan tetap di vals supaya
+            # _check_package_lot_capacity() yang menolak dengan pesan lengkap.
+            return vals
+
+        vals = dict(vals, quantity=uom._compute_quantity(
+            capacity, line.product_uom_id, rounding_method='HALF-UP',
+        ))
+        return vals
 
     @api.constrains('pallet_qty', 'picking_id')
     def _check_pallet_qty_limit(self):
@@ -193,14 +358,29 @@ class StockMoveLine(models.Model):
         ]
     
     def _check_package_capacity_limit(self):
-        for line in self:
-            if not line.result_package_id:
+        packed = self.filtered('result_package_id')
+        if not packed:
+            return
+
+        # Satu search untuk semua baris, bukan satu search per baris: pemeriksaan
+        # ini dijalankan di akhir setiap button_validate, jadi jumlah query-nya
+        # dulu tumbuh linear terhadap jumlah move line.
+        siblings = self.sudo().search([
+            ('result_package_id', 'in', packed.result_package_id.ids),
+            ('product_id', 'in', packed.product_id.ids),
+            ('picking_id', 'in', packed.picking_id.ids),
+        ])
+        grouped = defaultdict(lambda: self.env['stock.move.line'])
+        for sibling in siblings:
+            key = (sibling.result_package_id.id, sibling.product_id.id, sibling.picking_id.id)
+            grouped[key] |= sibling
+
+        for line in packed:
+            lines = grouped.get(
+                (line.result_package_id.id, line.product_id.id, line.picking_id.id),
+            )
+            if not lines:
                 continue
-            lines = self.sudo().search([
-                ('result_package_id', '=', line.result_package_id.id),
-                ('product_id', '=', line.product_id.id),
-                ('picking_id', '=', line.picking_id.id),
-            ])
             total_pallet = sum(lines.mapped('pallet_qty'))
             total_bag = sum(lines.mapped('bag_qty'))
             if total_pallet > 1:

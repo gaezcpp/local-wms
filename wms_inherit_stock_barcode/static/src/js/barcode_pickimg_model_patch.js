@@ -876,6 +876,7 @@ patch(BarcodePickingModel.prototype, {
         try {
             const res = await super._processPackage(...arguments);
             this._settleScannedPackageReset(recPackage);
+            await this._rebalanceScannedPackageLots(recPackage);
             return res;
         } catch (error) {
             // Core berhenti di tengah jalan: batalkan antrian hapus supaya
@@ -922,6 +923,169 @@ patch(BarcodePickingModel.prototype, {
         // Ada pengganti: wajib tersimpan pada scan ini juga, berapa pun nilai
         // `checker_out`, supaya DB tidak pernah berada dalam keadaan kosong.
         this.__wmsPendingScanSave = true;
+    },
+
+    /**
+     * Membetulkan pembagian qty per LOT setelah core memproses satu pallet.
+     *
+     * BUG: `_processPackage()` core memutar tiap quant pallet dan mencari line
+     * yang cocok lewat `_findLine()` -- yang saat scan pallet TIDAK membawa lot
+     * (`barcodeData.lot` kosong), sehingga `_canOverrideTrackingNumber()` selalu
+     * lolos dan pencocokan jatuh ke product + package saja. Pada pallet campur
+     * lot, qty quant lot A karena itu bisa nyangkut di line lot B; cabang update
+     * juga tidak mengirim lot quant-nya (`_convertDataToFieldsParams()` hanya
+     * mengisi `lot_id` kalau `args.lot` ada), jadi lot line tidak ikut berubah.
+     * Total scan kelihatan benar, reservasi per quant kacau, dan errornya baru
+     * muncul saat validate sebagai stok negatif.
+     *
+     * Selain itu core memakai `quant.quantity` mentah, tanpa memperhitungkan
+     * bagian pallet yang sudah dibooking dokumen lain, jadi scan bisa merebut
+     * qty milik picking lain dan membuat move melebihi demand-nya.
+     *
+     * Method ini tidak menduplikasi alur core: ia hanya memeriksa hasil akhir
+     * dan membagi ulang HANYA kalau ada lot yang melebihi kapasitasnya, dengan
+     * kapasitas = isi quant - reservasi dokumen lain. Kalau core sudah benar,
+     * method ini tidak melakukan apa-apa.
+     */
+    async _rebalanceScannedPackageLots(recPackage) {
+        if (
+            !recPackage ||
+            !Array.isArray(recPackage.contained_quant_ids) ||
+            !recPackage.contained_quant_ids.length
+        ) {
+            return;
+        }
+        // Pallet yang ditangani core sebagai entire-pack line memakai jalur lain
+        // (`_updateLineQty()` per line dengan reservasinya sendiri) yang memang
+        // sudah lot-aware -- jangan diutak-atik.
+        if (
+            this.packageLines.some((packageLine) =>
+                this._isPackageInPackage(packageLine.package_id, recPackage)
+            )
+        ) {
+            return;
+        }
+
+        const quants = [];
+        for (const quantId of recPackage.contained_quant_ids) {
+            let quant = false;
+            try {
+                quant = this.cache.getRecord("stock.quant", quantId);
+            } catch (error) {
+                quant = false;
+            }
+            if (quant && quant.lot_id) {
+                quants.push(quant);
+            }
+        }
+        if (!quants.length) {
+            return; // pallet tanpa lot: tidak ada yang bisa tertukar
+        }
+
+        for (const productId of new Set(quants.map((quant) => quant.product_id))) {
+            await this._rebalancePackageProductLots(recPackage, productId, quants);
+        }
+    },
+
+    async _rebalancePackageProductLots(recPackage, productId, allQuants) {
+        const quants = allQuants.filter((quant) => quant.product_id === productId);
+        if (new Set(quants.map((quant) => quant.lot_id)).size < 2) {
+            return; // satu lot saja -> tidak mungkin tertukar
+        }
+
+        const rounding = 0.0000001;
+        const lines = this.currentState.lines
+            .filter(
+                (line) =>
+                    getRelId(line.package_id) === recPackage.id &&
+                    getRelId(line.product_id) === productId
+            )
+            // Line yang sudah punya id (suggestion dari server) didahulukan.
+            .sort((a, b) => (b.id ? 1 : 0) - (a.id ? 1 : 0));
+        if (!lines.length) {
+            return;
+        }
+
+        // Aturannya: scan pallet mengambil SELURUH isi pallet, tapi tiap lot
+        // dibatasi qty lot itu sendiri di pallet ini.
+        const targetByLot = new Map();
+        for (const quant of quants) {
+            targetByLot.set(quant.lot_id, (targetByLot.get(quant.lot_id) || 0) + quant.quantity);
+        }
+
+        const assignedByLot = new Map();
+        for (const line of lines) {
+            const lotId = getRelId(line.lot_id);
+            assignedByLot.set(lotId, (assignedByLot.get(lotId) || 0) + (this.getQtyDone(line) || 0));
+        }
+        const alreadyCorrect = [...targetByLot.entries()].every(
+            ([lotId, target]) => Math.abs((assignedByLot.get(lotId) || 0) - target) < rounding
+        );
+        if (alreadyCorrect && assignedByLot.size === targetByLot.size) {
+            return; // pembagian core sudah sesuai isi pallet
+        }
+
+        wmsLog("rebalanceLot", {
+            pallet: recPackage.name,
+            product: productId,
+            sebelum: [...assignedByLot.entries()],
+            sesudah: [...targetByLot.entries()],
+        });
+
+        // Terapkan: satu line per lot sebesar isi lot itu, line lain dinolkan.
+        for (const [lotId, target] of targetByLot.entries()) {
+            const lotLines = lines.filter((line) => getRelId(line.lot_id) === lotId);
+            if (lotLines.length) {
+                lotLines[0].qty_done = target;
+                this._markLineAsDirty(lotLines[0]);
+                for (const extra of lotLines.slice(1)) {
+                    extra.qty_done = 0;
+                    this._markLineAsDirty(extra);
+                }
+            } else if (target > rounding) {
+                const quant = quants.find((q) => q.lot_id === lotId);
+                const fieldsParams = this._convertDataToFieldsParams({
+                    product: this.cache.getRecord("product.product", productId),
+                    quantity: target,
+                    lot: this.cache.getRecord("stock.lot", lotId),
+                    package: quant.package_id,
+                    resultPackage: quant.package_id,
+                    owner: quant.owner_id,
+                    srcLocation: quant.location_id,
+                });
+                await this._createNewLine({ fieldsParams });
+            }
+        }
+        // Line dengan lot yang sudah tidak ada isinya di pallet ini.
+        for (const line of lines) {
+            if (!targetByLot.has(getRelId(line.lot_id))) {
+                line.qty_done = 0;
+                this._markLineAsDirty(line);
+            }
+        }
+
+        // Informasi saja -- qty tetap diambil sesuai isi pallet, tapi operator
+        // perlu tahu kalau sebagian pallet ini masih dipegang dokumen lain.
+        const bookedElsewhere = quants.reduce((sum, quant) => {
+            if (typeof quant.reserved_quantity !== "number") {
+                return sum;
+            }
+            const own = lines
+                .filter((line) => getRelId(line.lot_id) === quant.lot_id)
+                .reduce((total, line) => total + (line.reserved_uom_qty || 0), 0);
+            return sum + Math.max(0, quant.reserved_quantity - own);
+        }, 0);
+        if (bookedElsewhere > rounding) {
+            this.notification(
+                _t(
+                    "Pallet %s: %s dari isinya masih ter-reserve di dokumen lain dan akan dilepas saat transfer ini divalidasi.",
+                    recPackage.name,
+                    bookedElsewhere
+                ),
+                { type: "warning" }
+            );
+        }
+        this.trigger("update");
     },
 
     _debugPackageQuants(recPackage) {

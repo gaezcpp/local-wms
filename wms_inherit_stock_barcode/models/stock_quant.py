@@ -24,11 +24,31 @@ class InheritStockQuant(models.Model):
             ctx.get('test_enable')
         )
     
+    def _product_uom_model(self):
+        """Env kanonik untuk membaca UoM produk.
+
+        Satu Validate menulis quant lewat banyak context berbeda
+        (`force_pallet_ke`, `force_production_line`, dst.), dan tiap kombinasi
+        context+sudo punya cache ORM sendiri. Dengan selalu membaca produk lewat
+        satu env yang sama (`context={}`, sudo), produk yang sama cukup dibaca
+        sekali per transaksi, bukan sekali per quant.
+        """
+        return self.env['product.product'].with_context({}).sudo()
+
+    def _warm_product_uom_cache(self, product_ids):
+        """Baca product + UoM sekali untuk seluruh batch."""
+        product_ids = {pid for pid in product_ids if pid}
+        if not product_ids:
+            return
+        products = self._product_uom_model().browse(product_ids)
+        products.fetch(['uom_id', 'uom_bag_id', 'uom_pallet_id'])
+
     @api.model_create_multi
     def create(self, vals_list):
         if self._skip_custom_logic():
             return super().create(vals_list)
 
+        self._warm_product_uom_cache([vals.get('product_id') for vals in vals_list])
         for vals in vals_list:
             self._prepare_bag_pallet_vals(vals)
             pallet_ke_from_ctx = self.env.context.get('force_pallet_ke')
@@ -47,6 +67,9 @@ class InheritStockQuant(models.Model):
             return super().write(vals)
 
         if 'product_id' in vals or 'quantity' in vals or 'inventory_quantity' in vals:
+            self._warm_product_uom_cache(
+                [vals.get('product_id')] + self.product_id.ids,
+            )
             for rec in self:
                 merged_vals = dict(vals)
                 if 'product_id' not in merged_vals:
@@ -78,7 +101,7 @@ class InheritStockQuant(models.Model):
         if not product_id:
             return vals
 
-        product = self.env['product.product'].sudo().browse(product_id)
+        product = self._product_uom_model().browse(product_id)
         product_uom = product.uom_id
 
         qty = quantity if quantity is not None else 0.0
@@ -138,4 +161,8 @@ class InheritStockQuant(models.Model):
             'uom_pallet_id',
             'bag_dummy_qty',
             'uom_pallet_id',
+            # Dipakai client Barcode untuk tahu berapa isi pallet yang sudah
+            # di-booking dokumen lain, supaya scan pallet campur-lot tidak
+            # mengambil qty milik picking lain (lihat _processPackage patch).
+            'reserved_quantity',
         ]

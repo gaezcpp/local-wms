@@ -13,26 +13,29 @@ class InheritBaseStockPicking(models.Model):
         tz = pytz.timezone('Asia/Jakarta')
         return datetime.now(tz)
 
+    @api.model
+    def _find_current_shift(self):
+        """Shift produksi yang sedang berjalan (waktu Jakarta).
+
+        Dipakai bergantian oleh action_confirm(), button_validate() dan
+        _prepare_backorder_picking_vals(); semuanya dulu menyalin loop yang sama
+        DAN memanggil `production.shift` search([]) di dalam loop per picking.
+        """
+        now_hour = self.now_jakarta().strftime('%H%M')
+        for shift in self.env['production.shift'].sudo().search([]):
+            start = shift.date_start
+            end = shift.date_end
+            if start <= end:
+                if start <= now_hour <= end:
+                    return shift
+            elif now_hour >= start or now_hour <= end:
+                return shift
+        return self.env['production.shift']
+
     def _prepare_backorder_picking_vals(self):
         self.ensure_one()
         vals = super()._prepare_backorder_picking_vals()
-        Shift = self.env['production.shift'].sudo()
-        prod_shift = self.production_shift_id
-        right_now = self.now_jakarta()
-        now_hour = right_now.strftime('%H%M')
-        if not prod_shift:
-            all_shifts = Shift.search([])
-            for shift in all_shifts:
-                start = shift.date_start
-                end = shift.date_end
-                if start <= end:
-                    if start <= now_hour <= end:
-                        prod_shift = shift
-                        break
-                else: 
-                    if now_hour >= start or now_hour <= end:
-                        prod_shift = shift
-                        break
+        prod_shift = self.production_shift_id or self._find_current_shift()
 
         vals.update({
             'production_shift_id': prod_shift.id if prod_shift else False,
@@ -50,26 +53,11 @@ class InheritBaseStockPicking(models.Model):
                 raise ValidationError("Tidak dapat melakukan Confirm. PO SAP tidak aktif atau berstatus TECO!")
         
         res = super().action_confirm()
-        Shift = self.env['production.shift'].sudo()
-        for picking in self:
-            right_now = self.now_jakarta()
-            now_hour = right_now.strftime('%H%M')
-            prod_shift = picking.production_shift_id
-            if not prod_shift:
-                all_shifts = Shift.search([])
-                for shift in all_shifts:
-                    start = shift.date_start
-                    end = shift.date_end
-                    if start <= end:
-                        if start <= now_hour <= end:
-                            prod_shift = shift
-                            break
-                    else: 
-                        if now_hour >= start or now_hour <= end:
-                            prod_shift = shift
-                            break
-            if prod_shift:
-                picking.production_shift_id = prod_shift.id
+        missing_shift = self.filtered(lambda p: not p.production_shift_id)
+        if missing_shift:
+            current_shift = self._find_current_shift()
+            if current_shift:
+                missing_shift.production_shift_id = current_shift.id
         return res
 
     def button_validate(self):
@@ -83,26 +71,22 @@ class InheritBaseStockPicking(models.Model):
                 picking.po_sap_id.over_tolerance(additional_qty=qty_to_validate)
         
         res = super().button_validate()
-        Shift = self.env['production.shift'].sudo()
+        if isinstance(res, dict):
+            # Masih menunggu wizard: shift & PO SAP baru relevan setelah
+            # dokumennya benar-benar selesai, jadi tidak perlu menulis apa-apa.
+            return res
+
+        # `_find_current_shift()` menembak `production.shift` sekali saja untuk
+        # seluruh batch, bukan sekali per picking di dalam loop.
+        current_shift = None
         for picking in self:
-            right_now = self.now_jakarta()
-            now_hour = right_now.strftime('%H%M')
             prod_shift = picking.production_shift_id
             if not prod_shift:
-                all_shifts = Shift.search([])
-                for shift in all_shifts:
-                    start = shift.date_start
-                    end = shift.date_end
-                    if start <= end:
-                        if start <= now_hour <= end:
-                            prod_shift = shift
-                            break
-                    else: 
-                        if now_hour >= start or now_hour <= end:
-                            prod_shift = shift
-                            break
-            if prod_shift:
-                picking.production_shift_id = prod_shift.id
+                if current_shift is None:
+                    current_shift = self._find_current_shift()
+                prod_shift = current_shift
+                if prod_shift:
+                    picking.production_shift_id = prod_shift.id
 
             next_pickings = picking.move_ids.move_dest_ids.picking_id.filtered(lambda p: p.state not in ('done', 'cancel'))
             if next_pickings:

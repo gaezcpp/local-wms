@@ -127,12 +127,28 @@ class InheritBaseStockMoveLine(models.Model):
                     rec.with_context(skip_lot_aft=True).write({'lot_id': lot.id})
         return records
 
+    # Field yang bisa mengubah hasil propagasi stock_type ke quant atau nama lot.
+    # Penulisan lain (picked, date, reference, state antar-langkah, dsb.) tidak
+    # perlu memicu ulang kedua blok di bawah.
+    _GR_PROD_TRIGGER_FIELDS = frozenset({
+        'state', 'stock_type', 'quantity', 'lot_id', 'package_id',
+        'result_package_id', 'location_dest_id', 'product_id',
+        'production_line_id', 'expiration_date',
+        # Mengubah move/picking bisa mengubah hasil _is_gr_prod() itu sendiri.
+        'move_id', 'picking_id',
+    })
+
     def write(self, vals):
         res = super().write(vals)
         if self.env.context.get('skip_lot_aft'):
             return res
+        if not self._GR_PROD_TRIGGER_FIELDS & set(vals):
+            return res
 
         gr_prod_recs = self.filtered(lambda r: r._is_gr_prod())
+        if not gr_prod_recs:
+            return res
+
         stock_type_recs = gr_prod_recs.filtered(lambda r: r.stock_type and r.state == 'done')
 
         if stock_type_recs:

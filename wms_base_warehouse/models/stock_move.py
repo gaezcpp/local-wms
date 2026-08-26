@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 from odoo import models, fields, api
 from odoo.exceptions import ValidationError
 from odoo.tools.float_utils import float_compare
@@ -332,23 +334,54 @@ class StockMove(models.Model):
     
     def _action_done(self, **kwargs):
         res = super()._action_done(**kwargs)
-        for move in res:
-            for line in move.move_line_ids:
-                if line.state == 'done' and line.stock_type:
-                    domain = [
-                        ('product_id', '=', line.product_id.id),
-                        ('location_id', '=', line.location_dest_id.id),
-                        ('package_id', '=', line.result_package_id.id if line.result_package_id else False), #AI
-                    ]
-                    if line.lot_id:
-                        domain.append(('lot_id', '=', line.lot_id.id))
-
-                    quants = self.env['stock.quant'].search(domain)
-                    if quants:
-                        quants.sudo().write({'stock_type': line.stock_type})
-
+        self._propagate_stock_type_to_quants(res.move_line_ids)
         self._unlock_gratis_siblings(res)
         return res
+
+    def _propagate_stock_type_to_quants(self, move_lines):
+        """Salin stock_type move line ke quant tujuannya.
+
+        Dulu satu `search()` per move line; sekarang satu search untuk seluruh
+        batch lalu dicocokkan di memori, dan penulisannya dikelompokkan per
+        stock_type sehingga jumlah query tidak lagi tumbuh per baris.
+        """
+        lines = move_lines.filtered(lambda l: l.state == 'done' and l.stock_type)
+        if not lines:
+            return
+
+        quants = self.env['stock.quant'].search([
+            ('product_id', 'in', lines.product_id.ids),
+            ('location_id', 'in', lines.location_dest_id.ids),
+        ])
+        if not quants:
+            return
+
+        quants_by_key = defaultdict(lambda: self.env['stock.quant'])
+        for quant in quants:
+            key = (quant.product_id.id, quant.location_id.id, quant.package_id.id or False)
+            quants_by_key[key] |= quant
+
+        by_stock_type = defaultdict(lambda: self.env['stock.quant'])
+        for line in lines:
+            key = (
+                line.product_id.id,
+                line.location_dest_id.id,
+                line.result_package_id.id or False,
+            )
+            candidates = quants_by_key.get(key)
+            if not candidates:
+                continue
+            if line.lot_id:
+                candidates = candidates.filtered(lambda q, lot=line.lot_id: q.lot_id == lot)
+            if candidates:
+                by_stock_type[line.stock_type] |= candidates
+
+        for stock_type, target_quants in by_stock_type.items():
+            # Quant yang stock_type-nya sudah benar tidak perlu ditulis ulang:
+            # write-nya memicu _sync_to_lot_aft() dan message_post pada package.
+            changed = target_quants.filtered(lambda q, st=stock_type: q.stock_type != st)
+            if changed:
+                changed.sudo().write({'stock_type': stock_type})
 
     def _unlock_gratis_siblings(self, done_moves):
         """When 'order' moves finish, re-check whether their sibling 'gratis' moves

@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 from odoo import models, fields, api
 from odoo.exceptions import ValidationError, UserError
 import logging
@@ -250,9 +252,11 @@ class StockPicking(models.Model):
 
         packaging_map = {(p.product_id.id, p.company_id.id): p for p in packaging_data}
 
-        origins = self.mapped('origin')
-        origin_pickings = self.env['stock.picking'].sudo().search([('name', 'in', origins)])
-        origin_map = {p.name: p for p in origin_pickings}
+        origins = [origin for origin in self.mapped('origin') if origin]
+        origin_map = {}
+        if origins:
+            origin_pickings = self.env['stock.picking'].sudo().search([('name', 'in', origins)])
+            origin_map = {p.name: p for p in origin_pickings}
 
         create_vals = []
 
@@ -337,29 +341,41 @@ class StockPicking(models.Model):
             if picking.state != 'done':
                 continue
 
-            is_updated = False
+            # Kelompokkan dulu per nilai yang akan ditulis, baru tulis sekali per
+            # kelompok. Sebelumnya satu write per move line, dan tiap write
+            # move line ikut menjalankan seluruh override write() custom.
+            #
+            # uom_bag_id ikut jadi kunci walau tidak ikut ditulis: `write()` di
+            # stock.move.line menurunkan `qty_done` dari bag_qty memakai faktor
+            # UoM record TERAKHIR dalam batch dan memberlakukannya ke semua
+            # record. Tanpa uom_bag_id di kunci, dua baris beda UoM Bag dengan
+            # bag_qty sama akan saling menimpa quantity-nya.
+            grouped = defaultdict(lambda: self.env['stock.move.line'])
             for line in picking.move_line_ids:
                 qty = line.qty_done if line.qty_done > 0 else line.quantity
-                
+
                 if qty > 0 and line.bag_qty <= 0 and line.pallet_qty <= 0:
                     new_bag_qty = 0.0
                     new_pallet_qty = 0.0
-                    
+
                     if line.product_uom_id and line.product_uom_id.factor and line.uom_bag_id and line.uom_bag_id.factor:
                         new_bag_qty = ((qty * line.product_uom_id.factor) / 1000) / (line.uom_bag_id.factor / 1000)
-                        
+
                     if line.uom_pallet_id and line.uom_pallet_id.factor:
                         new_pallet_qty = qty / (line.uom_pallet_id.factor / 1000)
-                        
-                    line.sudo().write({
-                        'bag_qty': round(new_bag_qty),
-                        'pallet_qty': new_pallet_qty
-                    })
-                    
-                    is_updated = True
-            
-            if is_updated:
-                picking.message_post(body="Bag dan Pallet Move Line otomatis terisi karena match kondisi")
+
+                    grouped[(round(new_bag_qty), new_pallet_qty, line.uom_bag_id.id)] |= line
+
+            if not grouped:
+                continue
+
+            for (bag_qty, pallet_qty, _uom_bag_id), lines in grouped.items():
+                lines.sudo().write({
+                    'bag_qty': bag_qty,
+                    'pallet_qty': pallet_qty,
+                })
+
+            picking.message_post(body="Bag dan Pallet Move Line otomatis terisi karena match kondisi")
     
     def _check_production_order_sap(self):
         for picking in self:
@@ -430,33 +446,35 @@ class StockPicking(models.Model):
             product_ids = [k[0] for k in groups.keys() if k[0]]
             production_line_ids = [k[1] for k in groups.keys() if k[1]]
 
-            # Buat 1 Query Domain (Mewakili seluruh item)
-            domain = [
-                ('picking_id', '!=', rec.id),
-                ('picking_id.state', '=', 'done'),
-                ('picking_id.picking_type_id.production_only', '=', True),
-                ('picking_id.production_shift_id', '=', rec.production_shift_id.id),
-                ('picking_id.po_sap_id', '=', rec.po_sap_id.id),
-                ('product_id', 'in', product_ids),
-                ('production_line_id', 'in', production_line_ids),
-                ('picking_id.date_done', '>=', start_utc),
-                ('picking_id.date_done', '<', end_utc),
-            ]
-
-            # Lakukan 'read_group' HANYA 1 KALI menembak database untuk mencari MAX(pallet_ke)
-            grouped_data = self.env['stock.move.line'].sudo().read_group(
-                domain,
-                ['product_id', 'production_line_id', 'pallet_ke:max'],
-                ['product_id', 'production_line_id'],
-                lazy=False
-            )
-
-            # Map hasil read_group ke dictionary agar mudah dibaca
+            # Dua query sederhana lebih murah daripada satu read_group yang
+            # menembus lima relasi picking_id.* sekaligus: cari dokumen donornya
+            # dulu (semua kolomnya ada di stock_picking dan ter-index), baru
+            # ambil MAX(pallet_ke) dengan `picking_id IN (...)`.
             max_pallet_map = {}
-            for data in grouped_data:
-                prod_id = data.get('product_id')[0] if data.get('product_id') else False
-                pline_id = data.get('production_line_id')[0] if data.get('production_line_id') else False
-                max_pallet_map[(prod_id, pline_id)] = data.get('pallet_ke') or 0
+            if product_ids and production_line_ids:
+                donor_pickings = self.env['stock.picking'].sudo().search([
+                    ('id', '!=', rec.id),
+                    ('state', '=', 'done'),
+                    ('picking_type_id.production_only', '=', True),
+                    ('production_shift_id', '=', rec.production_shift_id.id),
+                    ('po_sap_id', '=', rec.po_sap_id.id),
+                    ('date_done', '>=', start_utc),
+                    ('date_done', '<', end_utc),
+                ])
+                if donor_pickings:
+                    grouped_data = self.env['stock.move.line'].sudo()._read_group(
+                        [
+                            ('picking_id', 'in', donor_pickings.ids),
+                            ('product_id', 'in', product_ids),
+                            ('production_line_id', 'in', production_line_ids),
+                        ],
+                        groupby=['product_id', 'production_line_id'],
+                        aggregates=['pallet_ke:max'],
+                    )
+                    max_pallet_map = {
+                        (product.id, production_line.id): (max_pallet_ke or 0)
+                        for product, production_line, max_pallet_ke in grouped_data
+                    }
 
             # 5. Pasangkan/assign pallet_ke yang baru ke masing-masing move line
             for (product_id, production_line_id), mls in groups.items():
@@ -472,9 +490,16 @@ class StockPicking(models.Model):
     
     def remove_package_customer_location(self):
         for picking in self:
-            if picking.picking_type_id.default_location_dest_id.usage == 'customer': # 'outgoing'
-                picking.move_line_ids.write({'result_package_id': False})
-                picking.move_ids.write({'package_ids': [(5, 0, 0)]})
+            if picking.picking_type_id.default_location_dest_id.usage != 'customer': # 'outgoing'
+                continue
+            # Hanya tulis yang memang masih berisi package: write kosong tetap
+            # memicu tulis kolom + invalidasi cache untuk semua baris.
+            lines = picking.move_line_ids.filtered('result_package_id')
+            if lines:
+                lines.write({'result_package_id': False})
+            moves = picking.move_ids.filtered('package_ids')
+            if moves:
+                moves.write({'package_ids': [(5, 0, 0)]})
                 
     def restrict_customer_location(self):
         for picking in self:

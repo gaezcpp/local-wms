@@ -110,9 +110,15 @@ class StockQuant(models.Model):
         return res
 
     def write(self, vals):
-        old_values = {quant.id: quant.stock_type for quant in self}
+        # Hanya dibutuhkan kalau stock_type memang ikut ditulis; membacanya di
+        # setiap write (termasuk write quantity dari _action_done) berarti
+        # memuat kolom untuk seluruh recordset tanpa dipakai.
+        old_values = (
+            {quant.id: quant.stock_type for quant in self}
+            if 'stock_type' in vals else {}
+        )
         res = super().write(vals)
-        
+
         # Ini UNTUK BEGINNING STOCK
         additional_keys = set()
         if 'quantity' in vals or 'stock_type' in vals:

@@ -68,11 +68,14 @@ class InheritBaseStockPicking(models.Model):
     
     def _is_gr_prod(self):
         self.ensure_one()
+        return self.picking_type_id.move_type_sap == self._get_prod_in_move_type()
+
+    @api.model
+    def _get_prod_in_move_type(self):
         prod_in_move_type = self.env['ir.config_parameter'].sudo().get_param('prod_in_move_type')
         if not prod_in_move_type:
             raise ValidationError("prod_in_move_type pada Operation Type belum disetting!")
-        
-        return self.picking_type_id.move_type_sap == str(prod_in_move_type)
+        return str(prod_in_move_type)
 
     def _check_restrict_over_demand(self):
         for picking in self:
@@ -87,36 +90,43 @@ class InheritBaseStockPicking(models.Model):
                     raise ValidationError("Tidak bisa melanjutkan proses dikarenakan quantity melebihi demand!")
     
     def cancel_unprocessed_picking(self):
-        for picking in self:
-            if picking.sale_id and picking.picking_type_id.move_type_sap: # ini final
-                # cari picking sesuai sale idnya selain GI
-                unprocessed = self.env['stock.picking'].sudo().search([
-                    ('id', '!=', picking.id),
-                    ('sale_id', '=', picking.sale_id.id),
-                    ('state', '!=', 'done'),
-                    ('picking_type_id.code', '!=', 'outgoing')
-                ])
-                
-                if unprocessed:
-                    log_data = ", ".join([
-                        f"[ID={up.id} NAME={up.name} DO={up.sale_id.do_sap or up.sale_id.po_sap}]" 
-                        for up in unprocessed
-                    ])
-                    _logger.info(f"UNPROCESSED YANG DICANCEL SELAIN GI: {log_data}")
-                    unprocessed.action_cancel()
-                    # unprocessed.message_post(body=f"Cancel otomatis berdasarkan {picking.name}")
+        finals = self.filtered(lambda p: p.sale_id and p.picking_type_id.move_type_sap)  # ini final
+        if not finals:
+            return
+
+        # cari picking sesuai sale idnya selain GI -- satu search untuk seluruh
+        # batch, bukan satu search per picking.
+        unprocessed = self.env['stock.picking'].sudo().search([
+            ('id', 'not in', finals.ids),
+            ('sale_id', 'in', finals.sale_id.ids),
+            ('state', '!=', 'done'),
+            ('picking_type_id.code', '!=', 'outgoing'),
+        ])
+        if not unprocessed:
+            return
+
+        log_data = ", ".join([
+            f"[ID={up.id} NAME={up.name} DO={up.sale_id.do_sap or up.sale_id.po_sap}]"
+            for up in unprocessed
+        ])
+        _logger.info(f"UNPROCESSED YANG DICANCEL SELAIN GI: {log_data}")
+        unprocessed.action_cancel()
+        # unprocessed.message_post(body=f"Cancel otomatis berdasarkan {picking.name}")
 
     def button_validate(self):
         self._check_restrict_over_demand()
         res = super(InheritBaseStockPicking, self).button_validate()
-        self.cancel_unprocessed_picking()
         if isinstance(res, dict):
+            # Validate belum selesai (masih minta wizard) -- jangan membatalkan
+            # picking lain dan jangan menyentuh stock.lot.aft dulu.
             return res
+        self.cancel_unprocessed_picking()
 
-        for picking in self:
-            if not picking._is_gr_prod() or picking.state != 'done':
-                continue
-
+        prod_in_move_type = self._get_prod_in_move_type()
+        gr_pickings = self.filtered(
+            lambda p: p.state == 'done' and p.picking_type_id.move_type_sap == prod_in_move_type
+        )
+        for picking in gr_pickings:
             lot_updates = {}
             for move_line in picking.move_line_ids:
                 if not move_line.move_id.product_id or not move_line.production_line_id:
@@ -148,46 +158,77 @@ class InheritBaseStockPicking(models.Model):
                 lot_updates[lot][stype]['qty'] += move_line.quantity
                 lot_updates[lot][stype]['bag'] += bag
 
-            for lot, stype_data in lot_updates.items():
-                ref_data = list(stype_data.values())[0]
-                stock_types = ['QI', 'UU', 'BLOCKED']
-                for st in stock_types:
-                    aft_exists = self.env['stock.lot.aft'].sudo().search([
-                        ('lot_id', '=', lot.id),
-                        ('stock_type', '=', st)
-                    ], limit=1)
-                    
-                    if not aft_exists:
-                        self.env['stock.lot.aft'].create({
-                            'lot_id': lot.id,
-                            'quantity': 0.0,
-                            'uom_id': ref_data['uom'].id,
-                            'bag_qty': 0.0,
-                            'uom_bag_id': ref_data['bag_uom'].id,
-                            'stock_type': st,
-                        })
+            if not lot_updates:
+                continue
 
-                for stype, vals in stype_data.items():
-                    target_aft = self.env['stock.lot.aft'].sudo().search([
-                        ('lot_id', '=', lot.id),
-                        ('stock_type', '=', stype)
-                    ], limit=1)
-                    
-                    old_qty = target_aft.quantity
-                    old_bag = target_aft.bag_qty
-                    new_qty = old_qty + vals['qty']
-                    new_bag = old_bag + vals['bag']
-
-                    target_aft.write({
-                        'quantity': new_qty,
-                        'bag_qty': new_bag,
-                    })
-
-                    lot.message_post(body=(
-                        f"Update Stock Type: {stype} ({picking.name}), Quantity: {old_qty} → {new_qty} {vals['uom'].name}, Bag Qty: {old_bag} → {new_bag} {vals['bag_uom'].name}"
-                    ))
+            picking._apply_lot_aft_updates(lot_updates)
 
         return res
+
+    def _apply_lot_aft_updates(self, lot_updates):
+        """Terapkan akumulasi qty/bag GR ke stock.lot.aft.
+
+        Versi lama menembak `search()` sendiri-sendiri: 3 kali untuk memastikan
+        baris QI/UU/BLOCKED ada, lalu sekali lagi per stock type yang dipakai,
+        plus satu `message_post()` per stock type. Di sini semuanya dikerjakan
+        dengan satu search, satu create batch, dan satu pesan per lot.
+        """
+        self.ensure_one()
+        Aft = self.env['stock.lot.aft'].sudo()
+        stock_types = ('QI', 'UU', 'BLOCKED')
+        lots = self.env['stock.lot'].browse([lot.id for lot in lot_updates])
+
+        # setdefault, bukan dict-comprehension: versi lama memakai
+        # search(..., limit=1), jadi kalau ada baris aft kembar untuk (lot,
+        # stock_type) yang menang adalah yang pertama menurut _order.
+        existing = Aft.search([('lot_id', 'in', lots.ids)])
+        aft_map = {}
+        for aft in existing:
+            aft_map.setdefault((aft.lot_id.id, aft.stock_type), aft)
+
+        create_vals = []
+        for lot, stype_data in lot_updates.items():
+            ref_data = next(iter(stype_data.values()))
+            for stype in stock_types:
+                if (lot.id, stype) in aft_map:
+                    continue
+                create_vals.append({
+                    'lot_id': lot.id,
+                    'quantity': 0.0,
+                    'uom_id': ref_data['uom'].id,
+                    'bag_qty': 0.0,
+                    'uom_bag_id': ref_data['bag_uom'].id,
+                    'stock_type': stype,
+                })
+        if create_vals:
+            for aft in self.env['stock.lot.aft'].create(create_vals):
+                aft_map[(aft.lot_id.id, aft.stock_type)] = aft
+
+        for lot, stype_data in lot_updates.items():
+            message_lines = []
+            for stype, vals in stype_data.items():
+                target_aft = aft_map.get((lot.id, stype))
+                if not target_aft:
+                    continue
+
+                old_qty = target_aft.quantity
+                old_bag = target_aft.bag_qty
+                new_qty = old_qty + vals['qty']
+                new_bag = old_bag + vals['bag']
+
+                target_aft.write({
+                    'quantity': new_qty,
+                    'bag_qty': new_bag,
+                })
+
+                message_lines.append(
+                    f"Update Stock Type: {stype} ({self.name}), "
+                    f"Quantity: {old_qty} → {new_qty} {vals['uom'].name}, "
+                    f"Bag Qty: {old_bag} → {new_bag} {vals['bag_uom'].name}"
+                )
+
+            if message_lines:
+                lot.message_post(body="<br/>".join(message_lines))
 
     # def action_cancel_done_picking(self, reason=False):
     #     """Force-cancel a stock.picking that already reached state='done'.
