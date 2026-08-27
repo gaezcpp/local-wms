@@ -57,7 +57,14 @@ class TestGrProdLotName(TransactionCase):
             icp.set_param('prod_in_move_type', cls.prod_in_move_type)
         icp.set_param('upload_stock', 'false')
 
-        cls.supplier_loc = cls.env.ref('stock.stock_location_suppliers')
+        # Sumber GR produksi di lapangan adalah lokasi virtual `Production`,
+        # bukan supplier -- dan justru quant "jurnal lawan" di sanalah yang
+        # dulu mencemari `production_line_id` baris baru.
+        cls.production_loc = cls.env['stock.location'].create({
+            'name': 'GRLOT-PRODUCTION',
+            'usage': 'production',
+            'company_id': cls.company.id,
+        })
         cls.bin_dest = cls.env['stock.location'].create({
             'name': 'GRLOT-BIN',
             'location_id': cls.warehouse.lot_stock_id.id,
@@ -72,11 +79,31 @@ class TestGrProdLotName(TransactionCase):
             'is_storable': True,
             'tracking': 'lot',
         })
+        # Varian dengan masa simpan: hook `write()` baru menghasilkan lot kalau
+        # `production_line_id` DAN `expiration_date` sama-sama terisi.
+        cls.product_exp = cls.env['product.product'].create({
+            'name': 'GRLOT Product Exp',
+            'default_code': 'GRLOT-02',
+            'type': 'consu',
+            'is_storable': True,
+            'tracking': 'lot',
+            'use_expiration_date': True,
+            'expiration_time': 180,
+            'use_time': 150,
+            'removal_time': 120,
+            'alert_time': 90,
+        })
 
         cls.production_line = cls.env['production.line'].create({
             'name': 'GRLOT Line 1',
             'code': 'GRL1',
             'prod_code': 'P1',
+            'company_id': cls.company.id,
+        })
+        cls.production_line_2 = cls.env['production.line'].create({
+            'name': 'GRLOT Line 2',
+            'code': 'GRL2',
+            'prod_code': 'P9',
             'company_id': cls.company.id,
         })
 
@@ -103,7 +130,7 @@ class TestGrProdLotName(TransactionCase):
             'code': 'incoming',
             'warehouse_id': cls.warehouse.id,
             'company_id': cls.company.id,
-            'default_location_src_id': cls.supplier_loc.id,
+            'default_location_src_id': cls.production_loc.id,
             'default_location_dest_id': cls.bin_dest.id,
             'use_create_lots': True,
             'use_existing_lots': False,
@@ -127,32 +154,35 @@ class TestGrProdLotName(TransactionCase):
     # ------------------------------------------------------------------
     # helpers
     # ------------------------------------------------------------------
-    def _make_picking(self, picking_type, qty=100.0):
+    def _make_picking(self, picking_type, qty=100.0, product=None, keep_lines=False):
+        product = product or self.product
         picking = self.env['stock.picking'].create({
             'picking_type_id': picking_type.id,
             'location_id': picking_type.default_location_src_id.id,
             'location_dest_id': picking_type.default_location_dest_id.id,
             'company_id': self.company.id,
             'move_ids': [(0, 0, {
-                'product_id': self.product.id,
+                'product_id': product.id,
                 'product_uom_qty': qty,
-                'product_uom': self.product.uom_id.id,
+                'product_uom': product.uom_id.id,
                 'location_id': picking_type.default_location_src_id.id,
                 'location_dest_id': picking_type.default_location_dest_id.id,
                 'company_id': self.company.id,
             })],
         })
         picking.action_confirm()
-        picking.move_line_ids.unlink()
+        if not keep_lines:
+            picking.move_line_ids.unlink()
         return picking
 
     def _barcode_create_line(self, picking, qty=100.0, lot_name=False,
-                             production_line=None):
+                             production_line=None, product=None):
         """Tiruan `_createCommandVals()` milik stock_barcode.
 
         `lot_name` di sini persis yang dikirim client setelah operator men-scan
         barcode asing: core mengisinya lewat `updateLotName()`.
         """
+        product = product or self.product
         picking.write({'move_line_ids': [(0, 0, {
             'location_id': picking.location_id.id,
             'location_dest_id': picking.location_dest_id.id,
@@ -161,8 +191,8 @@ class TestGrProdLotName(TransactionCase):
             'package_id': False,
             'picking_id': picking.id,
             'picked': True,
-            'product_id': self.product.id,
-            'product_uom_id': self.product.uom_id.id,
+            'product_id': product.id,
+            'product_uom_id': product.uom_id.id,
             'production_line_id': production_line.id if production_line else False,
             'quantity': qty,
             'state': 'assigned',
@@ -291,6 +321,68 @@ class TestGrProdLotName(TransactionCase):
         self.assertEqual(
             self._qr_lots(), before,
             "Validate melahirkan stock.lot yang namanya mengandung '|'",
+        )
+
+    # ==================================================================
+    # 4. Nama lot harus mengikuti production line yang BENAR
+    # ==================================================================
+    def test_no_inherit_production_line_from_virtual_source_location(self):
+        """Quant di lokasi `Production` tidak boleh mewarnai baris GR baru.
+
+        Reproduksi GR PO 160110003473: baris hasil `action_confirm()` mewarisi
+        `production_line_id` dari salah satu quant jurnal-lawan (semuanya
+        negatif) di lokasi virtual `Production`, lalu `create()` memakai nilai
+        itu untuk menamai lot -- sebelum production line yang sebenarnya
+        sempat ditulis.
+        """
+        self.env['stock.quant'].create({
+            'product_id': self.product.id,
+            'location_id': self.production_loc.id,
+            'quantity': -1280.0,
+            'production_line_id': self.production_line_2.id,
+        })
+
+        picking = self._make_picking(self.type_gr, keep_lines=True)
+        line = picking.move_line_ids
+
+        self.assertTrue(line, "Prasyarat test: action_confirm() harus membuat move line")
+        self.assertFalse(
+            line.production_line_id,
+            "Baris GR mewarisi production line %s dari quant jurnal-lawan di "
+            "lokasi virtual" % line.production_line_id.display_name,
+        )
+        self.assertFalse(
+            line.lot_id,
+            "Lot terbentuk dari production line hasil warisan (dapat %r)"
+            % line.lot_id.name,
+        )
+
+    def test_lot_regenerated_when_production_line_corrected(self):
+        """Ganti production line -> nama lot ikut berganti, bukan mengunci lot lama.
+
+        `action_picking_po_sap()` menulis production line yang benar SETELAH
+        baris terbentuk. Dulu `_get_or_create_lot()` punya fallback
+        `search([('id','=',self.lot_id.id)])` yang mengembalikan lot lama begitu
+        nama baru belum ada di database -- jadi koreksinya tidak pernah terjadi.
+        """
+        picking = self._make_picking(self.type_gr, product=self.product_exp)
+        line = self._barcode_create_line(
+            picking, product=self.product_exp, production_line=self.production_line,
+        )
+        self.assertEqual(line.lot_id.name, 'UT-GR-P1')
+        first_lot = line.lot_id
+
+        line.write({'production_line_id': self.production_line_2.id})
+
+        self.assertEqual(
+            line.lot_id.name, 'UT-GR-P9',
+            "Nama lot tidak ikut dikoreksi saat production line diganti "
+            "(masih %r)" % line.lot_id.name,
+        )
+        self.assertNotEqual(line.lot_id, first_lot)
+        self.assertEqual(
+            line.lot_id.production_line_id, self.production_line_2,
+            "production_line_id pada lot tidak ikut yang benar",
         )
 
     def test_validate_blocks_gr_line_without_production_line(self):

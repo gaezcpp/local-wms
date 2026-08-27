@@ -81,19 +81,23 @@ class InheritBaseStockMoveLine(models.Model):
         ], limit=1)
 
         if not lot:
-            lot = self.env['stock.lot'].sudo().search([
-                ('id', '=', self.lot_id.id),
-                ('product_id', '=', self.move_id.product_id.id),
-                ('company_id', '=', self.company_id.id)
-            ], limit=1)
-            if not lot:
-                lot = self.env['stock.lot'].create({
-                    'name': lot_name,
-                    'product_id': self.move_id.product_id.id,
-                    'company_id': self.company_id.id,
-                    'po_sap_id': self.picking_id.po_sap_id.id if self.picking_id.po_sap_id else False,
-                    'production_line_id': self.production_line_id.id if self.production_line_id else False,
-                })
+            # Dulu di sini ada fallback `search([('id','=',self.lot_id.id)])`:
+            # kalau lot dengan nama hasil format belum ada, method ini
+            # mengembalikan lot yang KEBETULAN sudah menempel di baris. Efeknya
+            # nama lot tidak pernah bisa dikoreksi. Itu yang membuat GR PO
+            # 160110003473 line 71 tetap memakai lot `3965732 - 18022028`
+            # (punya line 94) walau `production_line_id` sudah ditulis ulang ke
+            # line 71 oleh `production.order.sap.action_picking_po_sap()`:
+            # nama yang benar (`3765732 - ...`) belum ada, jadi fallback itu
+            # mengunci lot lama. Kontrak method ini adalah "lot dengan nama
+            # hasil format" -- kalau belum ada, ya dibuat.
+            lot = self.env['stock.lot'].create({
+                'name': lot_name,
+                'product_id': self.move_id.product_id.id,
+                'company_id': self.company_id.id,
+                'po_sap_id': self.picking_id.po_sap_id.id if self.picking_id.po_sap_id else False,
+                'production_line_id': self.production_line_id.id if self.production_line_id else False,
+            })
 
         return lot
 
@@ -137,6 +141,18 @@ class InheritBaseStockMoveLine(models.Model):
 
         `lot_id` tetap asimetris: baris tanpa lot memang sah mewakili beberapa
         lot sekaligus, jadi kandidatnya tidak boleh dipersempit ke lot kosong.
+
+        Lokasi asal juga harus lokasi stok NYATA (`internal`/`transit`). Di
+        lokasi virtual -- `Production`, `Inventory adjustment`, supplier,
+        customer -- quant hanya berisi jurnal lawan dari transaksi lampau
+        (semuanya negatif dan menumpuk selamanya), bukan barang yang sedang
+        diambil. Mewarisi apa pun dari sana bukan cuma tidak bermakna, tapi
+        aktif merusak: baris GR produksi yang dibuat `action_confirm()` mewarisi
+        `production_line_id` dari salah satu ratusan quant lawan di lokasi
+        `Production`, dan `create()` langsung memakai nilai itu untuk menamai
+        lot lewat `_get_or_create_lot()` -- sebelum
+        `production.order.sap.action_picking_po_sap()` sempat menulis production
+        line yang sebenarnya.
         """
         indexes = [
             i for i, vals in enumerate(vals_list)
@@ -149,6 +165,7 @@ class InheritBaseStockMoveLine(models.Model):
         product_ids = {vals_list[i]['product_id'] for i in indexes}
         candidate_quants = self.env['stock.quant'].sudo().search([
             ('location_id', 'in', list(location_ids)),
+            ('location_id.usage', 'in', ('internal', 'transit')),
             ('product_id', 'in', list(product_ids)),
         ])
         if not candidate_quants:

@@ -68,153 +68,96 @@ class QualityPackages(models.Model):
             else:
                 rec.is_selected = False
     
-    def _get_date_done_bounds(self):
-        """Batas awal/akhir `date_done` dalam UTC.
-
-        `date_done` adalah Date yang dipilih user dalam timezone-nya sendiri.
-        Membandingkannya langsung dengan kolom Datetime (yang disimpan UTC)
-        menggeser jendela sebesar offset timezone -- di WIB (+7) stok yang
-        dibuat 00:00-07:00 hari itu hilang dan 00:00-07:00 hari berikutnya
-        malah ikut terjaring.
-        """
-        self.ensure_one()
-        tz = pytz.timezone(self.env.user.tz or 'UTC')
-        date_from = tz.localize(datetime.combine(self.date_done, time.min))
-        date_to = tz.localize(datetime.combine(self.date_done, time.max))
-        return (
-            date_from.astimezone(pytz.utc).replace(tzinfo=None),
-            date_to.astimezone(pytz.utc).replace(tzinfo=None),
-        )
-
-    def _get_produced_stock_keys(self):
-        """Kunci `(product_id, lot_id, package_id)` stok hasil produksi yang
-        cocok dengan filter shift / tanggal pada record ini.
-
-        Mengembalikan `None` kalau kedua filter kosong (tidak perlu disaring).
-
-        Penyaringan dilakukan pada level penerimaan hasil produksi (picking
-        `incoming`, state `done`) supaya yang terjaring benar-benar stok yang
-        DIPRODUKSI pada shift/tanggal itu. Menyaring lewat `lot_id` saja salah:
-        satu lot bisa diproduksi lintas beberapa shift/tanggal, sehingga seluruh
-        stok lot tersebut ikut terbawa walau pallet-nya dari shift lain.
-
-        Kalau move line penerimaannya tidak memasang package, kuncinya memakai
-        `package_id = False` dan dicocokkan pada level `(product, lot)` saja.
-        """
-        self.ensure_one()
-        if not self.production_shift_id and not self.date_done:
-            return None
-
-        domain = [
-            ('state', '=', 'done'),
-            ('lot_id', '!=', False),
-            ('picking_id.picking_type_id.code', '=', 'incoming'),
-        ]
-        if self.company_id:
-            domain.append(('company_id', '=', self.company_id.id))
-        if self.production_shift_id:
-            domain.append(('production_shift_id', '=', self.production_shift_id.id))
-        if self.date_done:
-            date_from, date_to = self._get_date_done_bounds()
-            domain += [('date', '>=', date_from), ('date', '<=', date_to)]
-
-        move_lines = self.env['stock.move.line'].sudo().search_fetch(
-            domain, ['product_id', 'lot_id', 'result_package_id', 'package_id']
-        )
-        return {
-            (
-                ml.product_id.id,
-                ml.lot_id.id,
-                (ml.result_package_id or ml.package_id).id,
-            )
-            for ml in move_lines
-        }
-
-    def _prepare_quant_domain(self):
-        """Domain `stock.quant` untuk Check Availability."""
-        self.ensure_one()
-        domain = [
-            ('company_id', '=', self.company_id.id),
-            ('location_id.usage', '=', 'internal'),
-            # Quant sisa bernilai 0 tetap ada di DB; tanpa filter ini baris
-            # kosong ikut muncul di detail dan terpilih oleh Select All.
-            ('quantity', '>', 0),
-            ('lot_id', '!=', False),
-        ]
-        if self.warehouse_id:
-            domain.append(('warehouse_id', '=', self.warehouse_id.id))
-        if self.product_id:
-            domain.append(('product_id', '=', self.product_id.id))
-        if self.lot_id:
-            domain.append(('lot_id', '=', self.lot_id.id))
-        if self.location_id:
-            domain.append(('location_id', 'child_of', self.location_id.id))
-        elif self.lot_stock_id and not self.warehouse_id:
-            # `lot_stock_id` cuma turunan dari warehouse dan menunjuk lokasi
-            # stok utama saja. Kalau warehouse sudah dipilih, filter warehouse
-            # yang dipakai -- kalau tidak, pallet QI yang masih di staging
-            # (mis. FINI/STG - IN) tidak akan pernah terlihat.
-            domain.append(('location_id', 'child_of', self.lot_stock_id.id))
-        if self.action_aft_id.stock_type_from:
-            domain.append(('stock_type', '=', self.action_aft_id.stock_type_from))
-        if self.production_line_id:
-            # `stock.quant.production_line_id` diwarisi dari quant asal, jadi
-            # bisa dipakai langsung -- tidak perlu memutar lewat stock.move.line.
-            domain.append(('production_line_id', '=', self.production_line_id.id))
-        return domain
-
-    def _search_available_quants(self):
-        self.ensure_one()
-        quants = self.env['stock.quant'].sudo().search(self._prepare_quant_domain())
-        keys = self._get_produced_stock_keys()
-        if keys is None:
-            return quants
-        return quants.filtered(
-            lambda q: (q.product_id.id, q.lot_id.id, q.package_id.id) in keys
-            or (q.product_id.id, q.lot_id.id, False) in keys
-        )
-
-    def _prepare_quality_line_vals(self, quant):
-        self.ensure_one()
-        return {
-            'quality_packages_id': self.id,
-            'quant_id': quant.id,
-            'product_id': quant.product_id.id,
-            'package_id': quant.package_id.id or False,
-            'location_id': quant.location_id.id,
-            'lot_id': quant.lot_id.id,
-            'quantity': quant.quantity,
-            'uom_id': quant.product_uom_id.id,
-            'bag_qty': quant.bag_qty,
-            'uom_bag_id': quant.uom_bag_id.id or False,
-            'po_sap_id': quant.po_sap_id.id or False,
-            'pallet_ke': quant.pallet_ke or 0,
-            'production_line_id': (
-                quant.production_line_id.id or quant.lot_id.production_line_id.id or False
-            ),
-        }
-
     def check_availability(self):
+        quant_model = self.env['stock.quant'].sudo()
         quality_line_model = self.env['quality.packages.line'].sudo()
+        picking_model = self.env['stock.picking'].sudo()
+        stock_move_line = self.env['stock.move.line'].sudo()
 
         for rec in self:
             if rec.state != 'draft':
                 continue
 
-            # Dicari dulu sebelum apapun dihapus: kalau hasilnya kosong,
-            # detail yang sudah ada tidak ikut hilang.
-            quants = rec._search_available_quants()
-            if not quants:
-                raise ValidationError(
-                    _("Packages tidak ditemukan untuk %s!", rec.name or _("record ini"))
-                )
-
             rec.quality_line_ids.sudo().unlink()
             rec.quality_summary_line_ids.sudo().unlink()
 
-            quality_line_model.create([
-                rec._prepare_quality_line_vals(quant) for quant in quants
-            ])
+            domain = [
+                ('company_id', '=', rec.company_id.id),
+                ('location_id.usage', '=', 'internal'),
+            ]
+            if rec.warehouse_id:
+                domain.append(('warehouse_id', '=', rec.warehouse_id.id))
+            if rec.product_id:
+                domain.append(('product_id', '=', rec.product_id.id))
+            if rec.lot_id:
+                domain.append(('lot_id', '=', rec.lot_id.id))
+            if rec.location_id:
+                domain.append(('location_id', 'child_of', rec.location_id.id))
+            elif rec.lot_stock_id:
+                domain.append(('location_id', 'child_of', rec.lot_stock_id.id))
+            if rec.action_aft_id and rec.action_aft_id.stock_type_from:
+                domain.append(('stock_type', '=', rec.action_aft_id.stock_type_from))
+            if rec.production_shift_id:
+                shift_pickings = picking_model.search([('production_shift_id', '=', rec.production_shift_id.id)])
+                move_lines = stock_move_line.search([('picking_id', 'in', shift_pickings.ids), ('lot_id', '!=', False)])
+                lot_ids = move_lines.mapped('lot_id').ids
+                if lot_ids:
+                    domain.append(('lot_id', 'in', lot_ids))
+                else:
+                    domain.append(('lot_id', 'in', []))
+            if rec.production_line_id:
+                move_lines = stock_move_line.search([('production_line_id', '=', rec.production_line_id.id), ('lot_id', '!=', False)])
+                lot_ids = move_lines.mapped('lot_id').ids
+                if lot_ids:
+                    domain.append(('lot_id', 'in', lot_ids))
+                else:
+                    domain.append(('lot_id', 'in', []))
+            if rec.date_done:
+                start_of_day = datetime.combine(rec.date_done, time.min)
+                end_of_day = datetime.combine(rec.date_done, time.max)
+                date_pickings = picking_model.search([
+                    ('date_done', '>=', start_of_day),
+                    ('date_done', '<=', end_of_day)
+                ])
+                move_lines = stock_move_line.search([
+                    ('picking_id', 'in', date_pickings.ids),
+                    ('lot_id', '!=', False)
+                ])
+                
+                lot_ids = move_lines.mapped('lot_id').ids
+                if lot_ids:
+                    domain.append(('lot_id', 'in', lot_ids))
+                else:
+                    domain.append(('lot_id', 'in', []))
+                
+            quants = quant_model.search(domain)
+            if not quants:
+                rec.is_checked = False
+                raise ValidationError("Packages tidak ditemukan!")
+
+            lines_to_create = []
+            for quant in quants:
+                if not quant.lot_id:
+                    continue
+
+                lines_to_create.append({
+                    'quality_packages_id': rec.id,
+                    'quant_id': quant.id or False,
+                    'product_id': quant.product_id.id or False,
+                    'package_id': quant.package_id.id or False,
+                    'location_id': quant.location_id.id,
+                    'lot_id': quant.lot_id.id,
+                    'quantity': quant.quantity,
+                    'uom_id': quant.product_uom_id.id,
+                    'bag_qty': quant.bag_qty,
+                    'uom_bag_id': quant.uom_bag_id.id or False,
+                    'po_sap_id': quant.po_sap_id.id or False,
+                    'pallet_ke': quant.pallet_ke or 0,
+                    'production_line_id': quant.lot_id.production_line_id.id or False,
+                })
+
+            if lines_to_create:
+                quality_line_model.create(lines_to_create)
 
             rec.is_checked = True
             
