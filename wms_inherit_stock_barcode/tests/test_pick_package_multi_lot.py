@@ -1,6 +1,6 @@
 """Unit test PICK dari sale order yang men-scan pallet berisi LEBIH DARI SATU LOT.
 
-Direproduksi dari kejadian nyata **S00163** (DB_WMS_DEV_007):
+Direproduksi dari kejadian nyata **S00163** (DB_WMS_DEV_008):
 
     picking  FINI/PICK/2094/1601033440 (PICK, uu_only)   <- S00163
     pallet   SPJ-PALLET-0842 (stock.package 7842) di FINI/1601/MUATAN

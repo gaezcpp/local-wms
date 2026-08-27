@@ -422,6 +422,18 @@ class StockMove(models.Model):
         elif reserved_quant and reserved_quant.stock_type:
             res['stock_type'] = reserved_quant.stock_type
 
+        # `production_line_id` dan `pallet_ke` menempel pada barang, jadi quant
+        # yang direservasi adalah sumber kebenarannya. Dulu keduanya HANYA
+        # diisi dari move line asal di blok `move_orig_ids` di bawah, sehingga
+        # setiap transfer tanpa move asal -- Bin to Bin, Split QTY Pallet, PICK
+        # langsung dari stok -- selalu kehilangan keduanya, dan hilangnya ikut
+        # menular ke quant tujuan lewat `_synchronize_quant()`.
+        if reserved_quant:
+            if reserved_quant.production_line_id:
+                res['production_line_id'] = reserved_quant.production_line_id.id
+            if reserved_quant.pallet_ke:
+                res['pallet_ke'] = reserved_quant.pallet_ke
+
         if not self.move_orig_ids:
             return res
 
@@ -454,18 +466,25 @@ class StockMove(models.Model):
 
         if matched_line:
             update_vals = {
-                'production_line_id': matched_line.production_line_id.id,
                 'first_count': matched_line.first_count,
                 'last_count': matched_line.last_count,
                 'detail_text': matched_line.detail_text,
                 'qty_packaging_sap': matched_line.qty_packaging_sap,
                 'wh_category_id': matched_line.wh_category_id.id if matched_line.wh_category_id else False,
-                'pallet_ke': matched_line.pallet_ke,
             }
-            
+
+            # `matched_line` bisa berasal dari fallback `origin_lines[:1]` yang
+            # sama sekali tidak dicocokkan dengan pallet ini, jadi untuk field
+            # turunan quant ia hanya boleh MENGISI KEKOSONGAN -- jangan sampai
+            # menimpa nilai yang sudah benar dari `reserved_quant` dengan milik
+            # pallet lain.
+            if not res.get('production_line_id') and matched_line.production_line_id:
+                update_vals['production_line_id'] = matched_line.production_line_id.id
+            if not res.get('pallet_ke') and matched_line.pallet_ke:
+                update_vals['pallet_ke'] = matched_line.pallet_ke
             if not is_production_only and not res.get('stock_type') and matched_line.stock_type:
                 update_vals['stock_type'] = matched_line.stock_type
-                
+
             res.update(update_vals)
 
         return res

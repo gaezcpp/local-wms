@@ -2,6 +2,7 @@ from collections import defaultdict
 
 from odoo import models, fields, api
 from odoo.exceptions import ValidationError, UserError
+from odoo.tools.float_utils import float_compare, float_is_zero
 import logging
 import pytz
 from datetime import timedelta
@@ -404,6 +405,196 @@ class StockPicking(models.Model):
                 if not ml.result_package_id:
                     ml.write({'result_package_id': ml.package_id})
                     
+    # ------------------------------------------------------------------
+    # Scan pallet = ambil SELURUH isi pallet
+    # ------------------------------------------------------------------
+    @api.model
+    def action_take_full_package(self, picking_id, package_id):
+        """Entry point untuk client Barcode; lihat `_take_full_package()`."""
+        picking = self.browse(picking_id).exists()
+        package = self.env['stock.package'].browse(package_id).exists()
+        if not picking or not package:
+            return {'dibuat': [], 'diubah': [], 'dilewati': []}
+        return picking._take_full_package(package)
+
+    def _take_full_package(self, package):
+        """Pastikan move line picking ini memuat SELURUH isi pallet yang di-scan.
+
+        KENAPA DIKERJAKAN DI SERVER: pembagian qty hasil scan pallet tidak bisa
+        diandalkan dari client. `_processPackage()` core memutar tiap quant
+        pallet lalu mencari baris lewat `_findLine()`, yang pada scan pallet
+        TIDAK membawa lot -- pencocokannya jatuh ke product + package saja,
+        sehingga qty lot A bisa masuk ke baris lot B. Di picking `UU Only`
+        keadaannya makin buruk karena `_autofill_result_package()` memasang
+        `result_package_id` pada SEMUA baris, dan core menganggap baris
+        ber-`result_package_id` yang sudah penuh (atau tanpa reservasi) sebagai
+        "fully packed" yang tidak boleh diisi lagi
+        (`_lineCannotBeTaken()`), jadi sisa isi pallet bisa tidak kebagian baris
+        sama sekali.
+
+        Akibat nyatanya (DB_WMS_DEV_008):
+
+        * S00764 / FINI/PICK/26/6356: SPJ-PALLET-10425 isi 1.280, terambil 1.180
+          (satu lot berhenti di angka reservasinya, 640 dari 740).
+        * S00790 / FINI/PICK/26/6492: SPJ-PALLET-10024 isi 1.280, terambil 1.120
+          (lot 21865538 - 04022028 sebanyak 160 tidak dapat baris sama sekali).
+
+        Keduanya membuat pallet pecah, dan Validate ditolak core dengan "You
+        cannot move the same package content more than once in the same transfer
+        or split the same package into two location."
+
+        Method ini tidak menebak-nebak hasil client: ia menghitung ulang dari
+        quant pallet. Untuk tiap (product, lot) di pallet, qty yang dipegang
+        picking ini dibuat PERSIS sebesar isi quant-nya -- ditambah kalau kurang,
+        dipotong kalau lebih, dibuatkan baris baru kalau belum ada. Aturannya
+        sama dengan `stock.move.line._spread_pallet_lot_excess()`, hanya arah
+        sebaliknya, jadi keduanya bertemu di hasil yang sama.
+
+        Idempoten: memanggilnya dua kali tidak mengubah apa pun pada panggilan
+        kedua.
+
+        :return: dict laporan {'dibuat': [...], 'diubah': [...], 'dilewati': [...]}
+        """
+        self.ensure_one()
+        kosong = {'dibuat': [], 'diubah': [], 'dilewati': []}
+        if self.state in ('done', 'cancel') or not package:
+            return kosong
+
+        quants = package.contained_quant_ids.filtered(
+            lambda q: q.quantity > 0 and q.location_id._child_of(self.location_id)
+        )
+        if not quants:
+            return kosong
+
+        lines = self.move_line_ids.filtered(
+            lambda l: l.package_id == package and l.state not in ('done', 'cancel')
+        )
+        # Semua penulisan di bawah memakai context ini supaya
+        # `_spread_pallet_lot_excess()` tidak ikut membagi ulang di tengah jalan;
+        # di sini justru angka finalnya yang sedang ditetapkan.
+        ctx = {'skip_pallet_lot_spread': True}
+
+        isi = defaultdict(float)
+        for quant in quants:
+            isi[(quant.product_id, quant.lot_id)] += quant.quantity
+        baris = defaultdict(lambda: self.env['stock.move.line'])
+        for line in lines:
+            baris[(line.product_id, line.lot_id)] |= line
+
+        laporan = {'dibuat': [], 'diubah': [], 'dilewati': []}
+
+        for key, target in isi.items():
+            product, lot = key
+            key_lines = baris.pop(key, self.env['stock.move.line'])
+            uom = product.uom_id
+            terambil = sum(key_lines.mapped('quantity_product_uom'))
+            selisih = target - terambil
+            if float_compare(selisih, 0.0, precision_rounding=uom.rounding) == 0:
+                if key_lines.filtered(lambda l: not l.picked):
+                    key_lines.with_context(**ctx).write({'picked': True})
+                continue
+
+            if key_lines:
+                # Tambah/kurangi pada baris pertama; baris lain dibiarkan supaya
+                # pembagian yang sudah benar tidak diacak-acak.
+                target_line = key_lines[0]
+                qty_baru = target_line.quantity_product_uom + selisih
+                target_line.with_context(**ctx).write({
+                    'quantity': uom._compute_quantity(
+                        max(qty_baru, 0.0), target_line.product_uom_id,
+                        rounding_method='HALF-UP',
+                    ),
+                    'picked': True,
+                })
+                if len(key_lines) > 1:
+                    key_lines[1:].with_context(**ctx).write({'picked': True})
+                laporan['diubah'].append((target_line.id, selisih))
+                _logger.info(
+                    "[PALLET-FULL] %s pallet %s lot %s: %s -> %s (%+g)",
+                    self.name, package.name, lot.name or '-',
+                    terambil, target, selisih,
+                )
+                continue
+
+            vals = self._prepare_full_package_line_vals(package, quant_key=key, qty=target)
+            if not vals:
+                laporan['dilewati'].append((product.id, lot.id))
+                _logger.warning(
+                    "[PALLET-FULL] %s pallet %s: produk %s tidak punya move di "
+                    "picking ini, %s tidak bisa diambil",
+                    self.name, package.name, product.display_name, target,
+                )
+                continue
+            baris_baru = self.env['stock.move.line'].with_context(**ctx).create(vals)
+            laporan['dibuat'].append(baris_baru.id)
+            _logger.info(
+                "[PALLET-FULL] %s pallet %s lot %s: baris baru %s qty %s",
+                self.name, package.name, lot.name or '-', baris_baru.id, target,
+            )
+
+        # (product, lot) yang punya baris tapi TIDAK ada isinya di pallet:
+        # tidak mungkin diambil, jadi dinolkan supaya tidak ikut Validate.
+        for key, key_lines in baris.items():
+            if all(float_is_zero(l.quantity, precision_digits=2) for l in key_lines):
+                continue
+            key_lines.with_context(**ctx).write({'quantity': 0.0})
+            laporan['diubah'].extend((line.id, 0.0) for line in key_lines)
+            _logger.info(
+                "[PALLET-FULL] %s pallet %s lot %s: tidak ada isinya di pallet, dinolkan",
+                self.name, package.name, key[1].name or '-',
+            )
+
+        return laporan
+
+    def _prepare_full_package_line_vals(self, package, quant_key, qty):
+        """Vals move line baru untuk isi pallet yang belum punya baris.
+
+        Meniru `stock.move.line._spread_pallet_lot_excess()` supaya baris hasil
+        kedua jalur itu identik. Mengembalikan False kalau produknya memang tidak
+        ada di picking ini -- pemanggil yang melaporkannya.
+        """
+        self.ensure_one()
+        product, lot = quant_key
+        move = self.move_ids.filtered(
+            lambda m: m.product_id == product and m.state not in ('done', 'cancel')
+        )[:1]
+        if not move:
+            return False
+
+        quant = package.contained_quant_ids.filtered(
+            lambda q: q.product_id == product and q.lot_id == lot and q.quantity > 0
+        )[:1]
+        contoh = self.move_line_ids.filtered(
+            lambda l: l.package_id == package and l.state not in ('done', 'cancel')
+        )[:1]
+        if contoh:
+            result_package = contoh.result_package_id.id if contoh.result_package_id == package else False
+            location_dest = contoh.location_dest_id
+        else:
+            uu = self.picking_type_id.uu_only and not self.picking_type_id.split_package
+            result_package = package.id if uu else False
+            location_dest = move.location_dest_id or self.location_dest_id
+
+        return {
+            'move_id': move.id,
+            'picking_id': self.id,
+            'product_id': product.id,
+            'product_uom_id': move.product_uom.id or product.uom_id.id,
+            'quantity': product.uom_id._compute_quantity(
+                qty, move.product_uom or product.uom_id, rounding_method='HALF-UP',
+            ),
+            'lot_id': lot.id or False,
+            'package_id': package.id,
+            'result_package_id': result_package,
+            'location_id': (quant.location_id or package.location_id).id,
+            'location_dest_id': location_dest.id,
+            'owner_id': quant.owner_id.id or False,
+            'company_id': self.company_id.id,
+            'picked': True,
+            'production_line_id': quant.production_line_id.id or False,
+            'pallet_ke': quant.pallet_ke or 0,
+        }
+
     def _get_next_pallet_ke_map(self):
         result = {}
         tz_name = 'Asia/Jakarta'

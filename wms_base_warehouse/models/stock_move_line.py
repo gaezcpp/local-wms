@@ -18,11 +18,18 @@ class InheritBaseStockMoveLine(models.Model):
     sloc_id = fields.Many2one(comodel_name='storage.location', string="SLOC")
     production_shift_id = fields.Many2one(related='picking_id.production_shift_id', string="Shift", store=True)
     production_order_name = fields.Char(related='picking_id.production_order_name', string="Production Order Name", store=True)
+    # Sengaja TANPA `default='QI'`. Client Barcode tidak pernah mengirim
+    # `stock_type` (baik `_getFieldToWrite()` maupun `_createCommandVals()`
+    # core tidak memuatnya), jadi default itu dulu menjadi nilai final setiap
+    # kali pencarian quant asal di `create()` meleset -- diam-diam mengubah
+    # stok UU menjadi QI pada Bin to Bin (INT) dan Split QTY Pallet (P2P).
+    # QI untuk GR produksi sekarang dipasang eksplisit di
+    # `_apply_gr_prod_stock_type()` dan `stock.move._prepare_move_line_vals()`.
     stock_type = fields.Selection([
         ('QI', 'QI'),
         ('BLOCKED', 'BLOCKED'),
         ('UU', 'UU'),
-    ], string="Stock Type", default='QI', index=True)
+    ], string="Stock Type", index=True)
     
     # ini dipake kalo odoo.sh salah
     def _skip_custom_logic(self):
@@ -90,33 +97,209 @@ class InheritBaseStockMoveLine(models.Model):
 
         return lot
 
+    # Atribut yang menempel pada BARANG, bukan pada dokumen. Kalau pemanggil
+    # tidak mengirimnya, nilainya diwarisi dari quant di lokasi asal -- itulah
+    # satu-satunya sumber kebenaran yang tersedia untuk baris hasil scan,
+    # karena client Barcode tidak pernah mengirim ketiganya.
+    _QUANT_INHERITED_FIELDS = ('stock_type', 'production_line_id', 'pallet_ke')
+
+    def _fill_quant_inherited_fields(self, vals_list):
+        """Isi field turunan quant pada baris baru sebelum disimpan.
+
+        Urutannya: warisi dari quant asal dulu, baru fallback GR produksi
+        untuk `stock_type`. Kalau keduanya tidak berlaku, field sengaja
+        dibiarkan kosong -- lebih jujur daripada mengarang 'QI' seperti
+        default field yang lama.
+        """
+        pending = [
+            vals for vals in vals_list
+            if not all(vals.get(name) for name in self._QUANT_INHERITED_FIELDS)
+        ]
+        if not pending:
+            return
+
+        self._fill_from_source_quant(pending)
+
+        still_empty = [vals for vals in pending if not vals.get('stock_type')]
+        if still_empty:
+            self._apply_gr_prod_stock_type(still_empty)
+
+    def _fill_from_source_quant(self, vals_list):
+        """Warisi `_QUANT_INHERITED_FIELDS` dari quant di lokasi asal.
+
+        Pencocokan `package_id` harus SIMETRIS: baris tanpa package hanya boleh
+        mewarisi dari quant tanpa package. Versi lama memakai
+        `not vals.get('package_id') or ...`, sehingga saat barang belum
+        dipallet syarat package tidak dipasang sama sekali dan quant milik
+        pallet lain di bin yang sama ikut jadi kandidat -- lalu diambil
+        `matching_quants[0]` (id terkecil). Itulah asal "UU tiba-tiba jadi QI"
+        pada INT/P2P.
+
+        `lot_id` tetap asimetris: baris tanpa lot memang sah mewakili beberapa
+        lot sekaligus, jadi kandidatnya tidak boleh dipersempit ke lot kosong.
+        """
+        indexes = [
+            i for i, vals in enumerate(vals_list)
+            if vals.get('location_id') and vals.get('product_id')
+        ]
+        if not indexes:
+            return
+
+        location_ids = {vals_list[i]['location_id'] for i in indexes}
+        product_ids = {vals_list[i]['product_id'] for i in indexes}
+        candidate_quants = self.env['stock.quant'].sudo().search([
+            ('location_id', 'in', list(location_ids)),
+            ('product_id', 'in', list(product_ids)),
+        ])
+        if not candidate_quants:
+            return
+
+        for i in indexes:
+            vals = vals_list[i]
+            package_id = vals.get('package_id') or False
+            lot_id = vals.get('lot_id') or False
+            matching = candidate_quants.filtered(
+                lambda q, vals=vals, package_id=package_id, lot_id=lot_id:
+                q.location_id.id == vals['location_id']
+                and q.product_id.id == vals['product_id']
+                and (q.package_id.id or False) == package_id
+                and (not lot_id or q.lot_id.id == lot_id),
+            )
+            if not matching:
+                continue
+
+            for name in self._QUANT_INHERITED_FIELDS:
+                if vals.get(name):
+                    continue
+                source = self._resolve_source_quant(matching, name, vals)
+                if not source:
+                    continue
+                value = source[name]
+                vals[name] = value.id if self._fields[name].type == 'many2one' else value
+
+    def _resolve_source_quant(self, quants, field_name, vals):
+        """Pilih satu quant rujukan untuk `field_name`.
+
+        Satu bin bisa memuat satu produk dengan atribut berbeda-beda sekaligus
+        (mis. sisa UU berdampingan dengan lot BLOCKED, atau dua pallet dari
+        production line berbeda). Kalau begitu, quant yang benar-benar ada
+        isinya yang menang; kalau masih ambigu juga, pilih yang qty-nya
+        terbesar dan catat peringatannya supaya kasusnya bisa ditelusuri,
+        bukan hilang tanpa jejak seperti sebelumnya.
+        """
+        candidates = quants.filtered(lambda q, name=field_name: q[name])
+        if not candidates:
+            return self.env['stock.quant']
+
+        values = {q[field_name] for q in candidates}
+        if len(values) == 1:
+            return candidates[0]
+
+        with_qty = candidates.filtered(lambda q: q.quantity > 0)
+        if len({q[field_name] for q in with_qty}) == 1:
+            return with_qty[0]
+
+        pool = with_qty or candidates
+        winner = pool.sorted(key=lambda q: q.quantity, reverse=True)[0]
+        _logger.warning(
+            "[QUANT-INHERIT] lokasi %s produk %s lot %s package %s: kandidat "
+            "quant punya %s campuran %s, dipakai %r (qty %s dari quant %s)",
+            vals.get('location_id'), vals.get('product_id'), vals.get('lot_id'),
+            vals.get('package_id'), field_name, sorted(map(str, values)),
+            winner[field_name], winner.quantity, winner.id,
+        )
+        return winner
+
+    def _gr_prod_picking_ids(self, vals_list):
+        """Resolusi picking GR produksi untuk sekumpulan vals.
+
+        Mengembalikan `(gr_picking_ids, picking_by_move)` supaya pemanggil bisa
+        memetakan tiap vals ke picking-nya tanpa query berulang: baris dari
+        client Barcode sering dikirim dengan `move_id` saja, tanpa `picking_id`.
+        """
+        prod_in_move_type = self.env['ir.config_parameter'].sudo().get_param('prod_in_move_type')
+        if not prod_in_move_type:
+            return set(), {}
+
+        picking_ids = {vals['picking_id'] for vals in vals_list if vals.get('picking_id')}
+        move_ids = {
+            vals['move_id'] for vals in vals_list
+            if vals.get('move_id') and not vals.get('picking_id')
+        }
+
+        picking_by_move = {}
+        if move_ids:
+            for move in self.env['stock.move'].sudo().browse(move_ids).exists():
+                picking_by_move[move.id] = move.picking_id.id
+                if move.picking_id:
+                    picking_ids.add(move.picking_id.id)
+
+        if not picking_ids:
+            return set(), picking_by_move
+
+        gr_picking_ids = {
+            picking.id
+            for picking in self.env['stock.picking'].sudo().browse(picking_ids).exists()
+            if picking.picking_type_id.move_type_sap == str(prod_in_move_type)
+        }
+        return gr_picking_ids, picking_by_move
+
+    def _apply_gr_prod_stock_type(self, vals_list):
+        """GR produksi selalu masuk sebagai QI.
+
+        Dulu ini kebetulan tertangani oleh `default='QI'` pada field. Sekarang
+        dipasang eksplisit supaya hanya GR yang kena, bukan semua baris yang
+        pencarian quant-nya meleset.
+        """
+        gr_picking_ids, picking_by_move = self._gr_prod_picking_ids(vals_list)
+        if not gr_picking_ids:
+            return
+
+        for vals in vals_list:
+            picking_id = vals.get('picking_id') or picking_by_move.get(vals.get('move_id'))
+            if picking_id in gr_picking_ids:
+                vals['stock_type'] = 'QI'
+
+    def _strip_gr_prod_lot_name(self, vals_list):
+        """Nama lot GR produksi tidak boleh datang dari barcode yang di-scan.
+
+        Picking GR produksi memakai `use_create_lots=True`, jadi core
+        (`stock/models/stock_move_line.py::_action_done`) akan membuat
+        `stock.lot` dari `lot_name` apa adanya begitu `lot_id` masih kosong.
+        Di lapangan operator kerap men-scan QR PO SAP -- payload-nya
+        `f"{po_number}|{production_line.code}"`, lihat
+        `wms_production_order_sap/wizards/qr_po_sap.py::_get_qr_image_base64` --
+        di layar Barcode. Karena barcode itu tidak cocok dengan produk/lokasi/
+        pallet mana pun, core menganggapnya nomor lot baru
+        (`stock_barcode/static/src/models/barcode_model.js`, blok "we assume
+        it's a new lot/serial number") dan lahirlah lot bernama
+        `160110003526|71`.
+
+        Satu-satunya sumber nama lot GR produksi adalah `_get_or_create_lot()`,
+        jadi `lot_name` dibuang di sini dan diisi ulang dari lot hasil generate.
+        """
+        pending = [vals for vals in vals_list if vals.get('lot_name')]
+        if not pending:
+            return
+
+        gr_picking_ids, picking_by_move = self._gr_prod_picking_ids(pending)
+        if not gr_picking_ids:
+            return
+
+        for vals in pending:
+            picking_id = vals.get('picking_id') or picking_by_move.get(vals.get('move_id'))
+            if picking_id in gr_picking_ids:
+                _logger.warning(
+                    "[GR-PROD-LOT] picking %s: lot_name %r diabaikan, nama lot "
+                    "GR produksi dihasilkan dari Production Code",
+                    picking_id, vals['lot_name'],
+                )
+                vals['lot_name'] = False
+
     @api.model_create_multi
     def create(self, vals_list):
-        lookup_indexes = [
-            i for i, vals in enumerate(vals_list)
-            if not vals.get('stock_type') and vals.get('location_id') and vals.get('product_id')
-        ]
-
-        if lookup_indexes:
-            location_ids = {vals_list[i]['location_id'] for i in lookup_indexes}
-            product_ids = {vals_list[i]['product_id'] for i in lookup_indexes}
-            candidate_quants = self.env['stock.quant'].sudo().search([
-                ('location_id', 'in', list(location_ids)),
-                ('product_id', 'in', list(product_ids)),
-            ])
-
-            for i in lookup_indexes:
-                vals = vals_list[i]
-                matching_quants = candidate_quants.filtered(
-                    lambda q, vals=vals: q.location_id.id == vals['location_id']
-                    and q.product_id.id == vals['product_id']
-                    and (not vals.get('lot_id') or q.lot_id.id == vals['lot_id'])
-                    and (not vals.get('package_id') or q.package_id.id == vals['package_id']),
-                )
-                if matching_quants:
-                    source_quant = matching_quants[0]
-                    if source_quant.stock_type:
-                        vals['stock_type'] = source_quant.stock_type
+        self._fill_quant_inherited_fields(vals_list)
+        self._strip_gr_prod_lot_name(vals_list)
 
         records = super().create(vals_list)
 
@@ -139,6 +322,23 @@ class InheritBaseStockMoveLine(models.Model):
     })
 
     def write(self, vals):
+        if vals.get('lot_name'):
+            # Sama seperti pada `create()`: pada GR produksi `lot_name` hanya
+            # bisa berasal dari scan yang salah alamat (QR PO SAP), bukan dari
+            # data yang sah. Recordset dipecah supaya baris non-GR -- Checker
+            # IN, adjustment, dsb. -- tetap boleh memakai lot_name.
+            gr_prod = self.filtered(lambda r: r._is_gr_prod())
+            if gr_prod:
+                _logger.warning(
+                    "[GR-PROD-LOT] move line %s: lot_name %r diabaikan, nama lot "
+                    "GR produksi dihasilkan dari Production Code",
+                    gr_prod.ids, vals['lot_name'],
+                )
+                others = self - gr_prod
+                if others:
+                    others.write(vals)
+                return gr_prod.write(dict(vals, lot_name=False))
+
         res = super().write(vals)
         if self.env.context.get('skip_lot_aft'):
             return res
@@ -258,8 +458,57 @@ class InheritBaseStockMoveLine(models.Model):
             owner_id=owner_id, ml_ids_to_ignore=ml_ids_to_ignore,
         )
 
+    def _ensure_gr_prod_lot(self):
+        """Pastikan tiap baris GR produksi punya lot hasil `_get_or_create_lot()`.
+
+        Dipanggil sebelum `super()._action_done()` supaya core tidak pernah
+        sampai ke `_create_and_assign_production_lot()` untuk baris GR -- di
+        sanalah dulu nama lot liar hasil scan terbentuk. Kalau lot memang tidak
+        bisa dibuat, lebih baik validasi ditolak dengan pesan yang jelas
+        daripada stok masuk dengan nama lot yang salah dan harus dibersihkan
+        manual.
+        """
+        if not self.env['ir.config_parameter'].sudo().get_param('prod_in_move_type'):
+            # Tanpa parameter ini tidak ada cara menentukan mana GR produksi;
+            # jangan sampai `_action_done()` core ikut gagal karenanya.
+            return
+
+        todo = self.filtered(
+            lambda ml: not ml.lot_id
+            and ml.product_id.tracking != 'none'
+            and ml.product_uom_id.compare(ml.quantity, 0) > 0
+            and ml._is_gr_prod()
+        )
+        for ml in todo:
+            lot = ml._get_or_create_lot()
+            if not lot:
+                raise ValidationError(
+                    f"Lot untuk produk {ml.product_id.display_name} pada "
+                    f"{ml.picking_id.name or ml.move_id.reference} tidak bisa dibuat "
+                    "karena Line (Production Line) pada baris ini masih kosong.\n\n"
+                    "Nama lot GR produksi dihasilkan dari format Production Code, "
+                    "bukan dari barcode/QR yang di-scan."
+                )
+            ml.with_context(skip_lot_aft=True).write({'lot_id': lot.id, 'lot_name': False})
+
+    def _create_and_assign_production_lot(self):
+        """Jaring pengaman terakhir: GR produksi tidak boleh lewat jalur core.
+
+        `_ensure_gr_prod_lot()` seharusnya sudah mengisi `lot_id` sebelum core
+        sampai ke sini, tapi method ini juga dipanggil dari luar `_action_done`
+        oleh modul lain -- kalau itu terjadi, nama lot tetap harus datang dari
+        `_get_or_create_lot()`.
+        """
+        gr_prod = self.filtered(lambda ml: ml._is_gr_prod())
+        if gr_prod:
+            gr_prod._ensure_gr_prod_lot()
+        others = self - gr_prod
+        if others:
+            return super(InheritBaseStockMoveLine, others)._create_and_assign_production_lot()
+
     # untuk stock.lot.aft ngurangin yang UU
     def _action_done(self):
+        self._ensure_gr_prod_lot()
         for line in self:
             picking_type = line.picking_id.picking_type_code
             if picking_type == 'outgoing' and line.lot_id:

@@ -98,13 +98,13 @@
                     </div>
                 </div>
             </xpath>
-            <xpath expr="//div[@name='quantity']" position="after">
+            <!-- <xpath expr="//div[@name='quantity']" position="after">
                 <div name="btn_full_pallet" class="row my-2" invisible="not production_only">
                     <div class="col text-end">
                         <field name="dummy_full_pallet" widget="full_pallet_button"/>
                     </div>
                 </div>
-            </xpath>
+            </xpath> -->
             <xpath expr="//div[@name='digipad']" position="attributes">
                 <attribute name="invisible">1</attribute>
             </xpath>

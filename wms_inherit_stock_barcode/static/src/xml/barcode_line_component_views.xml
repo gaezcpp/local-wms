@@ -23,8 +23,15 @@
         <xpath expr="//span[hasclass('qty-done')]" position="attributes">
             <attribute name="t-out">hasBagUom ? computedBagQty + ' ' + bagUomLabel : (hasPackUom ? packQtyLabel : (env.model.IsNotSet(line) ? '?' : qtyDone))</attribute>
         </xpath>
+        <!-- Untuk baris ber-UoM bag, yang menentukan tampil/tidaknya demand adalah
+             `computedBagDemand` itu sendiri, bukan `displayLineQtyDemand()` core.
+             Core menilainya dari `reserved_uom_qty`, yang sengaja 0 untuk line
+             yang dibentuk di client, padahal line hasil scan pallet punya demand
+             yang jelas: isi pallet-nya (lihat `_computeSingleBagDemand()` di
+             line_componant_patch.js). Tanpa ini "/80 BOX" baru muncul setelah
+             operator keluar-masuk dokumen. Jalur non-bag tidak diubah. -->
         <xpath expr="//span[hasclass('qty-done')]/../span[@t-if]" position="attributes">
-            <attribute name="t-if">!(env.model.isCheckerOnly() or env.model.isCheckerOut()) and env.model.displayLineQtyDemand(line) and !hasPackUom</attribute>
+            <attribute name="t-if">!(env.model.isCheckerOnly() or env.model.isCheckerOut()) and !hasPackUom and (hasBagUom ? computedBagDemand : env.model.displayLineQtyDemand(line))</attribute>
         </xpath>
         <xpath expr="//span[hasclass('qty-done')]/../span[@t-if]" position="attributes">
             <attribute name="t-out">!(env.model.isCheckerOnly() or env.model.isCheckerOut()) ? (hasBagUom ? '/' + computedBagDemand + ' ' + bagUomLabel : '/' + qtyDemand) : ''</attribute>

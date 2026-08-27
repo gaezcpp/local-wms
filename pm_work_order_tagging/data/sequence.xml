@@ -6,6 +6,7 @@
             <field name="code">pm.work.order</field>
             <field name="prefix">PWO-</field>
             <field name="padding">4</field>
+            <field name="company_id" eval="False"/>
         </record>
     </data>
 </odoo>

@@ -100,8 +100,23 @@ patch(LineComponent.prototype, {
         return (qty * sourceUom.factor) / targetUom.factor;
     },
 
+    /**
+     * Demand satu line dalam satuan bag.
+     *
+     * Reservasi asli selalu menang. Kalau line-nya tidak punya reservasi tapi
+     * lahir dari scan pallet -- kasus Split QTY Pallet (P2P), yang picking-nya
+     * dibuat kosong sehingga SELURUH line dibentuk di client dan
+     * `reserved_uom_qty`-nya sengaja dinolkan core -- demand-nya diambil dari
+     * isi pallet. Tanpa cabang kedua ini, demand baru muncul setelah operator
+     * keluar-masuk dokumen; lihat `getScannedPackageQty()` di
+     * barcode_pickimg_model_patch.js.
+     */
     _computeSingleBagDemand(line) {
-        return this._computeBagFromQty(line, line?.reserved_uom_qty ?? 0);
+        const reserved = line?.reserved_uom_qty ?? 0;
+        if (reserved) {
+            return this._computeBagFromQty(line, reserved);
+        }
+        return this._computeBagFromQty(line, this.env.model.getScannedPackageQty(line));
     },
 
     get computedBagDemand() {
@@ -180,37 +195,46 @@ patch(LineComponent.prototype, {
     },
 
     async _getBulkCapacities(groupLines) {
-        let quantByLot = null;
-        if (groupLines.some((l) => !l.reserved_uom_qty)) {
-            const packageId = this._getRelationId(groupLines[0].package_id);
-            const productId = this._getRelationId(groupLines[0].product_id);
-            if (packageId && productId) {
-                try {
-                    const quants = await this.env.model.orm.searchRead(
-                        "stock.quant",
-                        [
-                            ["package_id", "=", packageId],
-                            ["product_id", "=", productId],
-                        ],
-                        ["lot_id", "quantity"]
-                    );
-                    quantByLot = new Map(
-                        quants.map((q) => [q.lot_id ? q.lot_id[0] : false, q.quantity])
-                    );
-                } catch (error) {
-                    console.error("[bulk_entry] gagal membaca quant untuk kapasitas:", error);
-                }
-            }
+        const capacities = groupLines.map((line) => ({
+            line,
+            maxBag: Math.floor(this._computeSingleBagDemand(line)),
+        }));
+
+        // `_computeSingleBagDemand()` sudah mengenal reservasi maupun isi pallet
+        // hasil scan, jadi quant hanya dibaca untuk sisa line yang benar-benar
+        // belum ketahuan kapasitasnya -- mis. line lama yang sudah tersimpan
+        // dari sesi scan sebelumnya, yang isi pallet-nya tidak ada di ingatan
+        // model sesi ini.
+        const missing = capacities.filter((capacity) => !capacity.maxBag);
+        if (!missing.length) {
+            return capacities;
         }
 
-        return groupLines.map((l) => {
-            let maxBag = Math.floor(this._computeSingleBagDemand(l));
-            if (!maxBag && quantByLot) {
-                const quantQty = quantByLot.get(this._getRelationId(l.lot_id) || false);
-                maxBag = Math.floor(this._computeBagFromQty(l, quantQty));
+        const packageId = this._getRelationId(groupLines[0].package_id);
+        const productId = this._getRelationId(groupLines[0].product_id);
+        if (!packageId || !productId) {
+            return capacities;
+        }
+        try {
+            const quants = await this.env.model.orm.searchRead(
+                "stock.quant",
+                [
+                    ["package_id", "=", packageId],
+                    ["product_id", "=", productId],
+                ],
+                ["lot_id", "quantity"]
+            );
+            const quantByLot = new Map(
+                quants.map((q) => [q.lot_id ? q.lot_id[0] : false, q.quantity])
+            );
+            for (const capacity of missing) {
+                const quantQty = quantByLot.get(this._getRelationId(capacity.line.lot_id) || false);
+                capacity.maxBag = Math.floor(this._computeBagFromQty(capacity.line, quantQty));
             }
-            return { line: l, maxBag };
-        });
+        } catch (error) {
+            console.error("[bulk_entry] gagal membaca quant untuk kapasitas:", error);
+        }
+        return capacities;
     },
 
     // bulk_entry

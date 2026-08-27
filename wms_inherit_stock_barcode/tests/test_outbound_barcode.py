@@ -364,6 +364,18 @@ class TestOutboundBarcodeMultiProductionLine(TransactionCase):
             "Production line hilang dari quant setelah PICK divalidasi.",
         )
 
+        # Routing FINI punya rule sendiri dari STG - OUT ke Checker Out, jadi
+        # memvalidasi PICK sudah otomatis membuat dokumen Checker Out dan
+        # memesan kedua pallet di sana. Test ini sengaja memakai dokumen CO
+        # buatan sendiri supaya rantainya eksplisit, jadi reservasi otomatis
+        # itu dilepas dulu -- kalau tidak, move CO manual tidak kebagian stok
+        # dan berhenti di state 'waiting'.
+        auto_dest = pick.move_ids.move_dest_ids.filtered(
+            lambda m: m.state not in ('done', 'cancel')
+        )
+        if auto_dest:
+            auto_dest._do_unreserve()
+
         co = self._make_picking(
             self.type_co, total,
             move_orig=pick.move_ids, procure_method='make_to_order',

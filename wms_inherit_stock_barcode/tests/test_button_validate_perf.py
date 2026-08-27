@@ -16,7 +16,7 @@ Jalankan:
         -u wms_inherit_stock_barcode --test-enable --test-tags wms_perf \\
         --stop-after-init --no-http
 
-Hasil pengukuran di DB_WMS_DEV_007 (2026-08-25), sebelum vs sesudah putaran
+Hasil pengukuran di DB_WMS_DEV_008 (2026-08-25), sebelum vs sesudah putaran
 optimasi Validate (batching query di wms_base_warehouse / wms_inherit_stock_barcode
 / wms_production_order_sap):
 

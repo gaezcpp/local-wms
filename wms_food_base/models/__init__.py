@@ -9,6 +9,7 @@ from . import stock_lot
 from . import stock_package
 from . import stock_rule
 from . import product_template
+from . import product_product
 from . import product_packaging
 from . import storage_location
 from . import stock_sap

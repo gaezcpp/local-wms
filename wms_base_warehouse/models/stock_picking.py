@@ -1,5 +1,6 @@
 from odoo import models, fields, api
 from odoo.exceptions import ValidationError, UserError
+from odoo.tools.float_utils import float_compare
 from datetime import datetime
 from collections import defaultdict
 import requests
@@ -31,7 +32,119 @@ class InheritBaseStockPicking(models.Model):
         default = dict(default or {})
         default['synchronize_sap'] = False
         return super().copy(default)
-    
+
+    def _get_partially_taken_packages(self):
+        """Pallet yang ikut pindah (destination package = pallet itu sendiri)
+        tapi isinya TIDAK terangkut seluruhnya oleh transfer ini.
+
+        Hanya baris `picked` yang dihitung, karena hanya itu yang benar-benar
+        pindah: `stock.move._action_done()` menghapus semua move line yang tidak
+        `picked` dari move yang `picked` ("non-scanned mls = not picked => we
+        definitely don't want to validate them"). Sisa reservasi yang belum
+        di-scan karena itu tidak boleh membuat pallet dianggap pecah.
+
+        Perkecualiannya sama dengan core `_pre_action_done_hook()`: kalau TIDAK
+        ADA satu pun move yang `picked`, core menandai semuanya `picked` (dan
+        lewat `_inverse_picked()` ikut menandai semua move line-nya), jadi dalam
+        keadaan itu seluruh baris yang ada memang akan pindah.
+
+        :return: dict {stock.package: {stock.lot atau False: selisih qty}},
+                 selisih positif = isi pallet yang tertinggal.
+        """
+        self.ensure_one()
+        lines = self.move_line_ids.filtered(
+            lambda l: l.state not in ('done', 'cancel')
+            and l.package_id
+            and l.result_package_id == l.package_id
+            and l.product_id.is_storable
+        )
+        has_pick = any(
+            move.picked for move in self.move_ids
+            if move.location_dest_usage != 'inventory'
+        )
+        picked = lines.filtered('picked') if has_pick else lines
+        result = {}
+        for package, package_lines in picked.grouped('package_id').items():
+            if package._check_move_lines_map_quant(package_lines):
+                continue
+
+            selisih = defaultdict(float)
+            for quant in package.contained_quant_ids:
+                selisih[quant.lot_id] += quant.quantity
+            for line in package_lines:
+                selisih[line.lot_id] -= line.quantity_product_uom
+
+            rounding = package_lines[0].product_id.uom_id.rounding or 0.01
+            selisih = {
+                lot: qty for lot, qty in selisih.items()
+                if float_compare(qty, 0.0, precision_rounding=rounding) != 0
+            }
+            if selisih:
+                result[package] = selisih
+        return result
+
+    def _check_uu_package_fully_taken(self):
+        """Tolak Validate kalau ada pallet yang pindah setengah-setengah.
+
+        KENAPA: pallet yang pecah tapi tetap dipasang sebagai destination
+        package membuat quant pallet yang sama berakhir di dua lokasi, dan core
+        menolaknya di `stock.move._action_done()` dengan pesan yang tidak
+        menyebut pallet mana pun:
+
+            "You cannot move the same package content more than once in the
+             same transfer or split the same package into two location."
+
+        Ini terjadi di S00764 / FINI/PICK/26/6356/1608953947 (2026-08-26): scan
+        SPJ-PALLET-10425 cuma mengambil 1.180 dari 1.280 isinya, karena satu lot
+        berhenti di angka reservasinya (640 dari 740). Pemeriksaan di sini
+        menyebut pallet, lot, dan kekurangannya, jadi operator tahu harus
+        men-scan ulang pallet-nya -- bukan menebak dokumen mana yang salah.
+
+        Sengaja TIDAK membetulkan qty sendiri: menaikkan qty saat Validate
+        berarti merebut reservasi dokumen lain dan membuat move melebihi
+        demand-nya diam-diam. Server memang tidak pernah melakukan itu -- lihat
+        `stock.move._force_full_pallet_line()` yang justru membatalkan
+        pembulatan ke pallet penuh kalau sisanya dipegang dokumen lain.
+        """
+        if self.env.context.get('skip_uu_package_check'):
+            return
+        pesan = []
+        for picking in self:
+            for package, selisih in picking._get_partially_taken_packages().items():
+                isi = sum(package.contained_quant_ids.mapped('quantity'))
+                diambil = isi - sum(selisih.values())
+                rincian = ", ".join(
+                    "%s %s pada lot %s" % (
+                        "kurang" if qty > 0 else "lebih",
+                        abs(qty),
+                        lot.name if lot else "-",
+                    )
+                    for lot, qty in selisih.items()
+                )
+                pesan.append(
+                    f"- {package.name}: isi pallet {isi}, yang di-scan {diambil} ({rincian})"
+                )
+        if not pesan:
+            return
+        raise ValidationError(
+            "Pallet berikut ikut pindah tapi isinya tidak terangkut seluruhnya:\n\n"
+            + "\n".join(pesan)
+            + "\n\nPallet yang pecah tidak bisa ikut pindah -- sebagian isinya "
+            "tetap tinggal di lokasi asal, sehingga satu pallet berada di dua "
+            "lokasi sekaligus.\n\n"
+            "Pilihannya:\n"
+            "1. Scan ulang pallet tersebut supaya SELURUH isinya terambil; atau\n"
+            "2. Pindahkan barang yang diambil ke pallet lain lewat Destination "
+            "Package (put in pack)."
+        )
+
+    def _pre_action_done_hook(self):
+        # Sebelum super(): pallet yang pecah harus diberitahukan lebih dulu,
+        # bukan sesudah operator menjawab dialog backorder yang dimunculkan
+        # `_check_backorder()` di dalam hook core.
+        self._check_uu_package_fully_taken()
+        return super()._pre_action_done_hook()
+
     def _needs_update(self, model, vals):
         for field, new_val in vals.items():
             if field not in model._fields:

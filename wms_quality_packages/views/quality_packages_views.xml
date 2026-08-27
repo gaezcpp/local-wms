@@ -57,13 +57,13 @@
                     <group>
                         <group name="aft_left">
                             <field name="warehouse_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" domain="[('company_id', '=', company_id)]" required="1"/>
+                            <field name="action_aft_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" required="1"/>
                             <field name="date_done" readonly="state != 'draft'"/>
                             <field name="product_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" domain="[('company_id', '=', company_id)]" string="SKU"/>
                             <field name="lot_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" domain="product_id and [('company_id', '=', company_id), ('product_id', '=', product_id)] or [('company_id', '=', company_id)]" string="Production Code"/>
                             <field name="location_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" domain="[('company_id', '=', company_id), ('id', 'child_of', lot_stock_id)]"/>
                             <field name="production_shift_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" domain="[('company_ids', 'in', company_id)]"/>
                             <field name="production_line_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" domain="[('company_id', '=', company_id)]"/>
-                            <field name="action_aft_id" readonly="state != 'draft'" options="{'no_open': True, 'no_create': True}" required="1"/>
                             <field name="notes" placeholder="e.g Packages sedang rusak" readonly="state != 'draft'"/>
                             <field name="select_all" readonly="state != 'draft'" invisible="not is_checked"/>
                         </group>
