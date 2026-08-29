@@ -30,7 +30,7 @@ class ProductionOrderSAPLine(models.Model):
         
         for rec in self:
             if rec.po_sap_id.active and rec.picking_type_id:
-                picking = self.env['stock.picking'].sudo().create({
+                picking = self.env['stock.picking'].create({
                     'picking_type_id': rec.picking_type_id.id,
                     'location_dest_id': rec.picking_type_id.default_location_dest_id.id,
                     'production_shift_id': prod_shift.id if prod_shift else False,
@@ -40,6 +40,7 @@ class ProductionOrderSAPLine(models.Model):
                     'company_id': rec.po_sap_id.company_id.id,
                     'origin': rec.po_sap_id.po_number,
                     'note': f"WIP Created From Production Order {rec.po_sap_id.po_number}",
+                    'user_id': False,
                 })
                 
                 move_vals = []

@@ -101,14 +101,14 @@
     </t>
 
     <!--INI YANG TANPA LINE PRODUCT-->
-    <!-- <t t-inherit="stock_barcode.PackageLineComponent" t-inherit-mode="extension">
+    <t t-inherit="stock_barcode.PackageLineComponent" t-inherit-mode="extension">
         <xpath expr="//button[hasclass('o_unpack')]" position="attributes">
             <attribute name="t-if">false</attribute>
         </xpath>
         <xpath expr="//button[hasclass('o_package_content')]" position="attributes">
             <attribute name="t-if">false</attribute>
         </xpath>
-        <xpath expr="//button[hasclass('o_unpack')]" position="before">
+        <!-- <xpath expr="//button[hasclass('o_unpack')]" position="before">
             <t t-if='env.model.record.picking_type_bypass_entire_packs'>
                 <t t-foreach="sublinesToDisplay" t-as="subline" t-key="subline.virtual_id">
                     <button class="o_line_button o_edit btn btn-secondary"
@@ -118,8 +118,8 @@
                     </button>
                 </t>
             </t>
-        </xpath>
-    </t> -->
+        </xpath> -->
+    </t>
 
     <!--INI YANG LINE PRODUCT-->
     <!-- <t t-inherit="stock_barcode.PackageLineComponent" t-inherit-mode="extension">\
