@@ -46,7 +46,7 @@
         <field name="arch" type="xml">
             <form string="Work Order" create="0" delete="0">
                 <header>
-                    <button name="action_waiting_sap" string="Submit" type="object" class="oe_highlight" invisible="state != 'draft'"/>
+                    <button name="action_waiting_sap" string="Submit" type="object" class="oe_highlight" invisible="state != 'draft' or not gi_gr_done"/>
                     <!-- <button name="action_close" string="Close" type="object" class="oe_highlight" invisible="state != 'waiting_sap'"/> -->
                     <field name="state" widget="statusbar" statusbar_visible="draft,waiting_sap,confirm"/>
                 </header>
@@ -77,6 +77,7 @@
                             <field name="preventif_visible"/>
                         </group>
                     </group>
+                    <field name="gi_gr_done" invisible="1"/>
                     <field name="material_only" invisible="1"/>
                     <field name="jasa_only" invisible="1"/>
                     <field name="preventif_inspection" invisible="1"/>
@@ -111,8 +112,11 @@
                             </field>
 						</page>
 					</notebook>
-                    <separator name="close_evidence" string="Close Evidence" invisible="not sap_synchronize"/>
-                    <group name="close_evidence" invisible="not sap_synchronize">
+                    <div name="close_evidence_warning" class="alert alert-info" role="status" invisible="not sap_synchronize or gi_gr_done">
+                        Close Evidence belum bisa diisi karena masih ada material yang belum GI atau jasa yang belum GR.
+                    </div>
+                    <separator name="close_evidence" string="Close Evidence" invisible="not sap_synchronize or not gi_gr_done"/>
+                    <group name="close_evidence" invisible="not sap_synchronize or not gi_gr_done">
                         <field name="need_desc" invisible="1" force_save="1" readonly="1"/>
                         <field name="date_from" readonly="state != 'draft'"/>
                         <field name="date_to" readonly="state != 'draft'"/>
@@ -134,6 +138,9 @@
         <field name="inherit_id" ref="pm_work_order_tagging.pm_work_order_view_form"/>
         <field name="mode">primary</field>
         <field name="arch" type="xml">
+            <xpath expr="//div[@name='close_evidence_warning']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
             <xpath expr="//separator[@name='close_evidence']" position="attributes">
                 <attribute name="invisible">1</attribute>
             </xpath>
