@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record model="ir.ui.view" id="sttl_inherit_picking_type_filter">
+        <field name="name">sttl.stock.picking.type.form</field>
+        <field name="model">stock.picking.type</field>
+        <field name="inherit_id" ref="stock.view_pickingtype_filter"/>
+        <field name="arch" type="xml">
+            <xpath expr="//filter[@name='inactive']" position="after">
+                <filter name="fl_allowed_operation_types" string="Allowed" domain="[('is_allowed_operation_type', '=', True)]"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="stock_barcode.stock_picking_type_action_kanban" model="ir.actions.act_window">
+        <field name="context">{'search_default_fl_allowed_operation_types': 1}</field>
+    </record>
+</odoo>
