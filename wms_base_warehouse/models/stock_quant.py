@@ -206,12 +206,52 @@ class StockQuant(models.Model):
                 stock_lot_aft.create(vals_aft)
 
     def _log_stock_type_change(self, old_values):
+        """Catat perubahan `stock_type` ke chatter pallet.
+
+        Dua kejadian yang berbeda dibedakan bunyinya:
+
+        * **quant baru** (`old_type` kosong). Setiap kali barang pindah lokasi,
+          quant di lokasi asal dikosongkan dan quant BARU dibuat di lokasi
+          tujuan -- lahir tanpa `stock_type`, lalu diisi
+          `stock.move._propagate_stock_type_to_quants()` di transaksi yang sama.
+          Jadi ini bukan perubahan status barang, cuma pencatatan pertama pada
+          quant baru itu. Dulu bunyinya "diubah dari [-] menjadi [UU]" dan
+          terbaca seolah status barang berubah; padahal 78% pesan di chatter
+          adalah kejadian rutin ini.
+        * **perubahan nyata** (`old_type` ada isinya): release QI -> UU, hold
+          UU -> BLOCKED, dan sejenisnya.
+
+        Keterangan "diwarisi dari quant asal" HANYA dipasang kalau pemanggil
+        menyatakannya lewat context `stock_type_from_source_quant` --
+        dipasang `stock.move._propagate_stock_type_to_quants()` untuk baris
+        non-GR, yang nilainya memang datang dari quant sumber (lewat
+        `_prepare_move_line_vals()` atau `_fill_from_source_quant()`). Pada GR
+        produksi nilainya dipasang eksplisit QI oleh
+        `stock.move.line._apply_gr_prod_stock_type()` -- tidak ada quant asal
+        yang dibaca -- begitu pula penulisan dari adjustment/import, jadi
+        keduanya memakai bunyi netral.
+        """
+        from_source_quant = self.env.context.get('stock_type_from_source_quant')
         for quant in self:
             old_type = old_values.get(quant.id)
             new_type = quant.stock_type
-            if old_type != new_type and quant.package_id:
-                message_body = f"Update Stock Type: Produk {quant.product_id.display_name} telah diubah dari [{old_type or '-'}] menjadi [{new_type}]."
-                quant.package_id.message_post(body=message_body)
+            if old_type == new_type or not quant.package_id:
+                continue
+
+            if old_type:
+                # `new_type` bisa kosong kalau stock_type memang dihapus --
+                # ditulis '-' supaya pesannya tidak berbunyi "menjadi [False]".
+                message_body = (
+                    f"Update Stock Type: Produk {quant.product_id.display_name} "
+                    f"telah diubah dari [{old_type}] menjadi [{new_type or '-'}]."
+                )
+            else:
+                asal = " diwarisi dari quant asal" if from_source_quant else ""
+                message_body = (
+                    f"Quant baru terbentuk: Produk {quant.product_id.display_name} "
+                    f"masuk dengan Stock Type [{new_type}]{asal}."
+                )
+            quant.package_id.message_post(body=message_body)
     
     @api.model
     def fill_zero_bag(self):

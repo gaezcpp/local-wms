@@ -640,6 +640,7 @@ class InheritBaseStockPicking(models.Model):
                 'scheduled_date': schedule_date,
                 'company_id': company.id,
                 'note': note,
+                'user_id': False,
             }
             if not sales_return:
                 sales_return = sales_return.create(vals)

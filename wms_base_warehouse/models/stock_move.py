@@ -361,6 +361,17 @@ class StockMove(models.Model):
             key = (quant.product_id.id, quant.location_id.id, quant.package_id.id or False)
             quants_by_key[key] |= quant
 
+        # Baris GR produksi dipisahkan karena `stock_type`-nya TIDAK diwarisi
+        # dari quant mana pun: `stock.move.line._apply_gr_prod_stock_type()`
+        # memasangnya eksplisit QI. Pembedaan ini dipakai
+        # `stock.quant._log_stock_type_change()` untuk memilih bunyi pesan
+        # chatter -- jangan sampai chatter GR mengklaim "diwarisi dari quant
+        # asal" padahal tidak ada quant asal yang dibaca.
+        prod_in_move_type = self.env['ir.config_parameter'].sudo().get_param('prod_in_move_type')
+        gr_prod_lines = lines.filtered(
+            lambda l: l.picking_id.picking_type_id.move_type_sap == str(prod_in_move_type)
+        ) if prod_in_move_type else self.env['stock.move.line']
+
         by_stock_type = defaultdict(lambda: self.env['stock.quant'])
         for line in lines:
             key = (
@@ -374,14 +385,16 @@ class StockMove(models.Model):
             if line.lot_id:
                 candidates = candidates.filtered(lambda q, lot=line.lot_id: q.lot_id == lot)
             if candidates:
-                by_stock_type[line.stock_type] |= candidates
+                by_stock_type[(line.stock_type, line in gr_prod_lines)] |= candidates
 
-        for stock_type, target_quants in by_stock_type.items():
+        for (stock_type, is_gr_prod), target_quants in by_stock_type.items():
             # Quant yang stock_type-nya sudah benar tidak perlu ditulis ulang:
             # write-nya memicu _sync_to_lot_aft() dan message_post pada package.
             changed = target_quants.filtered(lambda q, st=stock_type: q.stock_type != st)
             if changed:
-                changed.sudo().write({'stock_type': stock_type})
+                changed.sudo().with_context(
+                    stock_type_from_source_quant=not is_gr_prod,
+                ).write({'stock_type': stock_type})
 
     def _unlock_gratis_siblings(self, done_moves):
         """When 'order' moves finish, re-check whether their sibling 'gratis' moves

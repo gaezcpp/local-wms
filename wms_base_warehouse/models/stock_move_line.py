@@ -227,6 +227,79 @@ class InheritBaseStockMoveLine(models.Model):
         )
         return winner
 
+    # Field yang menentukan quant mana yang jadi sumber kebenaran. Client
+    # Barcode tidak pernah mengirim satu baris sekali jadi: baris dibuat lebih
+    # dulu (kerap tanpa lot / tanpa package, karena operator baru men-scan
+    # produknya), lalu detailnya menyusul lewat `write()` pada save berikutnya.
+    # Selama `stock_type` hanya ditentukan sekali di `create()`, nilainya
+    # terkunci pada tebakan awal itu -- dan tebakan dari bin campur bisa jatuh
+    # ke pallet QI walau yang di-scan UU.
+    _QUANT_MATCH_FIELDS = ('location_id', 'product_id', 'lot_id', 'package_id')
+
+    def _quant_match_vals(self):
+        self.ensure_one()
+        return {
+            'location_id': self.location_id.id,
+            'product_id': self.product_id.id,
+            'lot_id': self.lot_id.id,
+            'package_id': self.package_id.id,
+        }
+
+    def _refresh_quant_inherited_fields(self):
+        """Hitung ulang field turunan quant untuk baris yang SUDAH tersimpan.
+
+        Dipakai dua kali:
+
+        * dari `write()`, begitu salah satu `_QUANT_MATCH_FIELDS` berubah --
+          quant sumbernya jadi berbeda, jadi `stock_type` hasil tebakan lama
+          tidak berlaku lagi;
+        * dari `_action_done()`, sebagai kesempatan terakhir mengisi baris yang
+          waktu `create()` belum menemukan quant apa pun (mis. barangnya baru
+          di-unpack ke bin itu setelah barisnya dibuat). Tanpa ini quant tujuan
+          lahir dengan `stock_type` kosong.
+
+        Aturannya:
+
+        * `stock_type` mengikuti quant sumber -- itu atribut BARANG, jadi quant
+          yang menang, bukan nilai yang sudah terlanjur menempel di baris;
+        * kalau tidak ada quant yang cocok, nilai lama DIPERTAHANKAN (jangan
+          sampai refresh malah mengosongkan yang sudah benar);
+        * `production_line_id` dan `pallet_ke` hanya mengisi kekosongan, karena
+          keduanya bisa ditulis sengaja dari luar (mis.
+          `production.order.sap.action_picking_po_sap()`);
+        * baris GR produksi dilewati -- `stock_type`-nya dipasang eksplisit QI
+          oleh `_apply_gr_prod_stock_type()`, bukan diwarisi dari quant.
+        """
+        todo = self.filtered(
+            lambda ml: ml.state not in ('done', 'cancel')
+            and ml.location_id
+            and ml.product_id
+            and not ml._is_gr_prod()
+        )
+        if not todo:
+            return
+
+        vals_by_line = {line.id: line._quant_match_vals() for line in todo}
+        self._fill_from_source_quant(list(vals_by_line.values()))
+
+        for line in todo:
+            vals = vals_by_line[line.id]
+            update = {}
+            new_stock_type = vals.get('stock_type')
+            if new_stock_type and new_stock_type != line.stock_type:
+                _logger.info(
+                    "[QUANT-INHERIT] move line %s: stock_type %r -> %r mengikuti "
+                    "quant sumber (lokasi %s, lot %s, package %s)",
+                    line.id, line.stock_type, new_stock_type,
+                    vals['location_id'], vals['lot_id'], vals['package_id'],
+                )
+                update['stock_type'] = new_stock_type
+            for name in ('production_line_id', 'pallet_ke'):
+                if not line[name] and vals.get(name):
+                    update[name] = vals[name]
+            if update:
+                line.write(update)
+
     def _gr_prod_picking_ids(self, vals_list):
         """Resolusi picking GR produksi untuk sekumpulan vals.
 
@@ -357,6 +430,14 @@ class InheritBaseStockMoveLine(models.Model):
                 return gr_prod.write(dict(vals, lot_name=False))
 
         res = super().write(vals)
+
+        # Kunci pencocokan quant berubah -> quant sumbernya juga berubah, jadi
+        # `stock_type` hasil `create()` harus dihitung ulang. `stock_type` yang
+        # ikut dikirim di vals ini dianggap keputusan pemanggil dan tidak
+        # diganggu.
+        if 'stock_type' not in vals and set(self._QUANT_MATCH_FIELDS) & set(vals):
+            self._refresh_quant_inherited_fields()
+
         if self.env.context.get('skip_lot_aft'):
             return res
         if not self._GR_PROD_TRIGGER_FIELDS & set(vals):
@@ -526,6 +607,12 @@ class InheritBaseStockMoveLine(models.Model):
     # untuk stock.lot.aft ngurangin yang UU
     def _action_done(self):
         self._ensure_gr_prod_lot()
+        # Kesempatan terakhir sebelum quant tujuan dibuat: baris yang waktu
+        # `create()` belum menemukan quant apa pun (barangnya baru di-unpack ke
+        # bin itu belakangan) diisi dari quant sumber yang sekarang jelas ada.
+        # Tanpa ini `_propagate_stock_type_to_quants()` melewatinya dan quant di
+        # package tujuan lahir tanpa stock_type.
+        self.filtered(lambda ml: not ml.stock_type)._refresh_quant_inherited_fields()
         for line in self:
             picking_type = line.picking_id.picking_type_code
             if picking_type == 'outgoing' and line.lot_id:
