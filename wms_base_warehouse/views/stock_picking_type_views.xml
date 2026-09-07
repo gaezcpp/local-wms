@@ -33,7 +33,6 @@
                             <field name="hide_edit_barcode"/>
                             <field name="check_scan_pallet"/>
                             <field name="bulk_pallet_lot"/>
-                            <field name="check_order_selection"/>
                         </group>
                     </group>
                 </xpath>

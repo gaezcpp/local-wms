@@ -199,7 +199,7 @@ class PlanMaintenanceWorkOrder(models.Model):
                     'product_sparepart_id': sparepart.id,
                     'product_material': sparepart.sku,
                     'quantity': qty,
-                    'gi_doc': (row.get('RSNUM') or '').strip(),
+                    'gi_doc': (row.get('RSNUM') or '').strip().lstrip('0'),
                     'is_gi': is_kzear_x,
                 }
 
@@ -209,7 +209,7 @@ class PlanMaintenanceWorkOrder(models.Model):
                     existing_material.write(mat_vals)
 
             if has_banfn:
-                banfn = (row.get('BANFN') or '').strip()
+                banfn = (row.get('BANFN') or '').strip().lstrip('0')
                 existing_jasa = wo_jasa_line_model.search([
                     ('pm_work_order_id', '=', work_order.id),
                     ('gr_doc', '=', banfn),
@@ -365,7 +365,7 @@ class PlanMaintenanceWorkOrder(models.Model):
         
         grouped_data = defaultdict(list)
         for data in data_list:
-            nomor_wo = (data.get('AUFNR') or '').strip()
+            nomor_wo = (data.get('AUFNR') or '').strip().lstrip('0')
             if not nomor_wo:
                 continue
             grouped_data[nomor_wo].append(data)
@@ -375,7 +375,7 @@ class PlanMaintenanceWorkOrder(models.Model):
             no_tagging = first.get('FETXT', '')
             type_mo = first.get('AUART')
             priority = first.get('PRIOKX')
-            wo_sap = nomor_wo.lstrip('0')
+            wo_sap = nomor_wo
             werks = first.get('WERKS') or first.get('COMPANY_ID')
             ktext = first.get('KTEXT')
             strmn = first.get('STRMN', '')
@@ -449,7 +449,7 @@ class PlanMaintenanceWorkOrder(models.Model):
         grouped_data = defaultdict(list)
         
         for row in data_list:
-            nomor_wo = row.get('AUFNR')
+            nomor_wo = (row.get('AUFNR') or '').strip().lstrip('0')
             if nomor_wo:
                 grouped_data[nomor_wo].append(row)
             
@@ -529,7 +529,7 @@ class PlanMaintenanceWorkOrder(models.Model):
         grouped_data = defaultdict(list)
         
         for row in data_list:
-            nomor_wo = row.get('AUFNR')
+            nomor_wo = (row.get('AUFNR') or '').strip().lstrip('0')
             if nomor_wo:
                 grouped_data[nomor_wo].append(row)
         
@@ -608,7 +608,7 @@ class PlanMaintenanceWorkOrder(models.Model):
         grouped_data = defaultdict(list)
         
         for row in data_list:
-            nomor_wo = row.get('AUFNR')
+            nomor_wo = (row.get('AUFNR') or '').strip().lstrip('0')
             if nomor_wo:
                 grouped_data[nomor_wo].append(row)
             

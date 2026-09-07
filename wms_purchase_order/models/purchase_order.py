@@ -198,14 +198,17 @@ class InheritPurchaseOrder(models.Model):
                 delivery_uom = (row.get('UOE') or '').strip()
                 uom_numerator = float(row.get('UMREZ'))
                 uom_denominator = float(row.get('UMREN'))
-                product_uom = product.uom_bag_id
-                if delivery_uom and delivery_uom.upper() != "KG":
+                if delivery_uom and delivery_uom.upper() == "KG":
+                    product_uom = product.uom_id
+                elif delivery_uom and delivery_uom.upper() != "KG":
                     ratio = float(uom_numerator) / float(uom_denominator)
                     ratio = int(ratio) if ratio.is_integer() else ratio
                     uom_name = f"{delivery_uom} {ratio}"
                     uom = uom_model.search([('name', '=', uom_name)], limit=1)
                     if uom:
                         product_uom = uom
+                else:
+                    product_uom = product.uom_bag_id
                 
                 qty = float(row.get('DOQTY') or 0)
                 posnr = (row.get('POSNR') or "").lstrip('0')

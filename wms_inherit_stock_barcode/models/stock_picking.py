@@ -336,7 +336,23 @@ class StockPicking(models.Model):
                         f"Production Line belum diisi untuk picking {picking.name}.\n\n"
                         f"Silahkan isi dahulu Production Line pada : {', '.join(no_production_line.mapped('product_reference_code') or '-')}"
                     )
-                    
+
+    def _check_checker_out_bag_qty(self):
+        for picking in self.filtered(lambda p: p.picking_type_id.checker_out):
+            lines = picking.move_line_ids.filtered(lambda l: l.picked and l.quantity > 0)
+            no_bag_qty = lines.filtered(lambda l: not l.bag_qty)
+            if no_bag_qty:
+                details = []
+                for line in no_bag_qty:
+                    package = line.package_id or line.result_package_id
+                    package_name = package.name or '-'
+                    product = line.product_reference_code or line.product_id.display_name
+                    details.append(f"{product} (Stock Package: {package_name})")
+                raise ValidationError(
+                    f"Bag Qty belum diisi untuk picking {picking.name}.\n\n"
+                    f"Silahkan isi dahulu Bag Qty pada : {', '.join(details)}"
+                )
+
     def _sync_post_validate_quantities(self):
         for picking in self:
             if picking.state != 'done':
@@ -744,6 +760,7 @@ class StockPicking(models.Model):
         self._sync_packaging_lines()
         # self._check_all_sloc_filled()
         self._check_all_result_package_id()
+        self._check_checker_out_bag_qty()
         self._check_production_order_sap()
         self.remove_package_customer_location()
         self.restrict_customer_location()
@@ -772,6 +789,10 @@ class StockPicking(models.Model):
         res = super()._pre_action_done_hook()
         if res is not True:
             return res 
+
+        final_picking = self.filtered(lambda p: p._need_final_validate_summary())[:1]
+        if final_picking:
+            return final_picking._action_final_validate_summary_wizard()
 
         if self.picking_type_id.production_only:
             pallet_map = self._get_next_pallet_ke_map()
@@ -804,7 +825,53 @@ class StockPicking(models.Model):
                 }
 
         return True
-    
+
+    def _need_final_validate_summary(self):
+        self.ensure_one()
+        picking_type = self.picking_type_id
+        sequence_code = (picking_type.sequence_code or '').upper()
+        type_name = (picking_type.name or '').upper()
+        return (
+            self.sale_id
+            and picking_type.move_type_sap
+            and not self.env.context.get('final_summary_confirmed')
+            and not self.env.context.get('from_cron')
+            and ('FINAL' in sequence_code or 'FINAL' in type_name)
+        )
+
+    def _action_final_validate_summary_wizard(self):
+        self.ensure_one()
+        summary = defaultdict(float)
+        for line in self.move_line_ids.filtered(lambda l: l.product_id and l.quantity > 0):
+            qty = line.qty_done if line.qty_done > 0 else line.quantity
+            summary[(line.product_id, line.product_uom_id)] += qty
+
+        if not summary:
+            for move in self.move_ids.filtered(lambda m: m.product_id and m.quantity > 0):
+                summary[(move.product_id, move.product_uom)] += move.quantity
+
+        lines = [
+            f"- {product.display_name}: {qty:g} {uom.display_name}"
+            for (product, uom), qty in sorted(
+                summary.items(), key=lambda item: item[0][0].display_name
+            )
+        ]
+        message = "Produk dan quantity yang akan divalidasi:\n" + "\n".join(lines or ["- Tidak ada quantity."])
+
+        wizard = self.env['final.validate.summary.wizard'].create({
+            'picking_id': self.id,
+            'message': message,
+        })
+        return {
+            'name': 'Konfirmasi Validate Final',
+            'type': 'ir.actions.act_window',
+            'res_model': 'final.validate.summary.wizard',
+            'res_id': wizard.id,
+            'view_mode': 'form',
+            'views': [(False, 'form')],
+            'target': 'new',
+        }
+     
     def _has_missing_qty(self):
         root_picking = self
         while root_picking.backorder_id:

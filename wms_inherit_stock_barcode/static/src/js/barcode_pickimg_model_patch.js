@@ -72,7 +72,6 @@ function dbgLine(line) {
         virtual_id: line.virtual_id,
         move: getRelId(line.move_id),
         order_selection: line.order_selection || null,
-        gratis_locked: line.gratis_locked || null,
         product: getRelId(line.product_id),
         lot: lotId ? `${lotId}:${(line.lot_id && line.lot_id.name) || ""}` : line.lot_name || null,
         pkg: getRelId(line.package_id),
@@ -180,54 +179,6 @@ patch(BarcodePickingModel.prototype, {
             this._notifyStockTypeBlocked(blockedStockType);
         }
         return Boolean(blockedStockType);
-    },
-
-    async _enforceGratisLocked(snapshot) {
-        const lines = this.currentState.lines;
-        const linesToRemove = [];
-        let blocked = false;
-
-        for (const line of lines) {
-            const existedBefore = snapshot.has(line.virtual_id);
-            const prevQty = existedBefore ? snapshot.get(line.virtual_id) : 0;
-            const currQty = line.qty_done || 0;
-            if (currQty <= prevQty) {
-                continue; // Tidak ada penambahan qty pada line ini di scan kali ini.
-            }
-
-            if (line.order_selection === "gratis" && line.gratis_locked) {
-                blocked = true;
-                if (existedBefore) {
-                    line.qty_done = prevQty;
-                    this._markLineAsDirty(line);
-                } else {
-                    linesToRemove.push(line);
-                }
-            }
-        }
-
-        for (const line of linesToRemove) {
-            const idx = this.currentState.lines.indexOf(line);
-            if (idx !== -1) {
-                this.currentState.lines.splice(idx, 1);
-            }
-            if (this.selectedLineVirtualId === line.virtual_id) {
-                this.selectedLineVirtualId = false;
-            }
-        }
-
-        if (blocked) {
-            this._notifyGratisLockedBlocked();
-        }
-        return blocked;
-    },
-
-    _notifyGratisLockedBlocked() {
-        this.notification(
-            _t("Order belum terpenuhi, produk gratis belum bisa diproses"),
-            { type: "danger" }
-        );
-        this.trigger("update");
     },
 
     _notifyStockTypeBlocked(stockType) {
@@ -400,10 +351,6 @@ patch(BarcodePickingModel.prototype, {
             qty_done_before: line && line.qty_done,
             args_qty_done: args && args.qty_done,
         });
-        if (args && args.qty_done && line && line.order_selection === "gratis" && line.gratis_locked) {
-            this._notifyGratisLockedBlocked();
-            return;
-        }
         return super._updateLineQty(...arguments);
     },
 
@@ -737,15 +684,19 @@ patch(BarcodePickingModel.prototype, {
             values.stock_type = stockType;
         }
 
-        // `move_id` hanya dikirim kalau memang sengaja dipasang lewat
-        // `__wmsMoveHint` (jalur _resetScannedPackageSourceLines). Untuk scan
-        // biasa, core sengaja TIDAK mengirim move_id supaya server yang memilih
-        // move lewat `_get_linkable_moves()` -- di situlah guard `gratis_locked`
-        // milik wms_base_warehouse bekerja. Memaksa move_id untuk semua line
-        // mem-bypass guard itu dan bisa menempelkan qty ke move gratis terkunci,
-        // yang kemudian di-`_do_unreserve()` oleh `_action_assign()`.
-        if (line && line.__wmsForcedMoveId && values.move_id === undefined) {
+        // `_createCommandVals` core tidak pernah memuat `move_id` sama sekali
+        // (lihat stock_barcode/barcode_picking_model.js), jadi server selalu
+        // memilih move lewat `_get_linkable_moves()`. Dulu itu dipertahankan
+        // di sini secara sengaja supaya guard `gratis_locked` milik
+        // wms_base_warehouse tetap bisa melewati move 'gratis' yang masih
+        // terkunci. Guard itu sudah dihapus -- order+gratis sekarang digabung
+        // jadi satu move oleh `stock.move._action_confirm()` di setiap
+        // picking type selain Final -- jadi tidak ada lagi alasan menyembunyikan
+        // move_id yang sudah diketahui client. Kirim kalau ada.
+        if (line && line.__wmsForcedMoveId) {
             values.move_id = line.__wmsForcedMoveId;
+        } else if (line && line.move_id) {
+            values.move_id = this._fieldToValue(line.move_id) || false;
         }
         return values;
     },
@@ -1848,7 +1799,6 @@ patch(BarcodePickingModel.prototype, {
             }
         }
         const stockTypeSnapshot = isUUOnly ? this._snapshotStockTypeQty() : null;
-        const gratisSnapshot = this._snapshotStockTypeQty();
 
         await super._processBarcode(...arguments);
 
@@ -1861,13 +1811,6 @@ patch(BarcodePickingModel.prototype, {
                 this.trigger("update");
                 return;
             }
-        }
-
-        const wasGratisBlocked = await this._enforceGratisLocked(gratisSnapshot);
-        if (wasGratisBlocked) {
-            this._restoreResetLines();
-            this.trigger("update");
-            return;
         }
 
         const isSplitPackage = Boolean(this.record && this.record.split_package);

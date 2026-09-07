@@ -5,6 +5,7 @@ from collections import defaultdict
 import requests
 import json
 import logging
+import math
 import re
 import pytz
 _logger = logging.getLogger(__name__)
@@ -104,9 +105,12 @@ class InheritSaleOrderSAP(models.Model):
         )
 
     def _assign_order_selection(self):
-        """Group each order's lines by product. When the same product appears
-        on more than one line (different order_seq/qty), the line with the
-        largest product_uom_qty is 'order' and the rest are 'gratis'."""
+        """Group each order's lines by product.
+
+        When the same product appears on more than one line (different
+        order_seq/qty), the line with the largest product_uom_qty is 'order'
+        and the rest are 'gratis'.
+        """
         for so in self:
             groups = defaultdict(lambda: self.env['sale.order.line'])
             for line in so.order_line:
@@ -120,6 +124,30 @@ class InheritSaleOrderSAP(models.Model):
                 order_lines = lines - gratis_lines
                 order_lines.filtered(lambda l: l.order_selection != 'order').write({'order_selection': 'order'})
                 gratis_lines.filtered(lambda l: l.order_selection != 'gratis').write({'order_selection': 'gratis'})
+
+    def _assign_rumus_gratis(self):
+        for so in self:
+            groups = defaultdict(lambda: self.env['sale.order.line'])
+            for line in so.order_line:
+                groups[line.product_id.id] |= line
+            for lines in groups.values():
+                order_lines = lines.filtered(lambda l: l.order_selection == 'order')
+                gratis_lines = lines.filtered(lambda l: l.order_selection == 'gratis')
+                if not order_lines or not gratis_lines:
+                    continue
+
+                order_qty = sum(order_lines.mapped('product_uom_qty'))
+                gratis_qty = sum(gratis_lines.mapped('product_uom_qty'))
+                if order_qty > 0 and gratis_qty > 0:
+                    rumus_gratis = math.floor(order_qty / gratis_qty) + 1
+                    stale = lines.filtered(lambda l, rg=rumus_gratis: l.rumus_gratis != rg)
+                    if stale:
+                        stale.write({'rumus_gratis': rumus_gratis})
+
+    def action_confirm(self):
+        self._assign_order_selection()
+        self._assign_rumus_gratis()
+        return super().action_confirm()
 
     @api.model
     def _fetch_sap_data(self, config_key, cron_name):

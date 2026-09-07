@@ -17,6 +17,9 @@ class InheritedStockPicking(models.Model):
             rec.is_allowed_operation_type = rec.id in allowed_ids
 
     def _search_is_allowed_operation_type(self, operator, value):
+        if self.env.user.has_group(
+                'sttl_warehouse_access_control.group_warehouse_manager'):
+            return []
         allowed_ids = self.env.user.allowed_operation_types.ids
         if operator in ('in', 'not in'):
             wants_true = True in value
@@ -27,4 +30,3 @@ class InheritedStockPicking(models.Model):
         if wants_true:
             return [('id', 'in', allowed_ids)]
         return [('id', 'not in', allowed_ids)]
-

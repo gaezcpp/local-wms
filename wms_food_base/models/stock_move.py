@@ -51,6 +51,26 @@ class FoodStockMove(models.Model):
             res = super(FoodStockMove, other)._action_assign(**kwargs) and res
         return res
 
+    def _action_confirm(self, merge=True, merge_into=False, create_proc=True):
+        # wms_base_warehouse merges order+gratis moves for the same
+        # product/picking-step before confirming (see its _action_confirm()
+        # docstring). That's a FEED-only business rule, so FOOD companies
+        # jump straight past it into core, same as every other FEED override
+        # on this model.
+        food = self.filtered(lambda m: m.company_id.wms_type == 'FOOD')
+        other = self - food
+
+        res = self.browse()
+        if food:
+            res |= super(_WbwStockMove, food)._action_confirm(
+                merge=merge, merge_into=merge_into, create_proc=create_proc,
+            )
+        if other:
+            res |= super(FoodStockMove, other)._action_confirm(
+                merge=merge, merge_into=merge_into, create_proc=create_proc,
+            )
+        return res
+
     def _get_new_picking_values(self):
         if self and self[0].company_id.wms_type == 'FOOD':
             return super(_WbwStockMove, self)._get_new_picking_values()

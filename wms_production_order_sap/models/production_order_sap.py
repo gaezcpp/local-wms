@@ -77,6 +77,26 @@ class ProductionOrderSAP(models.Model):
                 'duplicate': 0,
             }
         }
+    
+    def action_smart_po_sap_move_history(self):
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'History',
+            'view_mode': 'list',
+            'views': [(self.env.ref('stock.view_move_line_tree').id, 'list')],
+            'res_model': 'stock.move.line',
+            'domain': [
+                ('picking_id.po_sap_id', '=', self.id),
+                ('picking_id.picking_type_id.move_type_sap', 'in', ['888', '889', '261', '262']),
+            ],
+            'context': {
+                'create': 0,
+                'edit': 0,
+                'delete': 0,
+                'duplicate': 0,
+            }
+        }
         
     def today_jakarta(self):
         tz = pytz.timezone('Asia/Jakarta')

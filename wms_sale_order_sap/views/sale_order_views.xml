@@ -51,6 +51,7 @@
                     <field name="carrier_id" readonly="1" options="{'no_open': True, 'no_create': True}"/>
                 </xpath>
                 <xpath expr="//field[@name='order_line']/list/field[@name='currency_id']" position="after">
+                    <field name="rumus_gratis" readonly="1" optional="show"/>
                     <field name="sap_sequence" readonly="1" optional="show"/>
                     <field name="order_seq" readonly="1" optional="show"/>
                     <field name="order_selection" readonly="1" optional="show"/>

@@ -496,48 +496,6 @@ class InheritBaseStockMoveLine(models.Model):
                 picking = self.move_id.picking_id
             return picking and picking.picking_type_id.move_type_sap == str(prod_in_move_type)
     
-    def _get_linkable_moves(self):
-        """Jangan pernah melekatkan move line ke move 'gratis' yang masih terkunci.
-
-        Core hanya menyaring kandidat berdasarkan `product_id`
-        (`stock/models/stock_move_line.py::_get_linkable_moves`), tanpa melihat
-        `order_selection`. Move line baru dari Barcode dikirim tanpa `move_id`
-        (`_createCommandVals()` tidak menyertakannya), sehingga pemilihan move
-        diserahkan ke method ini — dan kunci sortir core `m.quantity < m.product_qty`
-        bisa menaikkan move gratis ke urutan pertama begitu move 'order'
-        pasangannya terbaca sudah penuh. Akibatnya qty masuk ke move gratis
-        padahal `gratis_locked` masih True.
-
-        `_action_assign()` sudah mengecualikan move gratis terkunci, tapi jalur
-        create ini tidak lewat sana, jadi pengamannya dipasang di sini.
-        """
-        moves = super()._get_linkable_moves()
-        if not moves:
-            return moves
-
-        unlocked = [
-            move for move in moves
-            if move.order_selection != 'gratis' or not move._is_gratis_locked()
-        ]
-        if not unlocked:
-            # Satu-satunya kandidat memang move gratis terkunci. Perilaku core
-            # dipertahankan supaya tidak malah terbentuk move baru di luar SAP.
-            _logger.warning(
-                "[GRATIS-LOCK] move line %s: semua kandidat move terkunci, tetap "
-                "memakai move %s", self.id or '(baru)', moves[0].id,
-            )
-            return moves
-
-        if len(unlocked) != len(moves):
-            _logger.info(
-                "[GRATIS-LOCK] move line %s: melewati move gratis terkunci %s, "
-                "dipakai move %s",
-                self.id or '(baru)',
-                [move.id for move in moves if move not in unlocked],
-                unlocked[0].id,
-            )
-        return unlocked
-
     def _free_reservation(self, product_id, location_id, quantity, lot_id=None, package_id=None, owner_id=None, ml_ids_to_ignore=None):
         # Core stock_move_line._action_done() calls _free_reservation() with
         # context key 'quants_cache' explicitly set to None (not removed) when

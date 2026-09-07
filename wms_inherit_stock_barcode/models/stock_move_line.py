@@ -32,7 +32,6 @@ class StockMoveLine(models.Model):
     check_scan_pallet = fields.Boolean(related='picking_id.check_scan_pallet', store=True)
     order_seq = fields.Integer(related='move_id.order_seq', store=True, string="Order Seq")
     order_selection = fields.Selection(related='move_id.order_selection', store=True, string="Order Selection")
-    gratis_locked = fields.Boolean(related='move_id.gratis_locked', string="Gratis Locked")
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -354,7 +353,6 @@ class StockMoveLine(models.Model):
             'check_scan_pallet',
             'order_seq',
             'order_selection',
-            'gratis_locked',
         ]
     
     def _check_package_capacity_limit(self):

@@ -10,6 +10,7 @@ class SaleOrderLine(models.Model):
         ('order', 'Order'),
         ('gratis', 'Gratis'),
     ], string="Order Selection", default='order')
+    rumus_gratis = fields.Integer(string="Rumus Gratis", default=0, help="quantity product order / product gratis + 1, contoh order 200 gratis 8 jadi 25+1 = 26")
 
     # prepare stock.move
     def _prepare_procurement_values(self):

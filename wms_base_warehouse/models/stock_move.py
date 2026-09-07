@@ -1,3 +1,4 @@
+import math
 from collections import defaultdict
 
 from odoo import models, fields, api
@@ -9,14 +10,13 @@ _logger = logging.getLogger(__name__)
 
 class StockMove(models.Model):
     _inherit = 'stock.move'
-    
+
     sap_seq = fields.Integer(string="Seq", index=True)
     order_seq = fields.Integer(string="Order Seq")
     order_selection = fields.Selection([
         ('order', 'Order'),
         ('gratis', 'Gratis'),
     ], string="Order Selection", default='order')
-    gratis_locked = fields.Boolean(compute='_compute_gratis_locked', string="Gratis Locked")
 
     # depends core-nya diulang di sini karena override compute mengganti daftar trigger
     @api.depends('origin', 'picking_id.name', 'scrap_id.name', 'location_dest_usage',
@@ -34,22 +34,6 @@ class StockMove(models.Model):
         for move in self:
             if not move.reference and move.origin:
                 move.reference = move.origin
-
-    def _compute_gratis_locked(self):
-        for move in self:
-            move.gratis_locked = move._is_gratis_locked()
-
-    def _is_gratis_locked(self):
-        self.ensure_one()
-        if self.order_selection != 'gratis' or not self.sale_line_id:
-            return False
-        open_order_move = self.env['stock.move'].sudo().search([
-            ('order_selection', '=', 'order'),
-            ('product_id', '=', self.product_id.id),
-            ('picking_id', '=', self.picking_id.id),
-            ('state', 'not in', ('done', 'cancel')),
-        ], limit=1)
-        return bool(open_order_move)
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -217,6 +201,138 @@ class StockMove(models.Model):
             if lines_to_unlink:
                 lines_to_unlink.unlink()
 
+    def _action_confirm(self, merge=True, merge_into=False, create_proc=True):
+        """Gabungkan move order+gratis produk yang sama jadi satu move survivor
+        di setiap picking type SELAIN Final (`picking_type_id.move_type_sap`
+        falsy) DAN SELAIN langkah sesudah Final (Good Issue, `code ==
+        'outgoing'`), sebelum masing-masing sempat mengalir ke `super()` dan
+        memicu rantai MTO-nya sendiri secara terpisah.
+
+        Odoo membangun rantai MTO dari belakang: mengonfirmasi move
+        SO/PO-line memicu `stock.rule._run_pull()` yang langsung
+        mengonfirmasi move langkah sebelumnya juga (`_action_confirm()` ->
+        `_run_pull()` -> `moves._action_confirm()`). Karena baris order dan
+        baris gratis masing-masing membentuk prokurmennya sendiri, kalau
+        keduanya dibiarkan lewat `super()` apa adanya, PICK/CO/Load akan
+        punya DUA rantai paralel. Non-survivor karena itu TIDAK PERNAH boleh
+        sampai ke `super()` -- ia dibatalkan di sini, dan `super()` hanya
+        dipanggil untuk survivor (atau move yang memang tidak punya
+        pasangan). Final sengaja dikecualikan: kedua move Final (order/
+        gratis) tetap dua move terpisah, di-reallocate lewat
+        `_reallocate_gratis_final_demand()` saat Load selesai. Lihat plan
+        'groovy-hatching-pelican' bagian 1.
+
+        Good Issue (mis. `GI-LOCO`/`GI-FRNC`/`GI-STO-*`) HARUS ikut
+        dikecualikan walau `move_type_sap`-nya sendiri falsy: rantai MTO
+        dibangun dari Customer ke belakang, jadi move Good Issue order+
+        gratis DIBUAT DAN DIKONFIRMASI LEBIH DULU daripada move Final --
+        kalau Good Issue ikut digabung, gratis-nya sudah dibatalkan sebelum
+        `_run_pull()` sempat membuat move Final-nya sendiri, dan Final
+        berakhir cuma satu move (bukan dua) sejak awal. Semua Good Issue di
+        warehouse ini bertipe `code == 'outgoing'`, sedangkan Final dan
+        semua langkah sebelumnya (PICK/CO/Load) `code == 'internal'`.
+        """
+        mergeable = self.filtered(
+            lambda m: m.state == 'draft'
+            and m.order_selection
+            and not m.picking_type_id.move_type_sap
+            and m.picking_type_id.code != 'outgoing'
+            and (m.sale_line_id or m.purchase_line_id)
+        )
+        to_cancel = self._merge_gratis_moves(mergeable) if mergeable else self.env['stock.move']
+
+        moves_to_confirm = self - to_cancel
+        if not moves_to_confirm:
+            return moves_to_confirm
+        return super(StockMove, moves_to_confirm)._action_confirm(
+            merge=merge, merge_into=merge_into, create_proc=create_proc,
+        )
+
+    def _merge_gratis_moves(self, moves):
+        """Untuk tiap move di `moves`, cari sibling terbuka (belum done/cancel)
+        dengan product/picking_type/lokasi/order yang sama DAN
+        `order_selection` KEBALIKANNYA, gabungkan qty-nya ke satu survivor,
+        lalu batalkan sisanya.
+
+        Survivor: move `order_selection == 'order'` menang; kalau seri, id
+        terkecil. `move_dest_ids` sibling yang dibatalkan dipindah ke
+        survivor supaya langkah berikutnya (yang sudah/akan dibuat oleh
+        salah satu dari keduanya) tetap tertaut.
+
+        Sibling WAJIB `order_selection` kebalikan `move` -- bukan sekadar
+        "co-located terbuka apa saja". Tanpa syarat ini, move backorder yang
+        dibuat `_action_done()` saat qty scan kurang dari demand (operation
+        type `create_backorder='always'`, mis. PICK/CO) ikut kena: move sisa
+        itu SELALU mewarisi `order_selection` PARENT-nya (sama-sama 'order',
+        gratis-nya sudah lama melebur), tapi lolos ke `_action_confirm()`
+        lewat proses backorder core -- kalau ikut disamakan sebagai
+        "sibling", ia bukan cuma dibatalkan sebelum sempat jadi picking
+        backorder yang semestinya, tapi qty-nya juga ikut ditambahkan
+        kembali ke demand move asal yang SUDAH benar direduksi core jadi
+        sebesar qty yang benar-benar di-scan -- korupsi ganda. Move
+        order+gratis asli SELALU beda `order_selection`, jadi syarat ini
+        tidak pernah menolak pasangan yang sah.
+
+        Return recordset move yang dibatalkan -- pemanggil WAJIB
+        mengecualikannya dari `super()._action_confirm()`.
+        """
+        StockMove = self.env['stock.move'].sudo()
+        to_cancel = self.env['stock.move']
+
+        for move in moves:
+            if move.id in to_cancel.ids or move.state != 'draft':
+                continue
+
+            order = move.sale_line_id.order_id or move.purchase_line_id.order_id
+            if not order:
+                continue
+
+            domain = [
+                ('id', '!=', move.id),
+                ('product_id', '=', move.product_id.id),
+                ('picking_type_id', '=', move.picking_type_id.id),
+                ('location_id', '=', move.location_id.id),
+                ('location_dest_id', '=', move.location_dest_id.id),
+                ('state', 'not in', ('done', 'cancel')),
+                ('order_selection', '!=', move.order_selection),
+            ]
+            if move.sale_line_id:
+                domain.append(('sale_line_id.order_id', '=', order.id))
+            else:
+                domain.append(('purchase_line_id.order_id', '=', order.id))
+
+            siblings = (StockMove.search(domain) - to_cancel)
+            if not siblings:
+                continue
+
+            group = move | siblings
+            gratis_moves = group.filtered(lambda m: m.order_selection == 'gratis')
+            if len(gratis_moves) > 1:
+                _logger.warning(
+                    "[GRATIS-MERGE] lebih dari satu move 'gratis' untuk order %s "
+                    "produk %s: %s -- tidak sesuai model bisnis, digabung apa "
+                    "adanya",
+                    order.id, move.product_id.display_name, gratis_moves.ids,
+                )
+
+            order_moves = group.filtered(lambda m: m.order_selection == 'order')
+            survivor = (order_moves or group).sorted('id')[0]
+            non_survivors = group - survivor
+
+            rounding = survivor.product_id.uom_id.rounding or 0.01
+            total_qty = sum(group.mapped('product_uom_qty'))
+            if float_compare(total_qty, survivor.product_uom_qty, precision_rounding=rounding) != 0:
+                survivor.product_uom_qty = total_qty
+
+            dest_ids = non_survivors.mapped('move_dest_ids')
+            if dest_ids:
+                survivor.move_dest_ids |= dest_ids
+
+            non_survivors.write({'state': 'cancel'})
+            to_cancel |= non_survivors
+
+        return to_cancel
+
     ## NOTE INI BELUM DITES DI QAS, TAPI NAIKIN AJA
     def _action_assign(self, **kwargs):
 
@@ -224,19 +340,8 @@ class StockMove(models.Model):
         moves_uu = self.filtered(lambda m: m.picking_id.picking_type_id.uu_only)
         moves_full_pallet = self.filtered(lambda m: m.picking_id.picking_type_id.book_full_pallet and not bypass)
         moves_split_package = self.filtered(lambda m: m.picking_id.picking_type_id.split_package)
-        moves_order_selection = self.filtered(lambda m: m.picking_id.picking_type_id.check_order_selection)
 
-        gratis_locked_moves = self.env['stock.move']
-        if moves_order_selection:
-            gratis_locked_moves = self.filtered(lambda m: m._is_gratis_locked())
-            if gratis_locked_moves:
-                reserved_locked_moves = gratis_locked_moves.filtered(lambda m: m.state in ('partially_available', 'assigned'))
-                if reserved_locked_moves:
-                    reserved_locked_moves._do_unreserve()
-
-        moves = self - gratis_locked_moves
-        moves_uu = moves_uu - gratis_locked_moves
-        moves_full_pallet = moves_full_pallet - gratis_locked_moves
+        moves = self
         moves_normal = moves - moves_uu - moves_full_pallet
         moves_fp_only = moves_full_pallet - moves_uu
 
@@ -335,7 +440,7 @@ class StockMove(models.Model):
     def _action_done(self, **kwargs):
         res = super()._action_done(**kwargs)
         self._propagate_stock_type_to_quants(res.move_line_ids)
-        self._unlock_gratis_siblings(res)
+        self._reallocate_gratis_final_demand(res)
         return res
 
     def _propagate_stock_type_to_quants(self, move_lines):
@@ -396,33 +501,168 @@ class StockMove(models.Model):
                     stock_type_from_source_quant=not is_gr_prod,
                 ).write({'stock_type': stock_type})
 
-    def _unlock_gratis_siblings(self, done_moves):
-        """When 'order' moves finish, re-check whether their sibling 'gratis' moves
-        (same sale order + product) are now unlocked, and if so, try to reserve them
-        right away instead of waiting for the next reservation pass."""
-        order_moves_done = done_moves.filtered(
-            lambda m: m.state == 'done' and m.order_selection == 'order' and m.sale_line_id
-        )
-        if not order_moves_done:
+    def _reallocate_gratis_final_demand(self, done_moves):
+        """Setelah move yang memasok pasangan order/gratis selesai (Final,
+        atau langkah-langkah SESUDAHNYA seperti Good Issue), hitung ulang
+        demand pasangan move tujuan itu -- lihat plan 'groovy-hatching-pelican'
+        bagian 2.
+
+        PICK/CO/Load digabung jadi satu move oleh `_action_confirm()`, tapi
+        Final dan setiap langkah `code == 'outgoing'` sesudahnya (Good Issue)
+        SENGAJA dikecualikan dari penggabungan itu, jadi tiap langkah itu
+        tetap punya dua move (order/gratis) sejak awal. Reallocation ini
+        TIDAK dibatasi hanya pada langkah Final: dia berjalan pada SETIAP
+        move yang selesai dan tujuannya adalah pasangan order/gratis, supaya
+        koreksi qty ikut merambat ke Good Issue (dan langkah apa pun
+        sesudahnya) -- kalau tidak, Good Issue tetap menagih demand asli
+        SO-line (mis. 100/5) padahal yang benar-benar sampai cuma hasil
+        split Final (97/3), dan berakhir macet `partially_available`
+        selamanya.
+
+        Penting: di Load, SATU move gabungan (hasil merge) punya
+        `move_dest_ids` yang LANGSUNG berisi pasangan order+gratis Final
+        (di-union waktu merge, lihat `_merge_gratis_moves`). Tapi di Final
+        sendiri, order-move dan gratis-move-nya TIDAK pernah digabung, jadi
+        keduanya done TERPISAH dan masing-masing `move_dest_ids` cuma
+        berisi SATU move Good-Issue (pasangannya sendiri) -- pasangannya
+        cuma kelihatan kalau move_dest_ids KEDUA move digabung dulu. Karena
+        itu `feeding_moves` dikelompokkan dulu per (product, order) sebelum
+        mengumpulkan tujuannya, supaya kedua bentuk itu (satu move gabungan
+        vs sepasang move terpisah) sama-sama menghasilkan pasangan tujuan
+        yang lengkap.
+
+        `_reallocate_gratis_final_pair()` sendiri yang menyaring "pasangan
+        order/gratis" itu (persis 2 move, order_selection berbeda), jadi
+        move tujuan yang bukan pasangan (mis. CO/Load hasil merge, cuma 1
+        move) otomatis no-op di sana. Dihitung KUMULATIF setiap kali dari
+        `move_orig_ids` supaya backorder/validasi parsial berulang tetap
+        konvergen, bukan menumpuk.
+        """
+        feeding_moves = done_moves.filtered(lambda m: m.state == 'done' and m.move_dest_ids)
+        if not feeding_moves:
             return
 
-        groups = {(m.sale_line_id.order_id.id, m.product_id.id) for m in order_moves_done}
-        order_ids = [g[0] for g in groups]
-        product_ids = [g[1] for g in groups]
+        groups = defaultdict(lambda: self.env['stock.move'])
+        for move in feeding_moves:
+            order = move.sale_line_id.order_id or move.purchase_line_id.order_id
+            groups[(move.product_id.id, order.id if order else False)] |= move
 
-        candidate_gratis_moves = self.env['stock.move'].sudo().search([
-            ('order_selection', '=', 'gratis'),
-            ('sale_line_id.order_id', 'in', order_ids),
-            ('product_id', 'in', product_ids),
-            ('state', 'in', ('confirmed', 'waiting', 'partially_available')),
-        ])
-        candidate_gratis_moves = candidate_gratis_moves.filtered(
-            lambda m: (m.sale_line_id.order_id.id, m.product_id.id) in groups,
+        seen_pairs = set()
+        for group in groups.values():
+            dest_moves = group.mapped('move_dest_ids')
+            if not dest_moves:
+                continue
+
+            by_picking = defaultdict(lambda: self.env['stock.move'])
+            for dest_move in dest_moves:
+                by_picking[dest_move.picking_id.id] |= dest_move
+
+            for finals_group in by_picking.values():
+                key = tuple(sorted(finals_group.ids))
+                if key in seen_pairs:
+                    continue
+                seen_pairs.add(key)
+                self._reallocate_gratis_final_pair(finals_group)
+
+    def _reallocate_gratis_final_pair(self, finals_group):
+        """Tulis ulang `quantity` (qty aktual/reserved) pasangan move Final
+        order/gratis -- BUKAN `product_uom_qty` (demand).
+
+        Demand kedua move Final SELALU tetap sesuai `sale.order.line` asli
+        (mis. 2000/100) sejak dibuat saat konfirmasi SO, dan method ini
+        TIDAK PERNAH menyentuhnya -- itu murni komitmen order, bukan
+        cerminan progres LOAD. Yang dihitung ulang kumulatif setiap LOAD
+        selesai hanyalah `quantity`: berapa yang BENAR-BENAR sudah sampai,
+        dipecah order/gratis lewat `rumus_gratis`. Menulis `move.quantity`
+        langsung memicu inverse core `_set_quantity()` ->
+        `_set_quantity_done()`, yang membuat/menyesuaikan `move_line_ids`
+        dari quant yang tersedia di lokasi asal move (persis seperti core
+        sendiri melakukan reservasi/`qty_done`) -- jadi TIDAK perlu
+        `_action_assign()` manual sesudahnya, dan state move (assigned/
+        partially_available) otomatis mengikuti dari situ.
+
+        Hanya berlaku kalau pasangannya persis dua move dengan
+        `order_selection` berbeda -- kalau tidak (mis. cuma ada move
+        'order', tanpa gratis sama sekali), tidak ada yang perlu
+        di-reallocate dan Final tetap satu move seperti biasa.
+
+        Move gratis TIDAK PERNAH dibatalkan (`_action_cancel()`) di sini
+        walau `qty_gratis` jadi 0 -- hanya `quantity`-nya yang dikosongkan.
+        Alasannya: `stock.move._prepare_move_split_vals()` core membuang
+        entri `move_dest_ids` yang state-nya `done`/`cancel` saat LOAD
+        di-backorder (lihat `odoo/addons/stock/models/stock_move.py`
+        `_prepare_move_split_vals`). Kalau move gratis dibatalkan pada
+        LOAD leg PERTAMA (mis. karena baru sedikit yang datang, atau
+        `rumus_gratis` belum terisi), setiap leg LOAD berikutnya (hasil
+        backorder split) kehilangan move gratis dari `move_dest_ids`-nya --
+        pasangannya jadi tinggal satu move ('order' saja), dan
+        `_reallocate_gratis_final_pair` di atas selalu no-op sesudahnya.
+        Akibatnya kumulatif Final BEKU di angka LOAD leg pertama, tidak
+        pernah ikut bertambah walau LOAD berikutnya selesai -- persis
+        laporan pada SO S00865 (macet di 1280 walau LOAD susulan 600 dan
+        220 sudah/sedang selesai). Membiarkan move gratis tetap hidup
+        (state apa pun selain done/cancel) menjaganya tetap ikut terbawa
+        di `move_dest_ids` setiap split, sehingga pasangannya selalu
+        lengkap dan kumulatifnya tidak pernah macet.
+        """
+        if len(finals_group) != 2:
+            return
+        if set(finals_group.mapped('order_selection')) != {'order', 'gratis'}:
+            return
+
+        order_move = finals_group.filtered(lambda m: m.order_selection == 'order')
+        gratis_move = finals_group.filtered(lambda m: m.order_selection == 'gratis')
+
+        qty_actual = sum(
+            m.quantity for m in finals_group.move_orig_ids if m.state == 'done'
         )
 
-        to_assign = candidate_gratis_moves.filtered(lambda m: not m._is_gratis_locked())
-        if to_assign:
-            to_assign._action_assign()
+        order_line = order_move.sale_line_id or order_move.purchase_line_id
+        gratis_line = gratis_move.sale_line_id or gratis_move.purchase_line_id
+        rumus_gratis = order_line.rumus_gratis if order_line else 0
+        if gratis_line and gratis_line.rumus_gratis and gratis_line.rumus_gratis != rumus_gratis:
+            _logger.warning(
+                "[GRATIS-SPLIT] rumus_gratis order (%s) berbeda dengan gratis (%s) "
+                "pada final move order=%s gratis=%s, dipakai nilai punya order",
+                rumus_gratis, gratis_line.rumus_gratis, order_move.id, gratis_move.id,
+            )
+
+        # `rumus_gratis` dimasukkan manusia dalam SATUAN sale/purchase order
+        # line (mis. "BAG 20", 1 bag = 20 kg) -- "21" berarti "1 gratis tiap
+        # 21 BAG", bukan tiap 21 KG. Tapi `qty_actual` di atas datang dari
+        # `move.quantity`, yang selalu dalam UoM STOK produk (kg). Membagi
+        # keduanya langsung tanpa konversi menghasilkan angka pecahan yang
+        # salah unit (mis. 1920 kg / 21 = 91.43 -> "91 gratis", padahal yang
+        # benar 1920 kg = 96 BAG, 96 / 21 = 4.57 -> 4 gratis) -- floor()-nya
+        # sendiri sudah benar, unit yang dibaginya yang keliru. Konversi dulu
+        # ke UoM order line, floor di sana, baru konversi hasilnya balik ke
+        # UoM move untuk ditulis ke `quantity`.
+        order_uom = order_line.product_uom_id if order_line else order_move.product_uom
+        move_uom = order_move.product_uom
+        qty_actual_line_uom = move_uom._compute_quantity(qty_actual, order_uom) if order_uom != move_uom else qty_actual
+
+        qty_gratis_line_uom = math.floor(qty_actual_line_uom / rumus_gratis) if rumus_gratis else 0
+        qty_order_line_uom = qty_actual_line_uom - qty_gratis_line_uom
+
+        if order_uom != move_uom:
+            qty_gratis = order_uom._compute_quantity(qty_gratis_line_uom, move_uom)
+            qty_order = order_uom._compute_quantity(qty_order_line_uom, move_uom)
+        else:
+            qty_gratis = qty_gratis_line_uom
+            qty_order = qty_order_line_uom
+
+        rounding = order_move.product_id.uom_id.rounding or 0.01
+        if order_move.state not in ('done', 'cancel'):
+            if float_compare(order_move.quantity, qty_order, precision_rounding=rounding) != 0:
+                order_move.quantity = qty_order
+
+        if gratis_move.state not in ('done', 'cancel'):
+            if float_compare(gratis_move.quantity, qty_gratis, precision_rounding=rounding) != 0:
+                # qty_gratis 0 (belum ada yang berhak) sekadar mengosongkan
+                # quantity supaya Barcode tidak menampilkan baris gratis
+                # sudah terisi untuk di-scan -- move-nya sendiri TETAP
+                # hidup, lihat docstring di atas.
+                gratis_move.quantity = qty_gratis
 
     def _prepare_move_line_vals(self, quantity=None, reserved_quant=None):
         self.ensure_one()

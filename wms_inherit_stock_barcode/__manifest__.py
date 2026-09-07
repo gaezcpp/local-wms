@@ -4,7 +4,7 @@
     'summary': "Custom Inherit Stock Barcode",
 
     'description': """
-Long description of module's purpose
+Mulai tanggal 1 Agustus 2026 banyak kode pada module ini yang udah diedit oleh AI langsung untuk bug fixing.
     """,
 
     'author': "MrGaez",
@@ -32,6 +32,7 @@ Long description of module's purpose
         'wizards/create_new_picking_views.xml',
         'wizards/production_pallet_wizard_views.xml',
         'wizards/pid_berita_acara_wizard_views.xml',
+        'wizards/final_validate_summary_wizard_views.xml',
         'views/product_template_views.xml',
         'views/stock_package_views.xml',
         'views/stock_picking_views.xml',

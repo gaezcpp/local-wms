@@ -1250,6 +1250,12 @@ class TestGiFlowPerUser(SttlFlowCommon):
             vals = {'picked': True}
             if not line.quantity:
                 vals['quantity'] = line.move_id.product_uom_qty
+            if picking.picking_type_id.checker_out and line.uom_bag_id:
+                vals['bag_qty'] = line.product_uom_id._compute_quantity(
+                    vals.get('quantity', line.quantity),
+                    line.uom_bag_id,
+                    rounding_method='HALF-UP',
+                )
             if keep_package and line.package_id and not line.result_package_id:
                 vals['result_package_id'] = line.package_id.id
             line.write(vals)
