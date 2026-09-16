@@ -1,6 +1,6 @@
 from odoo import models, fields, api
 from odoo.exceptions import ValidationError
-from datetime import datetime
+from datetime import datetime, timedelta
 from collections import defaultdict
 import requests
 import json
@@ -872,6 +872,12 @@ class InheritSaleOrderSAP(models.Model):
             (sync_field, '=', True),
             ('state', '=', state_value),
         ] + (domain_extra or [])
+        if model_name == 'sale.order':
+            domain.append((
+                'create_date',
+                '>=',
+                fields.Datetime.now() - timedelta(days=5),
+            ))
 
         records = self.env[model_name].sudo().search(domain)
         value_list = [
@@ -884,39 +890,41 @@ class InheritSaleOrderSAP(models.Model):
             _logger.info(f"{cron_name}: list {field_name} kosong, skipped!")
             return True
 
-        values_str = ",".join(f"'{v}'" for v in set(value_list))
-        query = query_template.format(**{format_key: values_str})
-
         headers = {
             "x-i-api-key": str(x_i_api_key),
             "Content-Type": "application/json",
         }
-        body = {
-            "I_QUERY": query,
-            "I_MOD": f"CRON {cron_name}",
-        }
+        unique_values = list(dict.fromkeys(value_list))
+        for offset in range(0, len(unique_values), 1000):
+            batch = unique_values[offset:offset + 1000]
+            values_str = ",".join(f"'{value}'" for value in batch)
+            query = query_template.format(**{format_key: values_str})
+            body = {
+                "I_QUERY": query,
+                "I_MOD": f"CRON {cron_name}",
+            }
 
-        try:
-            response = requests.post(
-                url=f"{ip_sap_rfc}/api/v1/zfm-query-data",
-                headers=headers,
-                data=json.dumps(body),
-                timeout=120,
-            )
-        except Exception as e:
-            raise ValidationError(str(e))
+            try:
+                response = requests.post(
+                    url=f"{ip_sap_rfc}/api/v1/zfm-query-data",
+                    headers=headers,
+                    data=json.dumps(body),
+                    timeout=120,
+                )
+            except Exception as e:
+                raise ValidationError(str(e))
 
-        if response.status_code != 200:
-            raise ValidationError(f"{response.status_code} | {response.text}")
+            if response.status_code != 200:
+                raise ValidationError(f"{response.status_code} | {response.text}")
 
-        res = response.json()
-        if res.get('error'):
-            raise ValidationError(json.dumps(res['error']))
-        if not res.get('success'):
-            _logger.info(f"{cron_name}: response not success")
-            return True
+            res = response.json()
+            if res.get('error'):
+                raise ValidationError(json.dumps(res['error']))
+            if not res.get('success'):
+                _logger.info(f"{cron_name}: response not success")
+                return True
 
-        _logger.info(f"{cron_name}: {len(value_list)} record(s) updated")
+        _logger.info(f"{cron_name}: {len(unique_values)} record(s) updated")
         return True
 
     @api.model

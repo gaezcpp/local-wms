@@ -199,6 +199,7 @@ class ProductionOrderSAP(models.Model):
         product_model = self.env['product.product'].sudo()
         uom_model = self.env['uom.uom'].sudo()
         picking_type_model = self.env['stock.picking.type'].sudo()
+        warehouse_model = self.env['stock.warehouse'].sudo()
         
         grouped_data = defaultdict(list)
         for row in data_list:
@@ -261,7 +262,7 @@ class ProductionOrderSAP(models.Model):
             loekz = (first.get('LOEKZ') or '').strip()
             txt04 = (first.get('TXT04') or '').strip()
             
-            allowed_statuses = ['REL', 'TECO', 'CLSD', 'DLFL']
+            allowed_statuses = ['REL', 'TECO', 'CLSD', 'DLFL', 'LKD']
             if not any(status in txt04 for status in allowed_statuses):
                 _logger.info(f"cron_synchronize_sap_production_order PO: {po_number} SKIPPED (Status: {txt04})")
                 continue
@@ -277,6 +278,9 @@ class ProductionOrderSAP(models.Model):
                 state_cron = 'closed'
             if 'DLFL' in txt04:
                 active = False
+            if 'LKD' in txt04:
+                active = False
+                
             
             vals = {
                 'po_number': po_number,
@@ -306,55 +310,64 @@ class ProductionOrderSAP(models.Model):
                     _logger.info(f"PO {prod_order.po_number} Updated")
             
             for row in rows:
-                component_code = (row.get('COMPONENT')).lstrip('0')
-                component = product_model.search([('default_code', '=', component_code),('company_id', '=', company_id.id),('active', '=', True)], limit=1)
-                if not component:
-                    continue
-                
-                # op_type_id = False
-                # for wip in component.product_wip_line_ids:
-                #     if wip.product_id.id == component.id:
-                #         op_type_id = wip.warehouse_id.pick_type_id.id
-                #         break
-                
-                production_picking_repack_sap = self.env['ir.config_parameter'].sudo().get_param('production_picking_repack_sap')
-                op_type_id = picking_type_model.search([('barcode', '=', str(production_picking_repack_sap)), ('active', '=', True), ('company_id', '=', company_id.id)], limit=1)
-                if not op_type_id:
-                    continue
-                
-                uom_component = (row.get('UOM_COMP')).strip().lower()
-                uom_comp = uom_model.search([('name', '=', uom_component)], limit=1)
-                if not uom_comp:
-                    continue
-                
-                qty_component = float(row.get('BDMNG') or 0)
-                seq_component = row.get('RSPOS')
-                
-                existing_line = po_sap_line_model.search([
-                    ('po_sap_id', '=', prod_order.id),
-                    ('no_item', '=', seq_component)
-                ], limit=1)
-                
-                vals_line = {
-                    'po_sap_id': prod_order.id,
-                    'no_item': seq_component,
-                    'product_id': component.id,
-                    'uom_id': uom_comp.id,
-                    'order_qty': qty_component,
-                    'picking_type_id': op_type_id.id,
-                }
-                
-                if existing_line:
-                    if self._needs_update(existing_line, vals_line):
-                        existing_line.write({
-                            'order_qty': qty_component,
-                            'uom_id': uom_comp.id, 
-                        })
-                else:
-                    existing_line = po_sap_line_model.create(vals_line)
-                
-                if existing_line.po_sap_id.state != 'teco' and not existing_line.picking_created:
-                    existing_line.action_create_picking_wip()
+                lgort = (row.get('LGORT'), '')
+                warehouse = warehouse_model.search([('lot_stock_id.sloc_id.code', '=', lgort),('company_id', '=', company_id.id)], limit=1)
+                if warehouse:
+                    component_code = (row.get('COMPONENT')).lstrip('0')
+                    component = product_model.search([('default_code', '=', component_code),('company_id', '=', company_id.id),('active', '=', True)], limit=1)
+                    if not component:
+                        continue
+                    
+                    # op_type_id = False
+                    # for wip in component.product_wip_line_ids:
+                    #     if wip.product_id.id == component.id:
+                    #         op_type_id = wip.warehouse_id.pick_type_id.id
+                    #         break
+                    
+                    production_picking_repack_sap = self.env['ir.config_parameter'].sudo().get_param('production_picking_repack_sap')
+                    op_type_id = picking_type_model.search([
+                        ('warehouse_id', '=', warehouse.id),
+                        ('barcode', '=', str(production_picking_repack_sap)), 
+                        ('active', '=', True), 
+                        ('company_id', '=', company_id.id)
+                    ], limit=1)
+                    if not op_type_id:
+                        continue
+                    
+                    uom_component = (row.get('UOM_COMP')).strip().lower()
+                    uom_comp = uom_model.search([('name', '=', uom_component)], limit=1)
+                    if not uom_comp:
+                        continue
+                    
+                    qty_component = float(row.get('BDMNG') or 0)
+                    seq_component = row.get('RSPOS')
+                    
+                    existing_line = po_sap_line_model.search([
+                        ('po_sap_id', '=', prod_order.id),
+                        ('no_item', '=', seq_component)
+                    ], limit=1)
+                    
+                    vals_line = {
+                        'po_sap_id': prod_order.id,
+                        'no_item': seq_component,
+                        'product_id': component.id,
+                        'uom_id': uom_comp.id,
+                        'order_qty': qty_component,
+                        'picking_type_id': op_type_id.id,
+                        'warehouse_id': warehouse.id,
+                    }
+                    
+                    if existing_line:
+                        if self._needs_update(existing_line, vals_line):
+                            existing_line.write({
+                                'order_qty': qty_component,
+                                'uom_id': uom_comp.id, 
+                            })
+                    else:
+                        existing_line = po_sap_line_model.create(vals_line)
+                    
+                    if existing_line.po_sap_id.state != 'teco' and not existing_line.picking_created:
+                        existing_line.action_create_picking_wip()
 
             _logger.info(f"PROD ORDER {po_number} total line {len(rows)}")
             

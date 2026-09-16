@@ -53,6 +53,9 @@ class PlanMaintenanceWorkOrder(models.Model):
     end_time = fields.Datetime(string="Planned End")
     preventif_visible = fields.Boolean(string="Preventif Visible", compute='_compute_flag_preventif_visible', store=True)
     gi_gr_done = fields.Boolean(string="GI/GR Selesai", compute='_compute_gi_gr_done')
+    active = fields.Boolean(string="Active", default=True)
+    maintenance_plan_number = fields.Char(string="Maintenance Plan")
+    is_maintenance_plan = fields.Boolean(string="Is Plan?", default=False)
     
     @api.model_create_multi
     def create(self, vals_list):
@@ -168,7 +171,8 @@ class PlanMaintenanceWorkOrder(models.Model):
         for row in rows:
             has_rsnum = bool((row.get('RSNUM') or '').strip())
             has_banfn = bool((row.get('BANFN') or '').strip())
-            is_kzear_x = (row.get('KZEAR') or '').strip() == 'X'
+            kzear = (row.get('KZEAR') or '').strip()
+            is_kzear_x = kzear == 'X'
             is_kzabn_x = (row.get('KZABN') or '').strip() == 'X'
 
             if has_rsnum:
@@ -176,37 +180,43 @@ class PlanMaintenanceWorkOrder(models.Model):
                 maktx = row.get('MAKTX')
                 qty = float(row.get('ENMNG') or 0.0)
 
-                sparepart = spare_part_model.search([
-                    ('active', '=', True),
-                    ('sku', '=', matnr),
-                    ('company_id', '=', company.id),
-                ], limit=1)
+                if not kzear and (row.get('XLOEK') or '').strip() == 'X':
+                    wo_material_line_model.search([
+                        ('pm_work_order_id', '=', work_order.id),
+                        ('product_material', '=', matnr),
+                    ]).unlink()
+                else:
+                    sparepart = spare_part_model.search([
+                        ('active', '=', True),
+                        ('sku', '=', matnr),
+                        ('company_id', '=', company.id),
+                    ], limit=1)
 
-                if not sparepart and matnr:
-                    sparepart = spare_part_model.create({
-                        'name': maktx,
-                        'sku': matnr,
-                        'company_id': company.id,
-                    })
+                    if not sparepart and matnr:
+                        sparepart = spare_part_model.create({
+                            'name': maktx,
+                            'sku': matnr,
+                            'company_id': company.id,
+                        })
 
-                existing_material = wo_material_line_model.search([
-                    ('pm_work_order_id', '=', work_order.id),
-                    ('product_sparepart_id', '=', sparepart.id),
-                ], limit=1)
+                    existing_material = wo_material_line_model.search([
+                        ('pm_work_order_id', '=', work_order.id),
+                        ('product_sparepart_id', '=', sparepart.id),
+                    ], limit=1)
 
-                mat_vals = {
-                    'pm_work_order_id': work_order.id,
-                    'product_sparepart_id': sparepart.id,
-                    'product_material': sparepart.sku,
-                    'quantity': qty,
-                    'gi_doc': (row.get('RSNUM') or '').strip().lstrip('0'),
-                    'is_gi': is_kzear_x,
-                }
+                    mat_vals = {
+                        'pm_work_order_id': work_order.id,
+                        'product_sparepart_id': sparepart.id,
+                        'product_material': sparepart.sku,
+                        'quantity': qty,
+                        'gi_doc': (row.get('RSNUM') or '').strip().lstrip('0'),
+                        'is_gi': is_kzear_x,
+                    }
 
-                if not existing_material:
-                    wo_material_line_model.create(mat_vals)
-                elif self._needs_update(existing_material, mat_vals):
-                    existing_material.write(mat_vals)
+                    if not existing_material:
+                        wo_material_line_model.create(mat_vals)
+                    elif self._needs_update(existing_material, mat_vals):
+                        existing_material.write(mat_vals)
 
             if has_banfn:
                 banfn = (row.get('BANFN') or '').strip().lstrip('0')
@@ -382,6 +392,7 @@ class PlanMaintenanceWorkOrder(models.Model):
             strur = first.get('STRUR', '')
             ltrmn = first.get('LTRMN', '')
             ltrur = first.get('LTRUR', '')
+            xloek = first.get('XLOEK', '')
             
             company = company_model.search([('company_registry', '=', werks),('sync_pm', '=', True)], limit=1)
             if not company:
@@ -464,6 +475,7 @@ class PlanMaintenanceWorkOrder(models.Model):
             strur = first.get('STRUR', '')
             ltrmn = first.get('LTRMN', '')
             ltrur = first.get('LTRUR', '')
+            xloek = first.get('XLOEK', '')
             
             company = company_model.search([('company_registry', '=', company_registry),('sync_pm', '=', True)], limit=1)
             if not company:
@@ -603,7 +615,6 @@ class PlanMaintenanceWorkOrder(models.Model):
         _logger.info(f"TOTAL DATA cron_synhronize_sap_refurbish_work_order: {len(data_list)}")
         
         pm_wo_model = self.env['pm.work.order'].sudo()
-        equip_model = self.env['maintenance.equipment'].sudo()
         company_model = self.env['res.company'].sudo()
         grouped_data = defaultdict(list)
         
@@ -616,7 +627,6 @@ class PlanMaintenanceWorkOrder(models.Model):
             first = rows[0]
             type_mo = first.get('AUART')
             priority = first.get('PRIOKX')
-            sub_equip = (first.get('EQUNR') or "").lstrip('0')
             company_registry = first.get('WERKS')
             ktext = first.get('KTEXT')
             strmn = first.get('STRMN', '')
@@ -629,18 +639,6 @@ class PlanMaintenanceWorkOrder(models.Model):
                 _logger.info(f"Company Plant {company_registry} cron_synhronize_sap_refurbish_work_order skipped")
                 continue
             
-            # equipment = equip_model.search([('equipment_no', '=', sub_equip),('company_id', '=', company.id)], limit=1)
-            # if not equipment:
-            #     _logger.info(f"{nomor_wo} Sub Equipment {sub_equip} cron_synhronize_sap_refurbish_work_order skipped")
-            #     continue
-            # else:
-            #     if not equipment.parent_equipment_id:
-            #         equipment_id = equipment.id
-            #         sub_equipment_id = equip_model.search([('parent_equipment_id', '=', equipment_id)], limit=1).id
-            #     else:
-            #         equipment_id = equipment.parent_equipment_id.id
-            #         sub_equipment_id = equipment.id
-            
             starttime = self._parse_string_datetime(strmn, strur)
             endtime = self._parse_string_datetime(ltrmn, ltrur)
             if not endtime:
@@ -652,10 +650,6 @@ class PlanMaintenanceWorkOrder(models.Model):
                 'type_mo': type_mo,
                 'priority': priority,
                 'sap_synchronize': True,
-                # 'system_id': equipment.system_id.id,
-                # 'sub_system_id': equipment.sub_system_id.id,
-                # 'equipment_id': equipment_id,
-                # 'sub_equipment_id': sub_equipment_id,
                 'company_id': company.id,
                 'description': ktext,
                 'start_time': starttime,
@@ -670,7 +664,204 @@ class PlanMaintenanceWorkOrder(models.Model):
                     work_order.write(vals)
             
             self._sync_sap_work_order_lines(work_order, rows, company)
-                    
+
+    @api.model
+    def cron_synhronize_sap_preventif_planning_wo(self):
+        data_list = self._fetch_sap_data(
+            config_key='query_preventif_planning_work_order_sap',
+            cron_name='cron_synhronize_sap_preventif_planning_wo',
+        )
+        _logger.info(f"TOTAL DATA cron_synhronize_sap_preventif_planning_wo {len(data_list)}")
+
+        pm_wo_model = self.env['pm.work.order'].sudo()
+        company_model = self.env['res.company'].sudo()
+        equip_model = self.env['maintenance.equipment'].sudo()
+        today = self.today_jakarta()
+        delete_before = today - timedelta(days=2)
+
+        parsed_rows = []
+        for data in data_list:
+            warpl = (data.get('WARPL') or '').strip().lstrip('0')
+            nplda = (data.get('NPLDA') or '').strip()
+            equipment_no = (data.get('EQUNR') or '').strip().lstrip('0')
+            werks = (data.get('WERKS') or data.get('IWERK')).strip()
+            try:
+                if len(nplda) != 8 or not nplda.isdigit():
+                    raise ValueError
+                planning_date = datetime.strptime(nplda, '%Y%m%d').date()
+            except ValueError:
+                _logger.warning("Invalid NPLDA %s skipped", nplda)
+                continue
+            if not equipment_no or not werks:
+                _logger.warning(
+                    "Preventif planning skipped: EQUNR or WERKS empty for NPLDA %s",
+                    nplda,
+                )
+                continue
+            parsed_rows.append((data, planning_date, equipment_no, werks))
+
+        if not parsed_rows:
+            return True
+
+        companies = company_model.search([
+            ('company_registry', 'in', list({row[3] for row in parsed_rows})),
+            ('sync_pm', '=', True),
+        ])
+        companies_by_werks = {company.company_registry: company for company in companies}
+        equipments = equip_model.search([
+            ('equipment_no', 'in', list({row[2] for row in parsed_rows})),
+            ('company_id', 'in', companies.ids),
+        ])
+        equipments_by_key = {
+            (equipment.equipment_no, equipment.company_id.id): equipment
+            for equipment in equipments
+        }
+        parent_equipments = equipments.filtered(lambda equipment: not equipment.parent_equipment_id)
+        child_equipments = equip_model.search([('parent_equipment_id', 'in', parent_equipments.ids)], order='id')
+        children_by_parent = {}
+        for child_equipment in child_equipments:
+            children_by_parent.setdefault(
+                child_equipment.parent_equipment_id.id,
+                child_equipment,
+            )
+
+        planning_rows = []
+        for data, planning_date, equipment_no, werks in parsed_rows:
+            company = companies_by_werks.get(werks)
+            if not company:
+                _logger.info("Company Plant %s preventif planning skipped", werks)
+                continue
+            equipment = equipments_by_key.get((equipment_no, company.id))
+            if not equipment:
+                _logger.info("Equipment %s preventif planning skipped", equipment_no)
+                continue
+
+            parent_equipment = equipment.parent_equipment_id
+            equipment_id = parent_equipment.id or equipment.id
+            sub_equipment_id = (
+                equipment.id
+                if parent_equipment
+                else children_by_parent.get(equipment.id, equip_model).id
+            )
+            system_id = equipment.system_id.id
+            sub_system_id = equipment.sub_system_id.id
+            warpl = (data.get('WARPL') or '').strip().lstrip('0')
+            key = (
+                company.id,
+                warpl,
+                planning_date,
+                equipment_id,
+                system_id,
+                sub_system_id,
+                sub_equipment_id,
+            )
+            planning_rows.append((data, company, key))
+
+        if not planning_rows:
+            return True
+
+        planning_dates = {row[2][2] for row in planning_rows}
+        date_from = self._parse_string_datetime(min(planning_dates).strftime('%Y%m%d'), '')
+        date_to = self._parse_string_datetime((max(planning_dates) + timedelta(days=1)).strftime('%Y%m%d'), '')
+        existing_work_orders = pm_wo_model.search([
+            ('start_time', '>=', date_from),
+            ('start_time', '<', date_to),
+            ('company_id', 'in', list({row[2][0] for row in planning_rows})),
+            ('maintenance_plan_number', 'in', list({row[2][1] for row in planning_rows})),
+            ('equipment_id', 'in', list({row[2][3] for row in planning_rows})),
+            ('is_maintenance_plan', '=', True),
+        ])
+        work_orders_by_key = {
+            (
+                work_order.company_id.id,
+                work_order.maintenance_plan_number or '',
+                (work_order.start_time + timedelta(hours=7)).date(),
+                work_order.equipment_id.id,
+                work_order.system_id.id,
+                work_order.sub_system_id.id,
+                work_order.sub_equipment_id.id,
+            ): work_order
+            for work_order in existing_work_orders
+        }
+
+        delete_keys = {
+            key
+            for data, company, key in planning_rows
+            if (
+                key[2] < delete_before
+                or (data.get('TSENQ') or '').strip().upper() == 'X'
+            )
+        }
+        # work_orders_to_delete = existing_work_orders.filtered(
+        #     lambda work_order: (
+        #         (work_order.start_time + timedelta(hours=7)).date(),
+        #         work_order.equipment_id.id,
+        #         work_order.system_id.id,
+        #         work_order.sub_system_id.id,
+        #         work_order.sub_equipment_id.id,
+        #     ) in delete_keys
+        # )
+        # if work_orders_to_delete:
+        #     work_orders_to_delete.unlink()
+
+        for data, company, key in planning_rows:
+            (
+                _company_id,
+                warpl,
+                planning_date,
+                equipment_id,
+                system_id,
+                sub_system_id,
+                sub_equipment_id,
+            ) = key
+            work_order = work_orders_by_key.get(key)
+            nomor_wo = (data.get('AUFNR') or '').strip().lstrip('0')
+            # if key in delete_keys:
+            #     continue
+            if planning_date < today:
+                continue
+            if work_order:
+                if nomor_wo and not work_order.wo_sap:
+                    work_order.write({'wo_sap': nomor_wo})
+                    _logger.info(
+                        "PLANNING PREVENTIF WORK ORDER %s linked to SAP WO %s",
+                        work_order.id,
+                        nomor_wo,
+                    )
+                elif nomor_wo and work_order.wo_sap != nomor_wo:
+                    _logger.warning(
+                        "PLANNING PREVENTIF WORK ORDER %s keeps SAP WO %s; incoming %s skipped",
+                        work_order.id,
+                        work_order.wo_sap,
+                        nomor_wo,
+                    )
+                continue
+
+            start_time = self._parse_string_datetime(
+                planning_date.strftime('%Y%m%d'),
+                '',
+            )
+            work_order = pm_wo_model.create({
+                'wo_sap': nomor_wo or False,
+                'sap_synchronize': True,
+                'system_id': system_id,
+                'sub_system_id': sub_system_id,
+                'equipment_id': equipment_id,
+                'sub_equipment_id': sub_equipment_id,
+                'company_id': company.id,
+                'preventif_inspection': True,
+                'start_time': start_time,
+                'end_time': start_time,
+                'maintenance_plan_number': warpl,
+                'is_maintenance_plan': True,
+            })
+            work_orders_by_key[key] = work_order
+            work_order.message_post(body=f"PLANNING PREVENTIF WORK ORDER {nomor_wo or '-'} Created from Cron")
+            _logger.info("PLANNING PREVENTIF WORK ORDER Created %s", nomor_wo)
+
+        return True
+
+
     @api.model
     def cron_reminder_wo_draft(self):
         self = self.sudo()

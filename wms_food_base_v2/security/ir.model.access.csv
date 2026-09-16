@@ -1,0 +1,7 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_user_food_master_qr,access_user_food_master_qr,model_food_master_qr,base.group_user,1,1,1,1
+access_user_food_production_group,access_user_food_production_group,model_food_production_group,base.group_user,1,1,1,1
+access_user_food_production_line,access_user_food_production_line,model_food_production_line,base.group_user,1,1,1,1
+access_user_food_production_order,access_user_food_production_order,model_food_production_order,base.group_user,1,1,1,1
+access_user_food_production_shift,access_user_food_production_shift,model_food_production_shift,base.group_user,1,1,1,1
+access_user_food_storage_location,access_user_food_storage_location,model_food_storage_location,base.group_user,1,1,1,1

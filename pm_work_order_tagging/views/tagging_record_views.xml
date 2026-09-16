@@ -17,17 +17,17 @@
                     <field name="status" widget="statusbar" statusbar_visible="open,validated,waiting_sap,open_wo,closed,rejected,cancelled" invisible="status != 'waiting_sap'"/>
                 </xpath>
                 <xpath expr="//button[@name='action_set_wo']" position="after">
-                    <button name="action_set_create_work_order" type="object" string="Set Work Order" class="oe_highlight" invisible="status != 'validated'"/>
+                    <button name="action_open_pm_notif_wizard" type="object" string="Set PM Notification" class="oe_highlight" invisible="status != 'validated'"/>
                 </xpath>
                 <xpath expr="//group[@name='tag_equipment']" position="before">
                     <group name="tag_notif" string="Notification" invisible="status not in ('validated','open_wo', 'waiting_sap', 'closed')">
-                        <field name="tagging_type_notification_id" options="{'no_open': True, 'no_create': True}" readonly="status not in ('validated')" domain="[('company_id', '=', company_id)]"/>
+                        <field name="tagging_type_notification_id" options="{'no_open': True, 'no_create': True}" readonly="1" domain="[('company_id', '=', company_id)]"/>
                         <field name="notification_desc" force_save="1" readonly="1"/>
-                        <field name="pm_work_order_id" readonly="1" invisible="status in ('open', 'validated', 'waiting_sap')"/>
+                        <field name="nomor_notifikasi" force_save="1" readonly="1"/>
                     </group>
                 </xpath>
-                <xpath expr="//field[@name='functional_location']" position="after">
-                    <field name="nomor_notifikasi" force_save="1" readonly="1"/>
+                <xpath expr="//field[@name='is_locked']" position="before">
+                    <field name="pm_work_order_id" readonly="1" invisible="status in ('open', 'validated', 'waiting_sap')"/>
                 </xpath>
             </field>
         </record>

@@ -228,6 +228,16 @@ class InheritBaseStockPicking(models.Model):
 
     def button_validate(self):
         self._check_restrict_over_demand()
+        reallocated_moves = self.move_ids.filtered(
+            lambda move: move.order_selection in ('order', 'gratis')
+            and {'order', 'gratis'}.issubset(set(
+                self.move_ids.filtered(
+                    lambda candidate: candidate.picking_id == move.picking_id
+                    and candidate.product_id == move.product_id
+                ).mapped('order_selection'),
+            )),
+        )
+        reallocated_moves._repair_reallocated_lotless_reservations(reallocated_moves)
         res = super(InheritBaseStockPicking, self).button_validate()
         if isinstance(res, dict):
             # Validate belum selesai (masih minta wizard) -- jangan membatalkan

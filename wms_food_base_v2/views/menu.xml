@@ -1,0 +1,51 @@
+<?xml version='1.0' encoding='utf-8'?>
+<odoo>
+    <menuitem
+        id="inventory_food_menu"
+        name="WMS Food"
+        parent="stock.menu_stock_config_settings"
+    />
+
+    <menuitem
+        id="food_master_qr_menu"
+        name="Master QR"
+        sequence="10"
+        parent="wms_food_base_v2.inventory_food_menu"
+        action="wms_food_base_v2.food_master_qr_action"
+    />
+    <menuitem
+        id="food_production_group_menu"
+        name="Production Group"
+        sequence="20"
+        parent="wms_food_base_v2.inventory_food_menu"
+        action="wms_food_base_v2.food_production_group_action"
+    />
+    <menuitem
+        id="food_production_line_menu"
+        name="Production Line"
+        sequence="30"
+        parent="wms_food_base_v2.inventory_food_menu"
+        action="wms_food_base_v2.food_production_line_action"
+    />
+    <menuitem
+        id="food_production_order_menu"
+        name="Production Order"
+        sequence="40"
+        parent="wms_food_base_v2.inventory_food_menu"
+        action="wms_food_base_v2.food_production_order_action"
+    />
+    <menuitem
+        id="food_production_shift_menu"
+        name="Production Shift"
+        sequence="50"
+        parent="wms_food_base_v2.inventory_food_menu"
+        action="wms_food_base_v2.food_production_shift_action"
+    />
+    <menuitem
+        id="food_storage_location_menu"
+        name="Storage Location SLOC"
+        sequence="60"
+        parent="wms_food_base_v2.inventory_food_menu"
+        action="wms_food_base_v2.food_storage_location_action"
+    />
+</odoo>

@@ -1,0 +1,25 @@
+<?xml version="1.0" ?>
+<odoo>
+    <data noupdate="1">
+        <record id="ip_sap_rfc" model="ir.config_parameter">
+            <field name="key">ip_sap_rfc</field>
+            <field name="value">https://saprfc-qas.cpp.co.id</field>
+        </record>
+        <record id="x_i_api_key" model="ir.config_parameter">
+            <field name="key">x_i_api_key</field>
+            <field name="value">xd4k9ck0dThdyMdbOiZ20O7g8hSPCdbTYKVROm11bRDe5BbEBFG6RolLZDGI0lvh</field>
+        </record>
+        <record id="query_food_product_template_sap" model="ir.config_parameter">
+            <field name="key">query_food_product_template_sap</field>
+            <field name="value">SELECT DISTINCT a.matnr, c.maktx, a.mtart, d.mtbez, a.matkl, a.meins, a.ntgew, a.laeda, a.mhdhb, a.iprkz, b.werks, b.xchpf, b.lvorm, f.vrkme, e.umrez, e.umren FROM mara a INNER JOIN marc b ON b.matnr = a.matnr INNER JOIN makt c ON c.matnr = a.matnr AND c.spras = 'E' INNER JOIN t134t d ON d.mtart = a.mtart AND d.spras = 'E' LEFT JOIN mvke f ON f.matnr = a.matnr AND f.vkorg = '2641' AND f.vrkme != ' ' LEFT JOIN marm e ON e.matnr = a.matnr AND e.meinh = f.vrkme WHERE a.mtart = 'ZVFP' AND b.werks = '2641'</field>
+        </record>
+        <record id="query_food_storage_location_sap" model="ir.config_parameter">
+            <field name="key">query_food_storage_location_sap</field>
+            <field name="value">select a.lgort, a.werks, a.lgobe from t001l a</field>
+        </record>
+        <record id="query_food_production_order_sap" model="ir.config_parameter">
+            <field name="key">query_food_production_order_sap</field>
+            <field name="value">SELECT a.aufnr, a.auart, p.matnr, a.werks, k.gamng, p.meins, k.gmein, k.gstrp, k.gltrp, a.ernam, a.erdat, 'NOT TECO' AS teco_status, a.loekz, s.rspos, s.matnr AS component, s.bdmng, s.meins AS uom_comp, s.lgort FROM aufk a LEFT JOIN afko k ON a.mandt = k.mandt AND a.aufnr = k.aufnr LEFT JOIN afpo p ON a.mandt = p.mandt AND a.aufnr = p.aufnr LEFT JOIN marm ON marm.mandt = p.mandt AND marm.matnr = p.matnr AND marm.meinh = k.gmein LEFT JOIN resb s ON a.mandt = s.mandt AND k.rsnum = s.rsnum LEFT JOIN (SELECT j.mandt, j.objnr, LISTAGG(t.txt04, ', ') WITHIN GROUP (ORDER BY t.txt04) AS txt04 FROM jest j INNER JOIN tj02t t ON j.stat = t.istat AND t.spras = 'E' WHERE j.inact = ' ' GROUP BY j.mandt, j.objnr) st ON a.mandt = st.mandt AND a.objnr = st.objnr WHERE a.autyp = '10' AND a.auart IN ('CKV1', 'CKK1') AND a.werks = '2641' AND a.erdat BETWEEN TO_CHAR(TRUNC(SYSDATE)-200,'YYYYMMDD') AND TO_CHAR(TRUNC(SYSDATE),'YYYYMMDD')</field>
+        </record>
+    </data>
+</odoo>

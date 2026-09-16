@@ -28,6 +28,7 @@ Jalankan:
 """
 import math
 
+from odoo.exceptions import UserError
 from odoo.tests import TransactionCase, tagged
 
 
@@ -840,3 +841,106 @@ class TestGratisOrderMergeSplit(TransactionCase):
             "benar.",
         )
         self.assertEqual(order_final.quantity, 1829.0)
+
+    def test_12_reallocation_repairs_lotless_fallback_reservation(self):
+        location = self.type_final.default_location_src_id
+        destination = self.type_final.default_location_dest_id
+        lot = self.env['stock.lot'].create({
+            'name': 'UT-GRATIS-LOTLESS-LOT',
+            'product_id': self.product.id,
+            'company_id': self.company.id,
+        })
+        picking = self.env['stock.picking'].create({
+            'picking_type_id': self.type_final.id,
+            'location_id': location.id,
+            'location_dest_id': destination.id,
+            'company_id': self.company.id,
+        })
+        move = self.env['stock.move'].create({
+            'picking_id': picking.id,
+            'product_id': self.product.id,
+            'product_uom_qty': 20.0,
+            'product_uom': self.product.uom_id.id,
+            'order_selection': 'order',
+            'location_id': location.id,
+            'location_dest_id': destination.id,
+            'company_id': self.company.id,
+        })
+        gratis_move = self.env['stock.move'].create({
+            'picking_id': picking.id,
+            'product_id': self.product.id,
+            'product_uom_qty': 1.0,
+            'product_uom': self.product.uom_id.id,
+            'order_selection': 'gratis',
+            'location_id': location.id,
+            'location_dest_id': destination.id,
+            'company_id': self.company.id,
+        })
+        (move | gratis_move)._action_confirm(merge=False)
+        fallback = self.env['stock.move.line'].create({
+            'move_id': move.id,
+            'picking_id': picking.id,
+            'product_id': self.product.id,
+            'product_uom_id': self.product.uom_id.id,
+            'quantity': 20.0,
+            'location_id': location.id,
+            'location_dest_id': destination.id,
+            'company_id': self.company.id,
+        })
+        self.assertFalse(fallback.lot_id)
+        self.env['stock.quant']._update_available_quantity(
+            self.product, location, 20.0, lot_id=lot,
+        )
+
+        fallback.write({'picked': True})
+        picking.with_context(test_stock_no_negative=True).button_validate()
+
+        self.assertFalse(fallback.exists())
+        self.assertEqual(picking.state, 'done')
+        self.assertEqual(move.move_line_ids.lot_id, lot)
+        self.assertEqual(move.move_line_ids.quantity, 20.0)
+
+    def test_13_repair_ignores_regular_outbound_move(self):
+        location = self.type_final.default_location_src_id
+        destination = self.type_final.default_location_dest_id
+        lot = self.env['stock.lot'].create({
+            'name': 'UT-REGULAR-LOTLESS-LOT',
+            'product_id': self.product.id,
+            'company_id': self.company.id,
+        })
+        picking = self.env['stock.picking'].create({
+            'picking_type_id': self.type_final.id,
+            'location_id': location.id,
+            'location_dest_id': destination.id,
+            'company_id': self.company.id,
+        })
+        move = self.env['stock.move'].create({
+            'picking_id': picking.id,
+            'product_id': self.product.id,
+            'product_uom_qty': 20.0,
+            'product_uom': self.product.uom_id.id,
+            'location_id': location.id,
+            'location_dest_id': destination.id,
+            'company_id': self.company.id,
+        })
+        move._action_confirm()
+        fallback = self.env['stock.move.line'].create({
+            'move_id': move.id,
+            'picking_id': picking.id,
+            'product_id': self.product.id,
+            'product_uom_id': self.product.uom_id.id,
+            'quantity': 20.0,
+            'location_id': location.id,
+            'location_dest_id': destination.id,
+            'company_id': self.company.id,
+            'picked': True,
+        })
+        self.env['stock.quant']._update_available_quantity(
+            self.product, location, 20.0, lot_id=lot,
+        )
+
+        with self.assertRaises(UserError):
+            picking.button_validate()
+
+        self.assertTrue(fallback.exists())
+        self.assertFalse(fallback.lot_id)

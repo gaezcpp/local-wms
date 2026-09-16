@@ -5,3 +5,4 @@ access_user_pm_work_order_jasa_line,access_user_pm_work_order_jasa_line,model_pm
 access_user_tagging_type_notification,access_user_tagging_type_notification,model_tagging_type_notification,base.group_user,1,1,1,1
 access_user_pm_analysis,access_user_pm_analysis,model_pm_analysis,base.group_user,1,1,1,1
 access_user_zmo_report,access_user_zmo_report,model_zmo_report,base.group_user,1,1,1,1
+access_user_pm_notification_wizard,access_user_pm_notification_wizard,model_pm_notification_wizard,base.group_user,1,1,1,1

@@ -1,10 +1,12 @@
-from odoo import models, fields, api, _
-from odoo.exceptions import ValidationError
 from collections import defaultdict
-import requests
 import json
 import logging
 import re
+
+import requests
+
+from odoo import _, api, fields, models
+from odoo.exceptions import ValidationError
 
 _logger = logging.getLogger(__name__)
 
@@ -12,8 +14,9 @@ _logger = logging.getLogger(__name__)
 class InheritProductTemplate(models.Model):
     _inherit = 'product.template'
 
-    sap_mm = fields.Boolean(string="SAP MM", tracking=True)
-    product_wip_line_ids = fields.One2many(comodel_name='product.wip', inverse_name='parent_product_id')
+    sap_sync = fields.Boolean(string="SAP Sync", tracking=True)
+    uom_package_id = fields.Many2one('uom.uom', string="UoM Package", tracking=True)
+    uom_pallet_id = fields.Many2one('uom.uom', string="UoM Pallet", tracking=True)
     
     @api.model
     def _needs_update(self, model, vals):
@@ -31,10 +34,8 @@ class InheritProductTemplate(models.Model):
 
             elif field_def.type in ('many2many', 'one2many'):
                 if isinstance(new_val, list):
-                    new_ids = set()
+                    new_ids = set(old_val.ids)
                     for cmd in new_val:
-                        # Jika ada command create(0), update(1), delete(2), unlink(3), clear(5) 
-                        # berarti dipastikan butuh diupdate
                         if cmd[0] in (0, 1, 2, 3, 5):
                             return True
                         elif cmd[0] == 6:
@@ -45,7 +46,6 @@ class InheritProductTemplate(models.Model):
                     if old_ids != new_ids:
                         return True
                 else:
-                    # PERBAIKAN DI SINI: Tangani nilai False/None
                     new_val_iterable = new_val if new_val else []
                     if set(old_val.ids) != set(new_val_iterable):
                         return True
@@ -80,55 +80,69 @@ class InheritProductTemplate(models.Model):
         }
         try:
             response = requests.post(
-                url=f"{ip_sap_rfc}/api/v1/zfm-query-data",
+                url=f"{ip_sap_rfc.rstrip('/')}/api/v1/zfm-query-data",
                 headers=headers,
-                data=json.dumps(body),
+                json=body,
+                timeout=60,
             )
-        except Exception as e:
-            raise ValidationError(str(e))
+            response.raise_for_status()
+            res = response.json()
+        except requests.RequestException as error:
+            raise ValidationError(_("Gagal mengambil data SAP: %s", error)) from error
+        except ValueError as error:
+            raise ValidationError(_("Respons SAP bukan JSON yang valid.")) from error
 
-        res = response.json()
+        if not isinstance(res, dict):
+            raise ValidationError(_("Respons SAP harus berupa object JSON."))
         if res.get('error'):
             raise ValidationError(json.dumps(res.get('error')))
         if not res.get('success'):
-            _logger.info(f"CRON {cron_name} NOT SUCCESS || {res}")
+            _logger.info("CRON %s NOT SUCCESS || %s", cron_name, res)
             return []
 
         data_list = res.get('data', [])
-        _logger.info(f"CRON {cron_name} - TOTAL DATA: {len(data_list)}")
+        if not isinstance(data_list, list):
+            raise ValidationError(_("Data SAP harus berupa list."))
+        _logger.info("CRON %s - TOTAL DATA: %s", cron_name, len(data_list))
         return data_list
     
     @api.model
-    def cron_synchronize_sap_master_data(self):
+    def cron_food_synchronize_sap_product(self):
         data_list = self._fetch_sap_data(
-            config_key='query_master_data_sap',
-            cron_name='cron_synchronize_sap_master_data',
+            config_key='query_food_product_template_sap',
+            cron_name='cron_food_synchronize_sap_product',
         )
         if not data_list:
             return True
-        _logger.info(f"TOTAL DATA cron_synchronize_sap_master_data: {len(data_list)}")
+        _logger.info(
+            "TOTAL DATA cron_food_synchronize_sap_product: %s", len(data_list)
+        )
 
         uom_model = self.env['uom.uom'].sudo()
         category_model = self.env['product.category'].sudo()
         company_model = self.env['res.company'].sudo()
         product_product_model = self.env['product.product'].sudo()
-        warehouse_model = self.env['stock.warehouse'].sudo()
-
-        uom_kg = uom_model.search([('name', '=', 'kg')], limit=1)
+        
+        uom_kg = self.env.ref('uom.product_uom_kgm', raise_if_not_found=False)
         if not uom_kg:
             raise ValidationError("UoM kg tidak ditemukan")
 
         grouped_data = defaultdict(list)
         for data in data_list:
             matnr = (data.get('MATNR') or "").lstrip('0')
-            werks = data.get('WERKS')
+            werks = (data.get('WERKS') or '').strip()
             if not matnr or not werks:
-                _logger.info(f"MATNR {matnr} | WERKS {werks} SKIPPPPPPPPPPP")
+                _logger.warning(
+                    "Data produk SAP dilewati karena MATNR atau WERKS kosong: "
+                    "MATNR=%s, WERKS=%s",
+                    matnr,
+                    werks,
+                )
                 continue
             grouped_data[(matnr, werks)].append(data)
 
         all_werks = list({k[1] for k in grouped_data.keys()})
-        companies = company_model.search([('company_registry', 'in', all_werks), ('sync_wms', '=', True)])
+        companies = company_model.search([('company_registry', 'in', all_werks)])
         company_map = {c.company_registry: c for c in companies}
 
         all_matnr = list({k[0] for k in grouped_data.keys()})
@@ -154,7 +168,6 @@ class InheritProductTemplate(models.Model):
 
         uom_name_map = {u.name: u for u in uom_model.search([])}
         category_map = {c.name: c for c in category_model.search([])}
-        warehouse_map = {(w.code, w.company_id.id): w for w in warehouse_model.search([('active', '=', True)])}
 
         pending_creates = {}
         write_map = {}
@@ -164,7 +177,12 @@ class InheritProductTemplate(models.Model):
             company = company_map.get(werks)
             
             if not company:
-                _logger.info(f"COMPANYYYY {company} SKIPPPPPPPPPPP")
+                _logger.warning(
+                    "Produk SAP %s dilewati: company aktif untuk WERKS %s "
+                    "tidak ditemukan",
+                    matnr,
+                    werks,
+                )
                 continue
 
             expiration = 0
@@ -175,20 +193,38 @@ class InheritProductTemplate(models.Model):
             product_name = ""
             categ_name = ""
             weight = 0.0
-            warehouse_ids_set = set()
+            has_valid_conversion = False
 
             for data in records:
-                product_name = (data.get('MAKTX') or '').strip()
-                categ_name = (data.get('MTBEZ') or '').strip()
+                product_name = (data.get('MAKTX') or '').strip() or product_name
+                categ_name = (data.get('MTBEZ') or '').strip() or categ_name
                 iprkz = (data.get('IPRKZ') or '').strip()
-                lgort = (data.get('LGORT') or '').strip()
-                weight = float(data.get('NTGEW') or 0.0)
-                mhdhb = int(data.get('MHDHB') or 0)
+                try:
+                    weight = float(data.get('NTGEW') or 0.0)
+                    mhdhb = int(data.get('MHDHB') or 0)
+                    umrez = float(data.get('UMREZ') or 1)
+                    umren = float(data.get('UMREN') or 1)
+                except (TypeError, ValueError):
+                    _logger.warning(
+                        "Konversi numerik produk SAP %s dilewati: UMREZ=%r, "
+                        "UMREN=%r, NTGEW=%r, MHDHB=%r",
+                        matnr,
+                        data.get('UMREZ'),
+                        data.get('UMREN'),
+                        data.get('NTGEW'),
+                        data.get('MHDHB'),
+                    )
+                    continue
 
-                if lgort:
-                    wh = warehouse_map.get((lgort, company.id))
-                    if wh:
-                        warehouse_ids_set.add(wh.id)
+                if umrez <= 0 or umren <= 0:
+                    _logger.warning(
+                        "Konversi UoM produk SAP %s dilewati: UMREZ dan UMREN "
+                        "harus lebih dari nol",
+                        matnr,
+                    )
+                    continue
+
+                has_valid_conversion = True
 
                 exp_val = 0
                 if iprkz == '1': exp_val = int(mhdhb * 7)
@@ -197,20 +233,13 @@ class InheritProductTemplate(models.Model):
                 else: exp_val = int(mhdhb)
                 expiration = max(expiration, exp_val)
 
-                if data.get('MTART') == "FERT" and data.get('SPRAS') == "E":
-                    if data.get('MATKL') == "REMX":
-                        categ_name = "REMIX"
-
-                meinh = (data.get('MEINH') or "").strip()
                 meins = (data.get('MEINS') or "").strip()
                 vrkme = (data.get('VRKME') or "").strip()
                 uom_name = vrkme
                 
                 if not any(c.isdigit() for c in vrkme):
                     if vrkme and vrkme != meins:
-                        umrez_val = float(data.get('UMREZ') or 1)
-                        umren_val = float(data.get('UMREN') or 1)
-                        hasil_bagi = umrez_val / umren_val
+                        hasil_bagi = umrez / umren
                         if hasil_bagi.is_integer():
                             dibagi = int(hasil_bagi)
                         else:
@@ -218,16 +247,16 @@ class InheritProductTemplate(models.Model):
                         uom_name = f"{vrkme} {dibagi}"
 
                 if not uom_name:
-                    _logger.info(f"UOM_NAME {uom_name} SKIPPPPPPPPPPP")
+                    _logger.warning("UoM produk SAP %s kosong dan dilewati", matnr)
                     continue
 
-                factor = float(data.get('UMREZ') or 1) / float(data.get('UMREN') or 1)
+                factor = umrez / umren
                 existing_uom = uom_name_map.get(uom_name)
                 vals_uom = {
                     'name': uom_name,
                     'relative_factor': factor,
                     'relative_uom_id': uom_kg.id,
-                    'sap_synchronize': True,
+                    'sap_sync': True,
                     'sap_name': vrkme,
                 }
 
@@ -243,35 +272,32 @@ class InheritProductTemplate(models.Model):
 
                 vrkme_upper = (vrkme or "").upper()
                 uom_name_upper = (uom_name or "").upper()
-                try:
-                    if re.match(r'^B\d+$', vrkme_upper):
-                        bag_size = int(vrkme_upper[1:])
-                        bag_candidates.append((bag_size, existing_uom.id))
-                    elif vrkme_upper == "BAG":
-                        umrez = float(data.get('UMREZ') or 1)
-                        umren = float(data.get('UMREN') or 1)
-                        if umren:
-                            bag_size = int(umrez / umren)
-                            bag_candidates.append((bag_size, existing_uom.id))
-                    else:
-                        match = re.search(r'\d+', uom_name_upper)
-                        if match:
-                            bag_size = int(match.group())
-                            bag_candidates.append((bag_size, existing_uom.id))
-                except Exception:
-                    pass
+                if re.fullmatch(r'MC\d+(?:\.\d+)?', vrkme_upper):
+                    bag_candidates.append((float(vrkme_upper[2:]), existing_uom.id))
+                elif vrkme_upper == "MC":
+                    bag_candidates.append((factor, existing_uom.id))
+                else:
+                    match = re.search(r'\d+(?:\.\d+)?', uom_name_upper)
+                    if match:
+                        bag_candidates.append((float(match.group()), existing_uom.id))
 
-            uom_bag_id = False
+            uom_package_id = False
             if bag_candidates:
                 bag_candidates.sort(key=lambda x: x[0])
-                uom_bag_id = bag_candidates[0][1]
+                uom_package_id = bag_candidates[0][1]
+
+            if not has_valid_conversion or not product_name or not categ_name:
+                _logger.warning(
+                    "Produk SAP %s dilewati karena konversi tidak valid atau "
+                    "MAKTX/MTBEZ kosong",
+                    matnr,
+                )
+                continue
 
             category = category_map.get(categ_name)
             categ_vals = {
                 'name': categ_name,
                 'packaging_reserve_method': 'full',
-                'property_cost_method': 'standard',
-                'property_valuation': 'periodic',
             }
 
             if not category:
@@ -283,19 +309,17 @@ class InheritProductTemplate(models.Model):
 
             vals = {
                 'name': product_name,
-                'uom_id': uom_kg.id,
+                'uom_id': uom_package_id if uom_package_id else uom_kg.id,
                 'categ_id': category.id,
                 'weight': weight,
                 'default_code': matnr,
-                'uom_bag_id': uom_bag_id,
-                'uom_ids': [(6, 0, uom_ids)] if uom_ids else False,
+                'barcode': matnr,
+                'uom_package_id': uom_package_id,
+                'uom_ids': [(6, 0, uom_ids)],
                 'sale_ok': True,
                 'purchase_ok': True,
-                'sap_mm': True,
+                'sap_sync': True,
                 'type': 'consu',
-                'invoice_policy': 'order',
-                'taxes_id': False,
-                'supplier_taxes_id': False,
                 'list_price': 0.0,
                 'standard_price': 0.0,
                 'is_storable': True,
@@ -307,66 +331,32 @@ class InheritProductTemplate(models.Model):
             }
 
             existing_pp = existing_pp_map.get((matnr, company.id))
-
             if existing_pp:
-                tmpl = existing_pp.product_tmpl_id
-                wip_lines_to_write = []
-                wip_exist = tmpl.product_wip_line_ids.filtered(lambda w: w.product_id.id == existing_pp.id)
-                existing_wh_map = {w.warehouse_id.id: w for w in wip_exist}
-
-                for wh_id in warehouse_ids_set:
-                    if wh_id in existing_wh_map:
-                        wip_lines_to_write.append((1, existing_wh_map[wh_id].id, {
-                            'default_code': matnr,
-                        }))
-                    else:
-                        wip_lines_to_write.append((0, 0, {
-                            'product_id': existing_pp.id,
-                            'default_code': matnr,
-                            'warehouse_id': wh_id,
-                        }))
-                
-                if wip_lines_to_write:
-                    vals['product_wip_line_ids'] = wip_lines_to_write
-                
-                if self._needs_update(tmpl, vals):
-                    write_map[tmpl.id] = vals
-
+                template = existing_pp.product_tmpl_id
+                if self._needs_update(template, vals):
+                    write_map[template.id] = vals
             else:
                 create_key = (matnr, company.id)
-                if create_key not in pending_creates:
-                    create_vals = dict(vals)
-                    create_vals['barcode'] = matnr
-                    create_vals['company_id'] = company.id
-                    create_vals['wip_warehouse_ids'] = list(warehouse_ids_set)
-                    pending_creates[create_key] = create_vals
+                create_vals = dict(vals)
+                create_vals['company_id'] = company.id
+                pending_creates[create_key] = create_vals
 
         create_products = list(pending_creates.values())
 
         if create_products:
-            for c_vals in create_products:
-                wh_ids = c_vals.pop('wip_warehouse_ids', [])
-                matnr_code = c_vals.get('default_code')
-                new_tmpl = self.sudo().create(c_vals)
-                variant = new_tmpl.product_variant_id 
-                
-                wip_lines = [(0, 0, {
-                    'product_id': variant.id,
-                    'default_code': matnr_code,
-                    'warehouse_id': wh_id,
-                }) for wh_id in wh_ids]
-
-                if wip_lines:
-                    new_tmpl.write({
-                        'product_wip_line_ids': wip_lines
-                    })
-                    
-            _logger.info(f"cron_synchronize_sap_master_data CREATED {len(create_products)} templates")
+            self.sudo().create(create_products)
+            _logger.info(
+                "cron_food_synchronize_sap_product CREATED %s templates",
+                len(create_products),
+            )
 
         for pid, vals in write_map.items():
             self.sudo().browse(pid).write(vals)
             
         if write_map:
-            _logger.info(f"cron_synchronize_sap_master_data UPDATED {len(write_map)} templates")
+            _logger.info(
+                "cron_food_synchronize_sap_product UPDATED %s templates",
+                len(write_map),
+            )
             
         return True

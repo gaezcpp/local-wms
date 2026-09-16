@@ -14,9 +14,12 @@ Jalankan:
 """
 
 import base64
+from unittest.mock import patch
 
 from odoo.exceptions import ValidationError
 from odoo.tests import TransactionCase, tagged
+
+from ..models.pm_work_order import PlanMaintenanceWorkOrder
 
 
 @tagged('post_install', '-at_install', 'pm_work_order')
@@ -27,7 +30,45 @@ class TestPmWorkOrderGiGr(TransactionCase):
         super().setUpClass()
 
         cls.company = cls.env.company
-        cls.company.sudo().write({'sync_pm': True})
+        cls.company.sudo().write({
+            'company_registry': f'TEST-GI-GR-{cls.company.id}',
+            'sync_pm': True,
+        })
+        cls.system = cls.env['tagging.system'].create({
+            'name': 'System Uji GI GR',
+            'code': f'SYS-GI-GR-{cls.company.id}',
+            'company_id': cls.company.id,
+        })
+        cls.subsystem = cls.env['tagging.subsystem'].create({
+            'name': 'Subsystem Uji GI GR',
+            'code': f'SUB-GI-GR-{cls.company.id}',
+            'system_id': cls.system.id,
+            'company_id': cls.company.id,
+        })
+        cls.parent_equipment = cls.env['maintenance.equipment'].create({
+            'name': 'Equipment Induk Uji GI GR',
+            'equipment_no': f'GI-GR-P-{cls.company.id}',
+            'company_id': cls.company.id,
+            'system_id': cls.system.id,
+            'sub_system_id': cls.subsystem.id,
+        })
+        cls.equipment = cls.env['maintenance.equipment'].create({
+            'name': 'Equipment Uji GI GR',
+            'equipment_no': f'GI-GR-C-{cls.company.id}',
+            'company_id': cls.company.id,
+            'parent_equipment_id': cls.parent_equipment.id,
+            'system_id': cls.system.id,
+            'sub_system_id': cls.subsystem.id,
+        })
+        cls.tagging = cls.env['tagging.record'].create({
+            'name': f'TAG-GI-GR-{cls.company.id}',
+            'tagger_name': 'Unit Test',
+            'company_id': cls.company.id,
+            'system_id': cls.system.id,
+            'sub_system_id': cls.subsystem.id,
+            'parent_equipment_id': cls.parent_equipment.id,
+            'equipment_id': cls.equipment.id,
+        })
 
         cls.analysis = cls.env['pm.analysis'].create({
             'name': 'Analisa Uji',
@@ -87,6 +128,35 @@ class TestPmWorkOrderGiGr(TransactionCase):
         work_order._sync_sap_work_order_lines(work_order, rows, self.company)
         work_order.invalidate_recordset()
         return work_order
+
+    def _cron_row(self, **values):
+        row = {
+            'AUFNR': '00000900000001',
+            'AUART': 'ZM01',
+            'PRIOKX': 'NORMAL',
+            'WERKS': self.company.company_registry,
+            'KTEXT': 'Work order unit test',
+            'STRMN': '20260916',
+            'STRUR': '080000',
+            'LTRMN': '20260916',
+            'LTRUR': '090000',
+            'XLOEK': 'X',
+            'RSNUM': '4711',
+            'MATNR': self.sparepart.sku,
+            'MAKTX': self.sparepart.name,
+            'ENMNG': '1',
+            'KZEAR': '',
+        }
+        row.update(values)
+        return row
+
+    def _run_cron(self, method_name, rows):
+        with patch.object(
+            PlanMaintenanceWorkOrder,
+            '_fetch_sap_data',
+            return_value=rows,
+        ):
+            getattr(self.env['pm.work.order'], method_name)()
 
     # ------------------------------------------------------------------
     # sinkronisasi line dari data SAP
@@ -178,6 +248,44 @@ class TestPmWorkOrderGiGr(TransactionCase):
         wo = self._sync([{'MATNR': 'SKU-UJI-1', 'KZEAR': 'X', 'KZABN': 'X'}])
         self.assertFalse(wo.pm_wo_material_line_ids)
         self.assertFalse(wo.pm_wo_jasa_line_ids)
+
+    def test_cron_tagging_hapus_material_saat_kzear_kosong_xloek_x(self):
+        line = self.env['pm.work.order.material.line'].create({
+            'pm_work_order_id': self.work_order.id,
+            'product_sparepart_id': self.sparepart.id,
+            'product_material': self.sparepart.sku,
+            'quantity': 1.0,
+            'gi_doc': '4711',
+        })
+        self.work_order.write({'tagging_id': self.tagging.id})
+        row = self._cron_row(FETXT=self.tagging.name)
+
+        self._run_cron('cron_synhronize_sap_tagging_work_order', [row])
+
+        self.assertFalse(line.exists())
+
+    def test_cron_work_order_hapus_material_saat_kzear_kosong_xloek_x(self):
+        line = self.env['pm.work.order.material.line'].create({
+            'pm_work_order_id': self.work_order.id,
+            'product_sparepart_id': self.sparepart.id,
+            'product_material': self.sparepart.sku,
+            'quantity': 1.0,
+            'gi_doc': '4711',
+        })
+        row = self._cron_row(
+            AUFNR='0000900000001',
+            EQUNR=self.equipment.equipment_no,
+        )
+
+        self._run_cron('cron_synhronize_sap_work_order', [row])
+
+        self.assertFalse(line.exists())
+
+    def test_xloek_x_tidak_hapus_material_saat_kzear_x(self):
+        wo = self._sync([self._cron_row(KZEAR='X')])
+
+        self.assertEqual(len(wo.pm_wo_material_line_ids), 1)
+        self.assertTrue(wo.pm_wo_material_line_ids.is_gi)
 
     # ------------------------------------------------------------------
     # validasi action_waiting_sap

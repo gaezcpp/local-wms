@@ -652,17 +652,41 @@ class StockMove(models.Model):
             qty_order = qty_order_line_uom
 
         rounding = order_move.product_id.uom_id.rounding or 0.01
-        if order_move.state not in ('done', 'cancel'):
-            if float_compare(order_move.quantity, qty_order, precision_rounding=rounding) != 0:
-                order_move.quantity = qty_order
+        targets = ((order_move, qty_order), (gratis_move, qty_gratis))
+        for move, target in targets:
+            if (
+                move.state not in ('done', 'cancel')
+                and float_compare(move.quantity, target, precision_rounding=rounding) != 0
+            ):
+                move.quantity = target
 
-        if gratis_move.state not in ('done', 'cancel'):
-            if float_compare(gratis_move.quantity, qty_gratis, precision_rounding=rounding) != 0:
-                # qty_gratis 0 (belum ada yang berhak) sekadar mengosongkan
-                # quantity supaya Barcode tidak menampilkan baris gratis
-                # sudah terisi untuk di-scan -- move-nya sendiri TETAP
-                # hidup, lihat docstring di atas.
-                gratis_move.quantity = qty_gratis
+        self._repair_reallocated_lotless_reservations(order_move | gratis_move)
+
+    def _repair_reallocated_lotless_reservations(self, moves):
+        """Pindahkan reservasi fallback core ke quant lot yang tersedia."""
+        lotless_lines = moves.move_line_ids.filtered(
+            lambda line: line.state not in ('done', 'cancel')
+            and line.quantity > 0
+            and line.product_id.tracking != 'none'
+            and not line.lot_id
+            and not line.location_id.should_bypass_reservation()
+        )
+        for move in lotless_lines.move_id:
+            lines = lotless_lines.filtered(lambda line, move=move: line.move_id == move)
+            quantity = sum(lines.mapped('quantity_product_uom'))
+            lotted_quants = self.env['stock.quant'].search([
+                ('product_id', '=', move.product_id.id),
+                ('location_id', 'child_of', move.location_id.id),
+                ('lot_id', '!=', False),
+            ])
+            available = sum(
+                max(quant.available_quantity, 0.0) for quant in lotted_quants
+            )
+            if float_compare(available, quantity, precision_rounding=move.product_id.uom_id.rounding) < 0:
+                continue
+
+            lines.unlink()
+            move._update_reserved_quantity(quantity, move.location_id, strict=False)
 
     def _prepare_move_line_vals(self, quantity=None, reserved_quant=None):
         self.ensure_one()

@@ -113,6 +113,16 @@ function logOperationType(model, where) {
 
 patch(BarcodePickingModel.prototype, {
 
+    async validate() {
+        this.dialogService.add(ConfirmationDialog, {
+            title: _t("Konfirmasi Validate"),
+            body: _t("Apakah anda yakin?"),
+            confirmLabel: _t("Confirm"),
+            cancelLabel: _t("Cancel"),
+            confirm: () => super.validate(),
+        });
+    },
+
     groupKey(line) {
         if (this.record.picking_type_bypass_entire_packs) {
             const packageId = getRelId(line.package_id);

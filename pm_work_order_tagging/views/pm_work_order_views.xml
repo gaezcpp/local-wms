@@ -11,6 +11,7 @@
                 <field name="tagging_id"/>
                 <field name="company_id"/>
                 <field name="name"/>
+                <filter name="fl_archived" string="Archived" domain="[('active','=', False)]"/>
                 <filter name="fl_preventif" string="Preventif" domain="[('preventif_inspection','=', True)]"/>
                 <group>
                     <filter name="gr_type" string="By Type" context="{'group_by':'type_mo'}"/>
@@ -59,8 +60,10 @@
                     </h2>
                     <group>
                         <group name="pm_left">
-                            <field name="wo_sap" force_save="1" readonly="1"/>
-                            <field name="tagging_id" force_save="1" readonly="1" invisible="not tagging_id"/>
+                            <field name="wo_sap" readonly="1"/>
+                            <field name="maintenance_plan_number" readonly="1" invisible="not maintenance_plan_number"/>
+                            <field name="is_maintenance_plan" readonly="1" invisible="not is_maintenance_plan"/>
+                            <field name="tagging_id" readonly="1" invisible="not tagging_id"/>
                             <field name="type_mo" force_save="1" readonly="1"/>
                             <field name="priority" force_save="1" readonly="1"/>
                             <field name="confirm_number" force_save="1" readonly="1" invisible="not confirm_number"/>
@@ -81,7 +84,7 @@
                     <field name="material_only" invisible="1"/>
                     <field name="jasa_only" invisible="1"/>
                     <field name="preventif_inspection" invisible="1"/>
-                    <notebook invisible="preventif_inspection">
+                    <notebook invisible="preventif_inspection and not is_maintenance_plan">
                         <page name="material" string="Material" invisible="not material_only">
                             <field name="pm_wo_material_line_ids" readonly="1">
                                 <list create="0" edit="0" delete="0">
@@ -181,7 +184,8 @@
         <field name="name">Work Order</field>
         <field name="res_model">pm.work.order</field>
         <field name="view_mode">list,calendar,form</field>
-        <field name="domain">[('preventif_visible', '=', True)]</field>
+        <!-- <field name="domain">[('preventif_visible', '=', True)]</field> -->
+        <field name="domain">[('is_maintenance_plan', '=', False)]</field>
     </record>
 
     <record id="pm_work_order_calendar_action" model="ir.actions.act_window">

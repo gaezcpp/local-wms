@@ -18,6 +18,7 @@ class ProductionOrderSAPLine(models.Model):
     total_picking_wip = fields.Integer(string="Total WIP")
     picking_type_id = fields.Many2one(comodel_name='stock.picking.type', string="OP Type")
     picking_created = fields.Boolean(string="Picking Created")
+    warehouse_id = fields.Many2one(comodel_name='stock.warehouse', string="SLOC")
     
     def now_jakarta(self):
         tz = pytz.timezone('Asia/Jakarta')

@@ -21,14 +21,21 @@ class InheritTaggingRecord(models.Model):
         }
     )
     pm_work_order_id = fields.Many2one(comodel_name='pm.work.order', string="Work Order", tracking=True)
-    
-    @api.onchange('tagging_type_notification_id')
-    def _onchange_tagging_notif(self):
-        for rec in self:
-            if rec.tagging_type_notification_id:
-                rec.notification_desc = rec.tagging_type_notification_id.desc
-            else:
-                rec.notification_desc = False
+                
+    def action_open_pm_notif_wizard(self):
+        self.ensure_one()
+        view = self.env.ref('pm_work_order_tagging.pm_notification_wizard_form_views')
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'PM Notification Wizard',
+            'res_model': 'pm.notification.wizard',
+            'views': [(view.id, 'form')],
+            'target': 'new',
+            'context': {
+                'default_tagging_id': self.id,
+                'default_company_id': self.company_id.id,
+            }
+        }
     
     def action_set_create_work_order(self):
         for rec in self:
@@ -38,10 +45,6 @@ class InheritTaggingRecord(models.Model):
                 raise ValidationError("Untuk membentuk WO harus mengisi Parent Equipment terlebih dahulu!")
             if not rec.equipment_id:
                 raise ValidationError("Untuk membentuk WO harus mengisi Equipment terlebih dahulu!")
-            if not rec.tagging_type_notification_id:
-                raise ValidationError("Notification Type harus diisi untuk melanjutkan proses!")
-            if not rec.notification_desc:
-                raise ValidationError("Notification Desc harus diisi untuk melanjutkan proses!")
             
             rec.write({
                 'close_start_date': False,

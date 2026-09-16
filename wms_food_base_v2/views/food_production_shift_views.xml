@@ -1,0 +1,56 @@
+<?xml version='1.0' encoding='utf-8'?>
+<odoo>
+    <!-- Search View -->
+    <record model="ir.ui.view" id="food_production_shift_search">
+        <field name="name">food.production.shift.search</field>
+        <field name="model">food.production.shift</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="code"/>
+                <field name="company_id"/>
+                <filter name="fl_archived" string="Archived" domain="[('active','=', False)]"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="food_production_shift_view_list" model="ir.ui.view">
+        <field name="name">food.production.shift.view.list</field>
+        <field name="model">food.production.shift</field>
+        <field name="arch" type="xml">
+            <list string="Production Shift">
+                <field name="name"/>
+                <field name="code"/>
+                <field name="date_start"/>
+                <field name="date_end"/>
+                <field name="company_id"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="food_production_shift_view_form" model="ir.ui.view">
+        <field name="name">food.production.shift.view.form</field>
+        <field name="model">food.production.shift</field>
+        <field name="arch" type="xml">
+            <form string="Production Shift">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="code"/>
+                            <field name="date_start"/>
+                            <field name="date_end"/>
+                            <field name="company_id" options="{'no_open': True, 'no_create': True}"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="food_production_shift_action" model="ir.actions.act_window">
+        <field name="name">Production Shift</field>
+        <field name="res_model">food.production.shift</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>

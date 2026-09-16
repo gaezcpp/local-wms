@@ -116,7 +116,7 @@ patch(LineComponent.prototype, {
         if (reserved) {
             return this._computeBagFromQty(line, reserved);
         }
-        return this._computeBagFromQty(line, this.env.model.getScannedPackageQty(line));
+        return this._computeBagFromQty(line, this.env.model.getScannedPackageQty?.(line));
     },
 
     get computedBagDemand() {
