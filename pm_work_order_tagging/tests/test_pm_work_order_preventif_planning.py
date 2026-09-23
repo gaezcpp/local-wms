@@ -45,7 +45,13 @@ class TestPmWorkOrderPreventifPlanning(TransactionCase):
         })
         cls.model = cls.env['pm.work.order']
 
-    def _row(self, nplda='20260915', tsenq='', aufnr='000000000003'):
+    def _row(
+        self,
+        nplda='20260915',
+        tsenq='',
+        aufnr='000000000003',
+        wptxt='Planning description',
+    ):
         return {
             'WARPL': '000000001234',
             'NPLDA': nplda,
@@ -53,6 +59,7 @@ class TestPmWorkOrderPreventifPlanning(TransactionCase):
             'WERKS': self.company.company_registry,
             'AUFNR': aufnr,
             'TSENQ': tsenq,
+            'WPTXT': wptxt,
         }
 
     def _run_cron(self, rows):
@@ -74,6 +81,15 @@ class TestPmWorkOrderPreventifPlanning(TransactionCase):
         ):
             self.model.cron_synhronize_sap_preventif_inspection()
 
+    def _inspection_row(self, aufnr='000000000003'):
+        row = self._row(aufnr=aufnr)
+        row.update({
+            'AUART': 'ZLS4',
+            'KTEXT': 'Preventif inspection',
+            'PRIOKX': 'MEDIUM',
+        })
+        return row
+
     def _planning_domain(self, planning_date=date(2026, 9, 15)):
         date_from = self.model._parse_string_datetime(planning_date.strftime('%Y%m%d'), '')
         date_to = date_from + timedelta(days=1)
@@ -92,11 +108,37 @@ class TestPmWorkOrderPreventifPlanning(TransactionCase):
         self.assertEqual(len(work_order), 1)
         self.assertEqual(work_order.wo_sap, '3')
         self.assertEqual(work_order.start_time, datetime(2026, 9, 14, 17))
+        self.assertEqual(work_order.description_planning, 'Planning description')
 
         self._run_cron([self._row(aufnr='000000000004')])
         work_order = self.model.search(self._planning_domain())
         self.assertEqual(len(work_order), 1)
         self.assertEqual(work_order.wo_sap, '3')
+
+    def test_existing_planning_description_is_updated(self):
+        self._run_cron([self._row(wptxt='Initial description')])
+        work_order = self.model.search(self._planning_domain())
+
+        self._run_cron([self._row(wptxt='Updated description')])
+
+        self.assertEqual(work_order.description_planning, 'Updated description')
+
+    def test_each_planning_uses_its_own_description(self):
+        self._run_cron([
+            self._row(wptxt='First description'),
+            self._row(
+                nplda='20260916',
+                aufnr='000000000004',
+                wptxt='Second description',
+            ),
+        ])
+
+        first_work_order = self.model.search(self._planning_domain())
+        second_work_order = self.model.search(
+            self._planning_domain(date(2026, 9, 16)),
+        )
+        self.assertEqual(first_work_order.description_planning, 'First description')
+        self.assertEqual(second_work_order.description_planning, 'Second description')
 
     def test_nplda_requires_yyyymmdd_format(self):
         self._run_cron([self._row(nplda='2026915')])
@@ -125,6 +167,103 @@ class TestPmWorkOrderPreventifPlanning(TransactionCase):
         ])
         self.assertEqual(matching_work_orders, work_order)
         self.assertEqual(work_order.description, 'Preventif inspection')
+
+    def test_planning_without_aufnr_then_inspection_links_same_record(self):
+        self._run_cron([self._row(aufnr='')])
+        work_order = self.model.search(self._planning_domain())
+
+        self._run_inspection_cron([self._inspection_row()])
+
+        self.assertEqual(self.model.search_count(self._planning_domain()), 1)
+        self.assertEqual(work_order.wo_sap, '3')
+        self.assertEqual(work_order.description, 'Preventif inspection')
+
+    def test_inspection_first_then_planning_enriches_same_record(self):
+        self._run_inspection_cron([self._inspection_row()])
+        work_order = self.model.search([
+            ('company_id', '=', self.company.id),
+            ('wo_sap', '=', '3'),
+        ])
+        self.assertEqual(len(work_order), 1)
+        self.assertFalse(work_order.is_maintenance_plan)
+
+        self._run_cron([self._row()])
+
+        self.assertEqual(self.model.search_count([
+            ('company_id', '=', self.company.id),
+            ('wo_sap', '=', '3'),
+        ]), 1)
+        self.assertEqual(work_order.maintenance_plan_number, '1234')
+        self.assertTrue(work_order.is_maintenance_plan)
+
+    def test_inspection_skips_ambiguous_duplicate_wo_sap(self):
+        work_orders = self.model.create([
+            {
+                'company_id': self.company.id,
+                'wo_sap': '3',
+                'description': 'Duplicate A',
+            },
+            {
+                'company_id': self.company.id,
+                'wo_sap': '3',
+                'description': 'Duplicate B',
+            },
+        ])
+
+        self._run_inspection_cron([self._inspection_row()])
+
+        self.assertEqual(work_orders.mapped('description'), ['Duplicate A', 'Duplicate B'])
+        self.assertEqual(self.model.search_count([
+            ('company_id', '=', self.company.id),
+            ('wo_sap', '=', '3'),
+        ]), 2)
+
+    def test_planning_skips_ambiguous_duplicate_wo_sap(self):
+        work_orders = self.model.create([
+            {
+                'company_id': self.company.id,
+                'wo_sap': '3',
+                'description': 'Duplicate A',
+            },
+            {
+                'company_id': self.company.id,
+                'wo_sap': '3',
+                'description': 'Duplicate B',
+            },
+        ])
+
+        self._run_cron([self._row()])
+
+        self.assertEqual(work_orders.mapped('description'), ['Duplicate A', 'Duplicate B'])
+        self.assertEqual(self.model.search_count([
+            ('company_id', '=', self.company.id),
+            ('wo_sap', '=', '3'),
+        ]), 2)
+        self.assertFalse(self.model.search(self._planning_domain()))
+
+    def test_planning_candidate_is_linked_to_only_one_inspection_wo(self):
+        self._run_cron([self._row(aufnr='')])
+        planning_work_order = self.model.search(self._planning_domain())
+        second_row = self._inspection_row(aufnr='000000000004')
+
+        self._run_inspection_cron([self._inspection_row(), second_row])
+
+        work_orders = self.model.search([
+            ('company_id', '=', self.company.id),
+            ('wo_sap', 'in', ['3', '4']),
+        ])
+        self.assertEqual(len(work_orders), 2)
+        self.assertEqual(planning_work_order.wo_sap, '3')
+
+    def test_planning_accepts_integer_iwerk(self):
+        company_registry = 987000 + self.company.id
+        self.company.company_registry = str(company_registry)
+        row = self._row()
+        row.update({'WERKS': False, 'IWERK': company_registry})
+
+        self._run_cron([row])
+
+        self.assertEqual(len(self.model.search(self._planning_domain())), 1)
 
     def test_exact_sap_payload_sets_wo_sap(self):
         other_companies = self.env['res.company'].search([
@@ -170,13 +309,19 @@ class TestPmWorkOrderPreventifPlanning(TransactionCase):
         ]), 1)
         self.assertEqual(work_order.wo_sap, '13214000627')
 
-    def test_matching_tsenq_x_deletes_existing_row(self):
+    def test_tsenq_x_is_ignored_for_existing_row(self):
         self._run_cron([self._row()])
         work_order = self.model.search(self._planning_domain())
 
         self._run_cron([self._row(tsenq='X')])
 
-        self.assertFalse(work_order.exists())
+        self.assertTrue(work_order.exists())
+        self.assertEqual(self.model.search_count(self._planning_domain()), 1)
+
+    def test_tsenq_x_is_ignored_when_creating_row(self):
+        self._run_cron([self._row(tsenq='X')])
+
+        self.assertEqual(self.model.search_count(self._planning_domain()), 1)
 
     def test_past_row_not_created_and_older_than_two_days_deleted(self):
         expired = self.model.create({
@@ -186,6 +331,8 @@ class TestPmWorkOrderPreventifPlanning(TransactionCase):
             'equipment_id': self.parent_equipment.id,
             'sub_equipment_id': self.equipment.id,
             'start_time': self.model._parse_string_datetime('20260911', ''),
+            'maintenance_plan_number': '1234',
+            'is_maintenance_plan': True,
         })
 
         self._run_cron([

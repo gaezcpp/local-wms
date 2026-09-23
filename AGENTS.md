@@ -10,13 +10,28 @@
 
   D:\CPP\Odoo19-ENT\server\
 
-- Main Configuration:
+- FOOD Configuration:
 
   wms.conf
 
   - Port: 8019
-  - Database: DB_WMS_DEV_008
-  - Includes: addons_custom
+  - Database: WMS-FOOD-001
+  - Active custom application: wms_food_base_v2
+
+- FEED Environment:
+
+  - Database: DB_WMS_DEV_009
+  - Uses a separate configuration from FOOD
+  - The FEED configuration filename is not present/confirmed in this workspace; ask before
+    starting, upgrading, or testing FEED and always pass `-d DB_WMS_DEV_009`
+
+- Deployment Isolation:
+
+  - FEED and FOOD are separate databases and separate runtime configurations
+  - Never install, upgrade, test, or migrate FEED modules against WMS-FOOD-001
+  - Never install, upgrade, test, or migrate wms_food_base_v2 against DB_WMS_DEV_009
+  - wms_food_base is deprecated and no longer used; do not maintain its old FOOD/FEED bypass
+    unless explicitly requested for removal or historical analysis
 
 - Default Configuration:
 
@@ -390,8 +405,6 @@ Version format:
 - wms_sale_order_sap
 - wms_purchase_order
 - wms_quality_packages
-- wms_food_base
-- wms_cron_logging
 
 Dependency flow:
 
@@ -406,6 +419,16 @@ production_order_sap
     ↓
 quality_packages
 ```
+
+---
+
+## FOOD (Separate Deployment)
+
+- wms_food_base_v2
+- Database: WMS-FOOD-001
+- Configuration: wms.conf
+- This module is operationally separate from the FEED module stack above
+- wms_food_base is legacy/deprecated and must not be used as an integration layer
 
 ---
 
@@ -436,16 +459,16 @@ tagging_system
 
 # Commands
 
-## Start Server
+## Start FOOD Server
 
 ```bash
-python odoo-bin -c wms.conf
+python odoo-bin -c wms.conf -d WMS-FOOD-001
 ```
 
-## Shell
+## FOOD Shell
 
 ```bash
-python odoo-bin shell -c wms.conf
+python odoo-bin shell -c wms.conf -d WMS-FOOD-001
 ```
 
 ## Scaffold
@@ -454,17 +477,20 @@ python odoo-bin shell -c wms.conf
 python odoo-bin scaffold <module_name> addons_custom/
 ```
 
-## Upgrade Module
+## Upgrade FOOD Module
 
 ```bash
-python odoo-bin -c wms.conf -u <module_name>
+python odoo-bin -c wms.conf -d WMS-FOOD-001 -u wms_food_base_v2
 ```
 
-## Run Tests
+## Run FOOD Tests
 
 ```bash
-python odoo-bin -c wms.conf --test-enable -d DB_WMS_DEV_008 --stop-after-init -u <module_name>
+python odoo-bin -c wms.conf --test-enable -d WMS-FOOD-001 --stop-after-init -u wms_food_base_v2
 ```
+
+For FEED commands, use the separately confirmed FEED config and database
+`DB_WMS_DEV_009`. Do not substitute `wms.conf`, because the current file targets FOOD.
 
 ## Ruff
 

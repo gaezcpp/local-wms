@@ -9,6 +9,10 @@
             <field name="key">x_i_api_key</field>
             <field name="value">xd4k9ck0dThdyMdbOiZ20O7g8hSPCdbTYKVROm11bRDe5BbEBFG6RolLZDGI0lvh</field>
         </record>
+        <record id="wms_food_tx_token" model="ir.config_parameter">
+            <field name="key">wms_food_tx.token</field>
+            <field name="value">0123456789abcdef0123456789abcdef</field>
+        </record>
         <record id="query_food_product_template_sap" model="ir.config_parameter">
             <field name="key">query_food_product_template_sap</field>
             <field name="value">SELECT DISTINCT a.matnr, c.maktx, a.mtart, d.mtbez, a.matkl, a.meins, a.ntgew, a.laeda, a.mhdhb, a.iprkz, b.werks, b.xchpf, b.lvorm, f.vrkme, e.umrez, e.umren FROM mara a INNER JOIN marc b ON b.matnr = a.matnr INNER JOIN makt c ON c.matnr = a.matnr AND c.spras = 'E' INNER JOIN t134t d ON d.mtart = a.mtart AND d.spras = 'E' LEFT JOIN mvke f ON f.matnr = a.matnr AND f.vkorg = '2641' AND f.vrkme != ' ' LEFT JOIN marm e ON e.matnr = a.matnr AND e.meinh = f.vrkme WHERE a.mtart = 'ZVFP' AND b.werks = '2641'</field>

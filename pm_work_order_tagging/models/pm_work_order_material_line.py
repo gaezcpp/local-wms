@@ -1,5 +1,4 @@
-from odoo import models, fields, api
-from odoo.exceptions import ValidationError
+from odoo import fields, models
 
 
 class PMWorkOrderMaterialLine(models.Model):
@@ -13,3 +12,6 @@ class PMWorkOrderMaterialLine(models.Model):
     quantity = fields.Float(string="Quantity")
     gi_doc = fields.Char(string="GI Doc")
     is_gi = fields.Boolean(string="GI", default=False)
+    item_number = fields.Char(string="Item Number", index=True)
+    valuation = fields.Char(string="Valuation")
+    material_detail = fields.Char(string="Detail")

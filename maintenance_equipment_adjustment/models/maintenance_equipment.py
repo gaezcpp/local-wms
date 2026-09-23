@@ -12,10 +12,10 @@ class MaintenanceEquipment(models.Model):
 
     equipment_no = fields.Char(string="No. Equipment", readonly=True, default=lambda self: self.env["ir.sequence"].next_by_code("maintenance.equipment.no") or _("New"))
     abc_indc = fields.Char(string="Abc Indc")
-    parent_equipment_id = fields.Many2one("maintenance.equipment", string="Superior Equipment")
+    parent_equipment_id = fields.Many2one("maintenance.equipment", string="Superior Equipment", index=True)
     product_line_ids = fields.One2many("maintenance.equipment.product.line", "equipment_id", string="Products")
-    system_id = fields.Many2one("tagging.system", string="System")
-    sub_system_id = fields.Many2one("tagging.subsystem", string="Sub System",)
+    system_id = fields.Many2one("tagging.system", string="System", index=True)
+    sub_system_id = fields.Many2one("tagging.subsystem", string="Sub System", index=True)
     sap_equnr = fields.Char(string="SAP Equipment No")
     sap_tplnr = fields.Char(string="SAP Functional Location")
 

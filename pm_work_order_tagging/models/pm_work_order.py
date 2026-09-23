@@ -56,13 +56,93 @@ class PlanMaintenanceWorkOrder(models.Model):
     active = fields.Boolean(string="Active", default=True)
     maintenance_plan_number = fields.Char(string="Maintenance Plan")
     is_maintenance_plan = fields.Boolean(string="Is Plan?", default=False)
+    description_planning = fields.Text(string="Description Planning")
+    creation_email_sent = fields.Boolean(string="Creation Email Sent", default=False, copy=False, readonly=True)
+    calendar_display_name = fields.Char(related='sub_system_id.name', string="Calendar Display Name")
     
     @api.model_create_multi
     def create(self, vals_list):
         for vals in vals_list:
             if vals.get('name', _('New')) == _('New'):
                 vals['name'] = self.env['ir.sequence'].next_by_code('pm.work.order') or _('New')
-        return super().create(vals_list)
+        records = super().create(vals_list)
+        records._send_creation_email_to_department()
+        return records
+
+    def write(self, vals):
+        result = super().write(vals)
+        if {'wo_sap', 'sap_synchronize', 'is_maintenance_plan', 'tagging_id'} & vals.keys():
+            self._send_creation_email_to_department()
+        return result
+
+    def _send_creation_email_to_department(self):
+        template = self.env.ref('pm_work_order_tagging.mail_template_work_order_created')
+        if not template:
+            _logger.warning("Work order creation email template not found")
+            return False
+
+        sent = False
+        for work_order in self.filtered(
+            lambda wo: wo.wo_sap
+            and wo.sap_synchronize
+            and not wo.is_maintenance_plan
+            and not wo.creation_email_sent
+        ):
+            tagging = work_order.tagging_id
+            department = tagging.department_id
+            if not department and work_order.company_id:
+                departments = self.env['tagging.department'].sudo().search([
+                    ('company_id', '=', work_order.company_id.id),
+                    ('active', '=', True),
+                    ('name', '=ilike', 'Maintenance%'),
+                ], limit=2)
+                if len(departments) == 1:
+                    department = departments
+            if not department:
+                _logger.info("Work order creation email skipped for %s: department not found", work_order.wo_sap)
+                continue
+            if (
+                not work_order.company_id
+                or department.company_id != work_order.company_id
+                or (tagging and tagging.company_id != work_order.company_id)
+            ):
+                _logger.warning("Work order creation email skipped for %s: company mismatch", work_order.wo_sap)
+                continue
+
+            pics = department.pic_ids.filtered('active') | self.env['tagging.pic'].sudo().search([
+                ('department_ids', 'in', department.id),
+                ('active', '=', True),
+            ])
+            emails = list(dict.fromkeys(
+                email.strip()
+                for email in pics.mapped('email')
+                if email and email.strip()
+            ))
+            if not emails:
+                _logger.info("Work order creation email skipped for %s: recipient not found", work_order.wo_sap)
+                continue
+
+            cc_emails = list(dict.fromkeys(
+                email.strip()
+                for email in pics.mapped('cc')
+                if email and email.strip()
+            ))
+            email_values = {
+                'email_to': ','.join(emails),
+                'model': False,
+                'res_id': False,
+            }
+            if cc_emails:
+                email_values['email_cc'] = ','.join(cc_emails)
+            try:
+                with self.env.cr.savepoint():
+                    template.sudo().send_mail(work_order.id, email_values=email_values)
+            except Exception:
+                _logger.exception("Failed to queue work order creation email for %s", work_order.wo_sap)
+                continue
+            work_order.creation_email_sent = True
+            sent = True
+        return sent
     
     @api.depends('pm_wo_material_line_ids')
     def _compute_flag_material(self):
@@ -168,55 +248,103 @@ class PlanMaintenanceWorkOrder(models.Model):
         wo_material_line_model = self.env['pm.work.order.material.line'].sudo()
         wo_jasa_line_model = self.env['pm.work.order.jasa.line'].sudo()
 
+        active_item_numbers = {
+            (row.get('RSPOS') or '').strip()
+            for row in rows
+            if (row.get('RSNUM') or '').strip()
+            and not (
+                not (row.get('KZEAR') or '').strip()
+                and (row.get('XLOEK') or '').strip() == 'X'
+            )
+            and (row.get('RSPOS') or '').strip()
+        }
+        deleted_item_numbers = {
+            (row.get('RSPOS') or '').strip()
+            for row in rows
+            if not (row.get('KZEAR') or '').strip()
+            and (row.get('XLOEK') or '').strip() == 'X'
+            and (row.get('RSPOS') or '').strip()
+        } - active_item_numbers
+        for row in rows:
+            if (
+                not (row.get('KZEAR') or '').strip()
+                and (row.get('XLOEK') or '').strip() == 'X'
+                and not (row.get('RSPOS') or '').strip()
+            ):
+                _logger.warning(
+                    "SAP material deletion skipped: RSPOS empty for WO %s, RSNUM %s",
+                    work_order.wo_sap or work_order.name,
+                    (row.get('RSNUM') or '').strip(),
+                )
+        if deleted_item_numbers:
+            wo_material_line_model.search([
+                ('pm_work_order_id', '=', work_order.id),
+                ('item_number', 'in', list(deleted_item_numbers)),
+            ]).unlink()
+
         for row in rows:
             has_rsnum = bool((row.get('RSNUM') or '').strip())
             has_banfn = bool((row.get('BANFN') or '').strip())
             kzear = (row.get('KZEAR') or '').strip()
             is_kzear_x = kzear == 'X'
             is_kzabn_x = (row.get('KZABN') or '').strip() == 'X'
+            is_deleted_material = (
+                not kzear and (row.get('XLOEK') or '').strip() == 'X'
+            )
+            item_number = (row.get('RSPOS') or '').strip()
+            valuation = (row.get('CHARG') or '').strip()
+            material_detail = (row.get('POTX1') or '').strip()
 
-            if has_rsnum:
-                matnr = row.get('MATNR')
+            if has_rsnum and not is_deleted_material:
+                if not item_number:
+                    _logger.warning(
+                        "SAP material skipped: RSPOS empty for WO %s, RSNUM %s",
+                        work_order.wo_sap or work_order.name,
+                        (row.get('RSNUM') or '').strip(),
+                    )
+                    has_rsnum = False
+
+            if has_rsnum and not is_deleted_material:
+                matnr = (row.get('MATNR') or '').strip()
                 maktx = row.get('MAKTX')
-                qty = float(row.get('ENMNG') or 0.0)
+                qty = float(row.get('BDMNG') or 0.0)
+                if not qty:
+                    qty = float(row.get('ENMNG') or 0.0)
 
-                if not kzear and (row.get('XLOEK') or '').strip() == 'X':
-                    wo_material_line_model.search([
-                        ('pm_work_order_id', '=', work_order.id),
-                        ('product_material', '=', matnr),
-                    ]).unlink()
-                else:
-                    sparepart = spare_part_model.search([
-                        ('active', '=', True),
-                        ('sku', '=', matnr),
-                        ('company_id', '=', company.id),
-                    ], limit=1)
+                sparepart = spare_part_model.search([
+                    ('active', '=', True),
+                    ('sku', '=', matnr),
+                    ('company_id', '=', company.id),
+                ], limit=1)
 
-                    if not sparepart and matnr:
-                        sparepart = spare_part_model.create({
-                            'name': maktx,
-                            'sku': matnr,
-                            'company_id': company.id,
-                        })
+                if not sparepart and matnr:
+                    sparepart = spare_part_model.create({
+                        'name': maktx,
+                        'sku': matnr,
+                        'company_id': company.id,
+                    })
 
-                    existing_material = wo_material_line_model.search([
-                        ('pm_work_order_id', '=', work_order.id),
-                        ('product_sparepart_id', '=', sparepart.id),
-                    ], limit=1)
+                existing_material = wo_material_line_model.search([
+                    ('pm_work_order_id', '=', work_order.id),
+                    ('item_number', '=', item_number),
+                ], limit=1)
 
-                    mat_vals = {
-                        'pm_work_order_id': work_order.id,
-                        'product_sparepart_id': sparepart.id,
-                        'product_material': sparepart.sku,
-                        'quantity': qty,
-                        'gi_doc': (row.get('RSNUM') or '').strip().lstrip('0'),
-                        'is_gi': is_kzear_x,
-                    }
+                mat_vals = {
+                    'pm_work_order_id': work_order.id,
+                    'item_number': item_number,
+                    'product_sparepart_id': sparepart.id,
+                    'product_material': sparepart.sku,
+                    'quantity': qty,
+                    'gi_doc': (row.get('RSNUM') or '').strip().lstrip('0'),
+                    'is_gi': is_kzear_x,
+                    'valuation': valuation,
+                    'material_detail': material_detail,
+                }
 
-                    if not existing_material:
-                        wo_material_line_model.create(mat_vals)
-                    elif self._needs_update(existing_material, mat_vals):
-                        existing_material.write(mat_vals)
+                if not existing_material:
+                    wo_material_line_model.create(mat_vals)
+                elif self._needs_update(existing_material, mat_vals):
+                    existing_material.write(mat_vals)
 
             if has_banfn:
                 banfn = (row.get('BANFN') or '').strip().lstrip('0')
@@ -376,23 +504,23 @@ class PlanMaintenanceWorkOrder(models.Model):
         grouped_data = defaultdict(list)
         for data in data_list:
             nomor_wo = (data.get('AUFNR') or '').strip().lstrip('0')
-            if not nomor_wo:
-                continue
-            grouped_data[nomor_wo].append(data)
+            werks = str(
+                data.get('WERKS') or data.get('COMPANY_ID') or ''
+            ).strip()
+            if nomor_wo and werks:
+                grouped_data[(werks, nomor_wo)].append(data)
             
-        for nomor_wo, rows in grouped_data.items():
+        for (werks, nomor_wo), rows in grouped_data.items():
             first = rows[0]
             no_tagging = first.get('FETXT', '')
             type_mo = first.get('AUART')
             priority = first.get('PRIOKX')
             wo_sap = nomor_wo
-            werks = first.get('WERKS') or first.get('COMPANY_ID')
             ktext = first.get('KTEXT')
             strmn = first.get('STRMN', '')
             strur = first.get('STRUR', '')
             ltrmn = first.get('LTRMN', '')
             ltrur = first.get('LTRUR', '')
-            xloek = first.get('XLOEK', '')
             
             company = company_model.search([('company_registry', '=', werks),('sync_pm', '=', True)], limit=1)
             if not company:
@@ -436,6 +564,7 @@ class PlanMaintenanceWorkOrder(models.Model):
                     _logger.info(f"WORK ORDER Updated {wo_sap}")
             
             self._sync_sap_work_order_lines(work_order, rows, company)
+            work_order._send_creation_email_to_department()
             
             if work_order.tagging_id and work_order.tagging_id.status == 'process_sap':
                 work_order.tagging_id.write({
@@ -461,21 +590,20 @@ class PlanMaintenanceWorkOrder(models.Model):
         
         for row in data_list:
             nomor_wo = (row.get('AUFNR') or '').strip().lstrip('0')
-            if nomor_wo:
-                grouped_data[nomor_wo].append(row)
+            company_registry = str(row.get('WERKS') or '').strip()
+            if nomor_wo and company_registry:
+                grouped_data[(company_registry, nomor_wo)].append(row)
             
-        for nomor_wo, rows in grouped_data.items():
+        for (company_registry, nomor_wo), rows in grouped_data.items():
             first = rows[0]
             type_mo = first.get('AUART')
             priority = first.get('PRIOKX')
             sub_equip = (first.get('EQUNR') or "").lstrip('0')
-            company_registry = first.get('WERKS')
             ktext = first.get('KTEXT')
             strmn = first.get('STRMN', '')
             strur = first.get('STRUR', '')
             ltrmn = first.get('LTRMN', '')
             ltrur = first.get('LTRUR', '')
-            xloek = first.get('XLOEK', '')
             
             company = company_model.search([('company_registry', '=', company_registry),('sync_pm', '=', True)], limit=1)
             if not company:
@@ -523,6 +651,7 @@ class PlanMaintenanceWorkOrder(models.Model):
                     work_order.write(vals)
             
             self._sync_sap_work_order_lines(work_order, rows, company)
+            work_order._send_creation_email_to_department()
     
     @api.model
     def cron_synhronize_sap_preventif_inspection(self):
@@ -539,69 +668,151 @@ class PlanMaintenanceWorkOrder(models.Model):
         equip_model = self.env['maintenance.equipment'].sudo()
         company_model = self.env['res.company'].sudo()
         grouped_data = defaultdict(list)
-        
+
         for row in data_list:
-            nomor_wo = (row.get('AUFNR') or '').strip().lstrip('0')
-            if nomor_wo:
-                grouped_data[nomor_wo].append(row)
-        
-        for nomor_wo, rows in grouped_data.items():
+            nomor_wo = str(row.get('AUFNR') or '').strip().lstrip('0')
+            company_registry = str(row.get('WERKS') or '').strip()
+            if nomor_wo and company_registry:
+                grouped_data[(company_registry, nomor_wo)].append(row)
+
+        companies = company_model.search([
+            ('company_registry', 'in', list({key[0] for key in grouped_data})),
+            ('sync_pm', '=', True),
+        ])
+        companies_by_registry = {
+            company.company_registry: company for company in companies
+        }
+        equipment_numbers = {
+            str(rows[0].get('EQUNR') or '').strip().lstrip('0')
+            for rows in grouped_data.values()
+        }
+        equipments = equip_model.search([
+            ('equipment_no', 'in', list(equipment_numbers)),
+            ('company_id', 'in', companies.ids),
+        ])
+        equipments_by_key = {
+            (equipment.company_id.id, equipment.equipment_no): equipment
+            for equipment in equipments
+        }
+        parent_equipments = equipments.filtered(
+            lambda equipment: not equipment.parent_equipment_id
+        )
+        children = equip_model.search([
+            ('parent_equipment_id', 'in', parent_equipments.ids),
+        ], order='id')
+        children_by_parent = {}
+        for child in children:
+            children_by_parent.setdefault(child.parent_equipment_id.id, child)
+
+        existing_work_orders = pm_wo_model.search([
+            ('company_id', 'in', companies.ids),
+            ('wo_sap', 'in', list({key[1] for key in grouped_data})),
+        ])
+        work_orders_by_sap = defaultdict(lambda: pm_wo_model)
+        for work_order in existing_work_orders:
+            work_orders_by_sap[
+                (work_order.company_id.id, work_order.wo_sap)
+            ] |= work_order
+
+        planning_candidates = pm_wo_model.search([
+            ('company_id', 'in', companies.ids),
+            ('is_maintenance_plan', '=', True),
+            ('wo_sap', '=', False),
+        ])
+        planning_by_key = defaultdict(lambda: pm_wo_model)
+        for work_order in planning_candidates:
+            planning_by_key[
+                (
+                    work_order.company_id.id,
+                    work_order.start_time,
+                    work_order.equipment_id.id,
+                    work_order.sub_equipment_id.id,
+                )
+            ] |= work_order
+
+        for (company_registry, nomor_wo), rows in grouped_data.items():
             first = rows[0]
-            type_mo = first.get('AUART')
-            priority = first.get('PRIOKX')
-            sub_equip = (first.get('EQUNR') or "").lstrip('0')
-            company_registry = first.get('WERKS')
-            ktext = first.get('KTEXT')
-            nplda = first.get('NPLDA', '')
-            strur = first.get('STRUR', '')
-            ltrmn = first.get('LTRMN', '')
-            ltrur = first.get('LTRUR', '')
-            
-            company = company_model.search([('company_registry', '=', company_registry),('sync_pm', '=', True)], limit=1)
+            company = companies_by_registry.get(company_registry)
             if not company:
-                _logger.info(f"Company Plant {company_registry} cron_synhronize_sap_preventif_inspection skipped")
+                _logger.info(
+                    "Company Plant %s cron_synhronize_sap_preventif_inspection skipped",
+                    company_registry,
+                )
                 continue
-            
-            equipment = equip_model.search([('equipment_no', '=', sub_equip),('company_id', '=', company.id)], limit=1)
+
+            sub_equip = str(first.get('EQUNR') or '').strip().lstrip('0')
+            equipment = equipments_by_key.get((company.id, sub_equip))
             if not equipment:
-                _logger.info(f"Sub Equipment {sub_equip} cron_synhronize_sap_preventif_inspection skipped")
+                _logger.info(
+                    "Sub Equipment %s cron_synhronize_sap_preventif_inspection skipped",
+                    sub_equip,
+                )
                 continue
+
+            if equipment.parent_equipment_id:
+                equipment_id = equipment.parent_equipment_id.id
+                sub_equipment_id = equipment.id
             else:
-                if not equipment.parent_equipment_id:
-                    equipment_id = equipment.id
-                    sub_equipment_id = equip_model.search([('parent_equipment_id', '=', equipment_id)], limit=1).id
-                else:
-                    equipment_id = equipment.parent_equipment_id.id
-                    sub_equipment_id = equipment.id
-            
-            starttime = self._parse_string_datetime(nplda, strur)
-            endtime = starttime
-            
-            wo_preventif = pm_wo_model.search([('wo_sap', '=', nomor_wo),('company_id', '=', company.id)], limit=1)
+                equipment_id = equipment.id
+                sub_equipment_id = children_by_parent.get(
+                    equipment.id, equip_model,
+                ).id
+
+            starttime = self._parse_string_datetime(
+                str(first.get('NPLDA') or '').strip(),
+                str(first.get('STRUR') or '').strip(),
+            )
+            wo_preventif = work_orders_by_sap[(company.id, nomor_wo)]
+            if len(wo_preventif) > 1:
+                _logger.error(
+                    "Duplicate preventive work orders for company %s and SAP WO %s: %s; skipped",
+                    company.display_name,
+                    nomor_wo,
+                    wo_preventif.ids,
+                )
+                continue
+            if not wo_preventif:
+                planning_key = (
+                    company.id, starttime, equipment_id, sub_equipment_id,
+                )
+                candidates = planning_by_key[planning_key]
+                if len(candidates) > 1:
+                    _logger.error(
+                        "Multiple planning work orders match SAP WO %s: %s; skipped",
+                        nomor_wo,
+                        candidates.ids,
+                    )
+                    continue
+                wo_preventif = candidates
+                if wo_preventif:
+                    planning_by_key[planning_key] = pm_wo_model
+
             vals = {
                 'wo_sap': nomor_wo,
-                'type_mo': type_mo,
-                'priority': priority,
+                'type_mo': first.get('AUART'),
+                'priority': first.get('PRIOKX'),
                 'sap_synchronize': True,
                 'system_id': equipment.system_id.id,
                 'sub_system_id': equipment.sub_system_id.id,
                 'equipment_id': equipment_id,
                 'sub_equipment_id': sub_equipment_id,
                 'company_id': company.id,
-                'description': ktext,
+                'description': first.get('KTEXT'),
                 'preventif_inspection': True,
                 'start_time': starttime,
-                'end_time': endtime,
+                'end_time': starttime,
             }
             if not wo_preventif:
                 wo_preventif = pm_wo_model.create(vals)
+                work_orders_by_sap[(company.id, nomor_wo)] = wo_preventif
                 wo_preventif.message_post(body=f"PREVENTIF WORK ORDER {nomor_wo} Created from Cron")
-                _logger.info(f"PREVENTIF WORK ORDER Created {nomor_wo}")
-            else:
-                if self._needs_update(wo_preventif, vals):
-                    wo_preventif.write(vals)
-            
+                _logger.info("PREVENTIF WORK ORDER Created %s", nomor_wo)
+            elif self._needs_update(wo_preventif, vals):
+                wo_preventif.write(vals)
+                work_orders_by_sap[(company.id, nomor_wo)] = wo_preventif
+
             self._sync_sap_work_order_lines(wo_preventif, rows, company)
+            wo_preventif._send_creation_email_to_department()
             
     @api.model
     def cron_synhronize_sap_refurbish_work_order(self):
@@ -620,14 +831,14 @@ class PlanMaintenanceWorkOrder(models.Model):
         
         for row in data_list:
             nomor_wo = (row.get('AUFNR') or '').strip().lstrip('0')
-            if nomor_wo:
-                grouped_data[nomor_wo].append(row)
+            company_registry = str(row.get('WERKS') or '').strip()
+            if nomor_wo and company_registry:
+                grouped_data[(company_registry, nomor_wo)].append(row)
             
-        for nomor_wo, rows in grouped_data.items():
+        for (company_registry, nomor_wo), rows in grouped_data.items():
             first = rows[0]
             type_mo = first.get('AUART')
             priority = first.get('PRIOKX')
-            company_registry = first.get('WERKS')
             ktext = first.get('KTEXT')
             strmn = first.get('STRMN', '')
             strur = first.get('STRUR', '')
@@ -664,6 +875,7 @@ class PlanMaintenanceWorkOrder(models.Model):
                     work_order.write(vals)
             
             self._sync_sap_work_order_lines(work_order, rows, company)
+            work_order._send_creation_email_to_department()
 
     @api.model
     def cron_synhronize_sap_preventif_planning_wo(self):
@@ -681,10 +893,10 @@ class PlanMaintenanceWorkOrder(models.Model):
 
         parsed_rows = []
         for data in data_list:
-            warpl = (data.get('WARPL') or '').strip().lstrip('0')
-            nplda = (data.get('NPLDA') or '').strip()
-            equipment_no = (data.get('EQUNR') or '').strip().lstrip('0')
-            werks = (data.get('WERKS') or data.get('IWERK')).strip()
+            warpl = str(data.get('WARPL') or '').strip().lstrip('0')
+            nplda = str(data.get('NPLDA') or '').strip()
+            equipment_no = str(data.get('EQUNR') or '').strip().lstrip('0')
+            werks = str(data.get('WERKS') or data.get('IWERK') or '').strip()
             try:
                 if len(nplda) != 8 or not nplda.isdigit():
                     raise ValueError
@@ -745,7 +957,7 @@ class PlanMaintenanceWorkOrder(models.Model):
             )
             system_id = equipment.system_id.id
             sub_system_id = equipment.sub_system_id.id
-            warpl = (data.get('WARPL') or '').strip().lstrip('0')
+            warpl = str(data.get('WARPL') or '').strip().lstrip('0')
             key = (
                 company.id,
                 warpl,
@@ -771,8 +983,10 @@ class PlanMaintenanceWorkOrder(models.Model):
             ('equipment_id', 'in', list({row[2][3] for row in planning_rows})),
             ('is_maintenance_plan', '=', True),
         ])
-        work_orders_by_key = {
-            (
+        work_orders_by_key = defaultdict(lambda: pm_wo_model)
+        for work_order in existing_work_orders:
+            work_orders_by_key[
+                (
                 work_order.company_id.id,
                 work_order.maintenance_plan_number or '',
                 (work_order.start_time + timedelta(hours=7)).date(),
@@ -780,29 +994,30 @@ class PlanMaintenanceWorkOrder(models.Model):
                 work_order.system_id.id,
                 work_order.sub_system_id.id,
                 work_order.sub_equipment_id.id,
-            ): work_order
-            for work_order in existing_work_orders
+                )
+            ] |= work_order
+
+        sap_numbers = {
+            str(data.get('AUFNR') or '').strip().lstrip('0')
+            for data, _company, _key in planning_rows
+            if str(data.get('AUFNR') or '').strip().lstrip('0')
         }
+        work_orders_by_sap = defaultdict(lambda: pm_wo_model)
+        if sap_numbers:
+            sap_work_orders = pm_wo_model.search([
+                ('company_id', 'in', list({row[2][0] for row in planning_rows})),
+                ('wo_sap', 'in', list(sap_numbers)),
+            ])
+            for sap_work_order in sap_work_orders:
+                work_orders_by_sap[
+                    (sap_work_order.company_id.id, sap_work_order.wo_sap)
+                ] |= sap_work_order
 
         delete_keys = {
             key
-            for data, company, key in planning_rows
-            if (
-                key[2] < delete_before
-                or (data.get('TSENQ') or '').strip().upper() == 'X'
-            )
+            for _data, _company, key in planning_rows
+            if key[2] < delete_before
         }
-        # work_orders_to_delete = existing_work_orders.filtered(
-        #     lambda work_order: (
-        #         (work_order.start_time + timedelta(hours=7)).date(),
-        #         work_order.equipment_id.id,
-        #         work_order.system_id.id,
-        #         work_order.sub_system_id.id,
-        #         work_order.sub_equipment_id.id,
-        #     ) in delete_keys
-        # )
-        # if work_orders_to_delete:
-        #     work_orders_to_delete.unlink()
 
         for data, company, key in planning_rows:
             (
@@ -814,15 +1029,47 @@ class PlanMaintenanceWorkOrder(models.Model):
                 sub_system_id,
                 sub_equipment_id,
             ) = key
-            work_order = work_orders_by_key.get(key)
-            nomor_wo = (data.get('AUFNR') or '').strip().lstrip('0')
-            # if key in delete_keys:
-            #     continue
+            work_order = work_orders_by_key[key]
+            nomor_wo = str(data.get('AUFNR') or '').strip().lstrip('0')
+            description_planning = str(data.get('WPTXT') or '').strip()
+            if key in delete_keys:
+                if work_order:
+                    work_order.unlink()
+                    work_orders_by_key[key] = pm_wo_model
+                continue
             if planning_date < today:
                 continue
+            if len(work_order) > 1:
+                _logger.error(
+                    "Duplicate preventive planning work orders for key %s: %s; skipped",
+                    key,
+                    work_order.ids,
+                )
+                continue
+            sap_work_orders = work_orders_by_sap[(company.id, nomor_wo)] if nomor_wo else pm_wo_model
+            if len(sap_work_orders) > 1:
+                _logger.error(
+                    "Duplicate preventive work orders for company %s and SAP WO %s: %s; skipped",
+                    company.display_name,
+                    nomor_wo,
+                    sap_work_orders.ids,
+                )
+                continue
             if work_order:
+                update_vals = {
+                    'description_planning': description_planning,
+                }
                 if nomor_wo and not work_order.wo_sap:
-                    work_order.write({'wo_sap': nomor_wo})
+                    if sap_work_orders and sap_work_orders != work_order:
+                        _logger.error(
+                            "Planning work order %s cannot use SAP WO %s already assigned to %s; skipped",
+                            work_order.id,
+                            nomor_wo,
+                            sap_work_orders.ids,
+                        )
+                        continue
+                    update_vals['wo_sap'] = nomor_wo
+                    work_orders_by_sap[(company.id, nomor_wo)] = work_order
                     _logger.info(
                         "PLANNING PREVENTIF WORK ORDER %s linked to SAP WO %s",
                         work_order.id,
@@ -835,13 +1082,15 @@ class PlanMaintenanceWorkOrder(models.Model):
                         work_order.wo_sap,
                         nomor_wo,
                     )
+                if self._needs_update(work_order, update_vals):
+                    work_order.write(update_vals)
                 continue
 
             start_time = self._parse_string_datetime(
                 planning_date.strftime('%Y%m%d'),
                 '',
             )
-            work_order = pm_wo_model.create({
+            vals = {
                 'wo_sap': nomor_wo or False,
                 'sap_synchronize': True,
                 'system_id': system_id,
@@ -854,10 +1103,24 @@ class PlanMaintenanceWorkOrder(models.Model):
                 'end_time': start_time,
                 'maintenance_plan_number': warpl,
                 'is_maintenance_plan': True,
-            })
+                'description_planning': description_planning,
+            }
+            if sap_work_orders:
+                work_order = sap_work_orders
+                if self._needs_update(work_order, vals):
+                    work_order.write(vals)
+                _logger.info(
+                    "SAP WORK ORDER %s linked to preventive planning %s",
+                    nomor_wo,
+                    warpl,
+                )
+            else:
+                work_order = pm_wo_model.create(vals)
+                if nomor_wo:
+                    work_orders_by_sap[(company.id, nomor_wo)] = work_order
+                work_order.message_post(body=f"PLANNING PREVENTIF WORK ORDER {nomor_wo or '-'} Created from Cron")
+                _logger.info("PLANNING PREVENTIF WORK ORDER Created %s", nomor_wo)
             work_orders_by_key[key] = work_order
-            work_order.message_post(body=f"PLANNING PREVENTIF WORK ORDER {nomor_wo or '-'} Created from Cron")
-            _logger.info("PLANNING PREVENTIF WORK ORDER Created %s", nomor_wo)
 
         return True
 

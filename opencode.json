@@ -1,0 +1,17 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": [
+    "AGENTS.md",
+    "PROJECT_CONTEXT.md"
+  ],
+  "references": {
+    "project-docs": {
+      "path": "../../docs",
+      "description": "Use for architecture, business flows, module inventory, and live warehouse-routing snapshots."
+    },
+    "claude-guidance": {
+      "path": "../../.claude",
+      "description": "Use as legacy project guidance; verify DB names and behavior against current AGENTS.md and source code."
+    }
+  }
+}

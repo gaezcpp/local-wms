@@ -12,8 +12,8 @@ class TaggingSystem(models.Model):
     _description = "Tagging System"
     _order = "name asc"
 
-    name = fields.Char(required=True)
-    code = fields.Char(required=True)
+    name = fields.Char(required=True, index=True)
+    code = fields.Char(required=True, index=True)
     active = fields.Boolean(default=True)
 
     company_id = fields.Many2one("res.company", string="Plant", required=True, default=lambda self: self.env.company)
@@ -44,9 +44,9 @@ class TaggingSubSystem(models.Model):
     _description = "Tagging Sub System"
     _order = "name asc"
 
-    name = fields.Char(required=True)
-    code = fields.Char(required=True)
-    system_id = fields.Many2one("tagging.system", required=True, ondelete="cascade")
+    name = fields.Char(required=True, index=True)
+    code = fields.Char(required=True, index=True)
+    system_id = fields.Many2one("tagging.system", required=True, ondelete="cascade", index=True)
     active = fields.Boolean(default=True)
        # =========================
     # INTEGRATION AUDIT FIELDS
@@ -97,9 +97,9 @@ class TaggingSparePart(models.Model):
     _description = "Tagging Spare Part Master"
     _order = "name asc"
 
-    name = fields.Char(required=True)
+    name = fields.Char(required=True, index=True)
     specification = fields.Text(string="Spesifikasi Spare Part")
-    sku = fields.Char(string="SKU")
+    sku = fields.Char(string="SKU", index=True)
     bu_id = fields.Many2one("tagging.bu", string="BU", ondelete="restrict")
     company_id = fields.Many2one(
         "res.company",

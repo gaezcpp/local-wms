@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <record id="mail_template_work_order_created" model="mail.template">
+            <field name="name">PM: Work Order Created in SAP</field>
+            <field name="model_id" ref="model_pm_work_order"/>
+            <field name="subject">New Maintenance Order [{{ object.wo_sap }}]</field>
+            <field name="email_from">noreply-ops@cpp.co.id</field>
+            <field name="email_to" eval="False"/>
+            <field name="partner_to" eval="False"/>
+            <field name="description">Notify maintenance department when a non-planning SAP work order is created.</field>
+            <field name="body_html" type="html">
+<div style="font-family: Arial, sans-serif; font-size: 14px; color: #333333;">
+    <p>Dear Maintenance Team,</p>
+    <p>This is to inform you that a new Maintenance Order has been created in SAP and is ready for your review and further action.</p>
+    <p><strong>Maintenance Order Details:</strong></p>
+    <ul>
+        <li><strong>Work Order:</strong> <t t-out="object.name or '-'">WO/0001</t></li>
+        <li><strong>Maintenance Order Number:</strong> <t t-out="object.wo_sap or '-'">1000001</t></li>
+        <li><strong>Order Type:</strong> <t t-out="object.type_mo or '-'">PM01</t></li>
+        <li><strong>Plant:</strong> <t t-out="object.company_id.company_registry or '-'">Plant</t></li>
+        <li><strong>System:</strong> <t t-out="object.system_id.display_name or '-'">System</t></li>
+        <li><strong>Sub System:</strong> <t t-out="object.sub_system_id.display_name or '-'">Sub System</t></li>
+        <li><strong>Equipment:</strong> <t t-out="object.equipment_id.display_name or '-'">Equipment</t></li>
+        <li><strong>Sub Equipment:</strong> <t t-out="object.sub_equipment_id.display_name or '-'">Sub Equipment</t></li>
+        <li><strong>Description:</strong> <t t-out="object.description or '-'">Order Description</t></li>
+        <li><strong>Priority:</strong> <t t-out="object.priority or '-'">Priority</t></li>
+        <li><strong>Created Date:</strong> <t t-out="object.create_date and format_datetime(object.create_date, tz='Asia/Jakarta') or '-'">Created Date</t></li>
+        <li><strong>Planned Start Date:</strong> <t t-out="object.start_time and format_datetime(object.start_time, tz='Asia/Jakarta') or '-'">Planned Start Date</t></li>
+        <li><strong>Planned Finish Date:</strong> <t t-out="object.end_time and format_datetime(object.end_time, tz='Asia/Jakarta') or '-'">Planned Finish Date</t></li>
+    </ul>
+    <p>
+        <a t-att-href="'%s/web#id=%s&amp;model=pm.work.order&amp;view_type=form' % (object.get_base_url(), object.id)"
+           style="background-color: #714B67; padding: 8px 16px; text-decoration: none; color: #ffffff; border-radius: 4px;"
+           target="_blank">Open Work Order</a>
+    </p>
+    <p>Please review the Maintenance Order and prepare the necessary maintenance activities in accordance with the assigned schedule and work instructions.</p>
+    <p>Thank you for your cooperation.</p>
+    <p>Best regards,<br/>Plant Maintenance System</p>
+</div>
+            </field>
+            <field name="auto_delete" eval="True"/>
+        </record>
+    </data>
+</odoo>

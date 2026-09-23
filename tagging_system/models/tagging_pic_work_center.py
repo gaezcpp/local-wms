@@ -7,12 +7,16 @@ class TaggingDepartment(models.Model):
     _description = "Tagging Department"
     _order = "name asc"
 
-    name = fields.Char(required=True)
+    name = fields.Char(required=True, index=True)
     active = fields.Boolean(default=True)
     company_id = fields.Many2one("res.company", string="Company", required=True, default=lambda self: self.env.company, ondelete="restrict")
     
     # tambahan gaez
     pic_ids = fields.One2many('tagging.pic', 'department_id')
+    department_type = fields.Selection([
+        ('production', 'Production'),
+        ('maintenance', 'Maintenance'),
+    ], string="Department Type", default=False, index=True)
 
 
 class TaggingBU(models.Model):

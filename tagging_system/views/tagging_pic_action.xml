@@ -49,6 +49,7 @@
                         <group>
                             <field name="name"/>
                             <field name="company_id" options="{'no_open': True, 'no_create': True}"/>
+                            <field name="department_type" required="1"/>
                         </group>
                     </group>
                     <notebook>

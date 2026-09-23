@@ -14,13 +14,14 @@ Long description of module's purpose
     # Check https://github.com/odoo/odoo/blob/15.0/odoo/addons/base/data/ir_module_category_data.xml
     # for the full list
     'category': 'FOOD',
-    'version': '19.0.1.0.0',
+    'version': '19.0.1.1.0',
     'license': 'LGPL-3',
     'installable': True,
     'application': True,
 
     # any module necessary for this one to work correctly
     'depends': ['base', 'stock', 'mail'],
+    'external_dependencies': {'python': ['pycryptodome']},
 
     # always loaded
     'data': [

@@ -9,7 +9,7 @@ Aturan baru (menggantikan gate ``is_header_valid``):
   belum GI atau jasa yang belum GR.
 
 Jalankan:
-    python odoo-bin -c wms.conf -d DB_WMS_DEV_008 --test-enable --stop-after-init
+    python odoo-bin -c <feed-config> -d DB_WMS_DEV_009 --test-enable --stop-after-init
         --test-tags /pm_work_order_tagging:TestPmWorkOrderGiGr
 """
 
@@ -142,6 +142,7 @@ class TestPmWorkOrderGiGr(TransactionCase):
             'LTRUR': '090000',
             'XLOEK': 'X',
             'RSNUM': '4711',
+            'RSPOS': '0010',
             'MATNR': self.sparepart.sku,
             'MAKTX': self.sparepart.name,
             'ENMNG': '1',
@@ -164,6 +165,7 @@ class TestPmWorkOrderGiGr(TransactionCase):
     def test_rsnum_tanpa_kzear_tetap_buat_line_is_gi_false(self):
         wo = self._sync([{
             'RSNUM': '4711',
+            'RSPOS': '0010',
             'MATNR': 'SKU-UJI-1',
             'MAKTX': 'Bearing Uji',
             'ENMNG': '2',
@@ -178,6 +180,7 @@ class TestPmWorkOrderGiGr(TransactionCase):
     def test_rsnum_dengan_kzear_x_membuat_is_gi_true(self):
         wo = self._sync([{
             'RSNUM': '4711',
+            'RSPOS': '0010',
             'MATNR': 'SKU-UJI-1',
             'MAKTX': 'Bearing Uji',
             'ENMNG': '2',
@@ -209,6 +212,7 @@ class TestPmWorkOrderGiGr(TransactionCase):
         """KZEAR 'X' tidak lagi harus barengan dengan KZABN 'X'."""
         wo = self._sync([{
             'RSNUM': '4711',
+            'RSPOS': '0010',
             'MATNR': 'SKU-UJI-1',
             'MAKTX': 'Bearing Uji',
             'ENMNG': '1',
@@ -224,6 +228,7 @@ class TestPmWorkOrderGiGr(TransactionCase):
     def test_sync_ulang_memperbarui_flag_tanpa_duplikat_line(self):
         rows = [{
             'RSNUM': '4711',
+            'RSPOS': '0010',
             'MATNR': 'SKU-UJI-1',
             'MAKTX': 'Bearing Uji',
             'ENMNG': '1',
@@ -256,6 +261,7 @@ class TestPmWorkOrderGiGr(TransactionCase):
             'product_material': self.sparepart.sku,
             'quantity': 1.0,
             'gi_doc': '4711',
+            'item_number': '0010',
         })
         self.work_order.write({'tagging_id': self.tagging.id})
         row = self._cron_row(FETXT=self.tagging.name)
@@ -264,6 +270,21 @@ class TestPmWorkOrderGiGr(TransactionCase):
 
         self.assertFalse(line.exists())
 
+    def test_cron_tagging_uses_non_empty_fetxt_from_group(self):
+        rows = [
+            self._cron_row(FETXT=''),
+            self._cron_row(FETXT=self.tagging.name, RSPOS='0011'),
+        ]
+
+        self._run_cron('cron_synhronize_sap_tagging_work_order', rows)
+
+        work_order = self.env['pm.work.order'].search([
+            ('tagging_id', '=', self.tagging.id),
+            ('company_id', '=', self.company.id),
+        ], limit=1)
+        self.assertTrue(work_order)
+        self.assertEqual(work_order.wo_sap, '900000001')
+
     def test_cron_work_order_hapus_material_saat_kzear_kosong_xloek_x(self):
         line = self.env['pm.work.order.material.line'].create({
             'pm_work_order_id': self.work_order.id,
@@ -271,6 +292,7 @@ class TestPmWorkOrderGiGr(TransactionCase):
             'product_material': self.sparepart.sku,
             'quantity': 1.0,
             'gi_doc': '4711',
+            'item_number': '0010',
         })
         row = self._cron_row(
             AUFNR='0000900000001',
@@ -286,6 +308,191 @@ class TestPmWorkOrderGiGr(TransactionCase):
 
         self.assertEqual(len(wo.pm_wo_material_line_ids), 1)
         self.assertTrue(wo.pm_wo_material_line_ids.is_gi)
+
+    def test_matnr_sama_item_number_berbeda_membuat_dua_line(self):
+        wo = self._sync([
+            {
+                'RSNUM': '4711',
+                'RSPOS': '0010',
+                'MATNR': self.sparepart.sku,
+                'MAKTX': self.sparepart.name,
+                'BDMNG': '1',
+            },
+            {
+                'RSNUM': '4711',
+                'RSPOS': '0020',
+                'MATNR': self.sparepart.sku,
+                'MAKTX': self.sparepart.name,
+                'BDMNG': '2',
+            },
+        ])
+
+        self.assertEqual(len(wo.pm_wo_material_line_ids), 2)
+        self.assertEqual(
+            set(wo.pm_wo_material_line_ids.mapped('item_number')),
+            {'0010', '0020'},
+        )
+
+    def test_item_number_sama_memperbarui_line_dan_detail(self):
+        replacement_sparepart = self.env['tagging.spare_part'].create({
+            'name': 'Bearing Pengganti',
+            'sku': 'SKU-UJI-2',
+            'company_id': self.company.id,
+        })
+        wo = self._sync([{
+            'RSNUM': '4711',
+            'RSPOS': '0010',
+            'MATNR': self.sparepart.sku,
+            'MAKTX': self.sparepart.name,
+            'BDMNG': '1',
+            'POTX1': 'Valuation Awal',
+            'CHARG': 'Batch Awal',
+        }])
+        line_id = wo.pm_wo_material_line_ids.id
+
+        wo = self._sync([{
+            'RSNUM': '4711',
+            'RSPOS': '0010',
+            'MATNR': replacement_sparepart.sku,
+            'MAKTX': replacement_sparepart.name,
+            'BDMNG': '3',
+            'POTX1': 'Valuation Baru',
+            'CHARG': 'Batch Baru',
+        }])
+
+        line = wo.pm_wo_material_line_ids
+        self.assertEqual(line.id, line_id)
+        self.assertEqual(line.item_number, '0010')
+        self.assertEqual(line.product_sparepart_id, replacement_sparepart)
+        self.assertEqual(line.product_material, replacement_sparepart.sku)
+        self.assertEqual(line.quantity, 3.0)
+        self.assertEqual(line.valuation, 'Valuation Baru')
+        self.assertEqual(line.material_detail, 'Batch Baru')
+
+    def test_hapus_berdasarkan_item_number_bukan_matnr(self):
+        rows = [
+            {
+                'RSNUM': '4711',
+                'RSPOS': '0010',
+                'MATNR': self.sparepart.sku,
+                'MAKTX': self.sparepart.name,
+                'BDMNG': '1',
+            },
+            {
+                'RSNUM': '4711',
+                'RSPOS': '0020',
+                'MATNR': self.sparepart.sku,
+                'MAKTX': self.sparepart.name,
+                'BDMNG': '2',
+            },
+        ]
+        wo = self._sync(rows)
+
+        rows[1]['XLOEK'] = 'X'
+        wo = self._sync(rows)
+
+        self.assertEqual(len(wo.pm_wo_material_line_ids), 1)
+        self.assertEqual(wo.pm_wo_material_line_ids.item_number, '0010')
+
+    def test_material_tanpa_item_number_dilewati_tapi_jasa_tetap_dibuat(self):
+        wo = self._sync([{
+            'RSNUM': '4711',
+            'MATNR': self.sparepart.sku,
+            'BANFN': '5811',
+            'TXZ01': 'Jasa Servis',
+            'SKU': 'JSA-1',
+        }])
+
+        self.assertFalse(wo.pm_wo_material_line_ids)
+        self.assertEqual(len(wo.pm_wo_jasa_line_ids), 1)
+
+    def test_cron_tagging_material_aktif_menang_dari_histori_hapus(self):
+        self.work_order.write({'tagging_id': self.tagging.id})
+        active_sparepart = self.env['tagging.spare_part'].create({
+            'name': 'SKF BEARING 6307 2Z',
+            'sku': '110.04.0464',
+            'company_id': self.company.id,
+        })
+        active_line = self.env['pm.work.order.material.line'].create({
+            'pm_work_order_id': self.work_order.id,
+            'product_sparepart_id': active_sparepart.id,
+            'product_material': active_sparepart.sku,
+            'quantity': 1.0,
+            'gi_doc': '1284755',
+            'sequence': 7,
+            'item_number': '0010',
+        })
+        deleted_sparepart = self.env['tagging.spare_part'].create({
+            'name': 'SKF BEARING 6309 2Z/C3',
+            'sku': '110.04.1738',
+            'company_id': self.company.id,
+        })
+        deleted_line = self.env['pm.work.order.material.line'].create({
+            'pm_work_order_id': self.work_order.id,
+            'product_sparepart_id': deleted_sparepart.id,
+            'product_material': deleted_sparepart.sku,
+            'quantity': 2.0,
+            'gi_doc': '1284755',
+            'item_number': '0020',
+        })
+        rows = [
+            self._cron_row(
+                AUFNR='013211000402',
+                FETXT=self.tagging.name,
+                MATNR=active_sparepart.sku,
+                MAKTX=active_sparepart.name,
+                BDMNG='2',
+                ENMNG='0',
+                RSNUM='0001284755',
+                RSPOS='0010',
+                POTX1='Valuation Aktif',
+                CHARG='Detail Aktif',
+                XLOEK='',
+            ),
+            self._cron_row(
+                AUFNR='013211000402',
+                FETXT=self.tagging.name,
+                MATNR=deleted_sparepart.sku,
+                MAKTX=deleted_sparepart.name,
+                BDMNG='2',
+                ENMNG='0',
+                RSNUM='0001284755',
+                RSPOS='0020',
+            ),
+            self._cron_row(
+                AUFNR='013211000402',
+                FETXT=self.tagging.name,
+                MATNR=active_sparepart.sku,
+                MAKTX=active_sparepart.name,
+                BDMNG='1',
+                ENMNG='0',
+                RSNUM='0001284755',
+                RSPOS='0010',
+            ),
+        ]
+
+        self._run_cron('cron_synhronize_sap_tagging_work_order', rows)
+
+        self.assertEqual(len(self.work_order.pm_wo_material_line_ids), 1)
+        line = self.work_order.pm_wo_material_line_ids
+        self.assertEqual(line.id, active_line.id)
+        self.assertFalse(deleted_line.exists())
+        self.assertEqual(line.product_material, active_sparepart.sku)
+        self.assertEqual(line.quantity, 2.0)
+        self.assertEqual(line.sequence, 7)
+        self.assertEqual(line.valuation, 'Valuation Aktif')
+        self.assertEqual(line.material_detail, 'Detail Aktif')
+        self.assertFalse(line.is_gi)
+
+        self._run_cron(
+            'cron_synhronize_sap_tagging_work_order',
+            list(reversed(rows)),
+        )
+
+        line = self.work_order.pm_wo_material_line_ids
+        self.assertEqual(len(line), 1)
+        self.assertEqual(line.id, active_line.id)
+        self.assertEqual(line.quantity, 2.0)
 
     # ------------------------------------------------------------------
     # validasi action_waiting_sap
