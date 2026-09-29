@@ -1,4 +1,4 @@
-from odoo import models, fields, api, _
+from odoo import _, api, fields, models, tools
 from odoo.exceptions import ValidationError
 from collections import defaultdict
 from datetime import datetime, timedelta
@@ -59,6 +59,7 @@ class PlanMaintenanceWorkOrder(models.Model):
     description_planning = fields.Text(string="Description Planning")
     creation_email_sent = fields.Boolean(string="Creation Email Sent", default=False, copy=False, readonly=True)
     calendar_display_name = fields.Char(related='sub_system_id.name', string="Calendar Display Name")
+    confirm_email_sent = fields.Boolean(string="Confirm Email Sent", default=False, copy=False, readonly=True)
     
     @api.model_create_multi
     def create(self, vals_list):
@@ -74,6 +75,103 @@ class PlanMaintenanceWorkOrder(models.Model):
         if {'wo_sap', 'sap_synchronize', 'is_maintenance_plan', 'tagging_id'} & vals.keys():
             self._send_creation_email_to_department()
         return result
+
+    @api.model
+    def cron_queue_confirm_emails(self):
+        template = self.env.ref('pm_work_order_tagging.mail_template_pm_technical_report_submitted')
+        records = self.sudo().with_context(active_test=False)
+        last_id = 0
+        while batch := records.search([
+            ('id', '>', last_id),
+            ('state', '=', 'confirm'),
+            ('confirm_email_sent', '=', False),
+        ], order='id', limit=100):
+            last_id = batch[-1].id
+            batch = batch.try_lock_for_update(allow_referencing=True)
+            batch.invalidate_recordset(['state', 'confirm_email_sent'])
+            batch = batch.filtered(
+                lambda work_order: work_order.state == 'confirm'
+                and not work_order.confirm_email_sent,
+            )
+            if not batch:
+                continue
+
+            departments = self.env['tagging.department'].sudo().search([
+                ('active', '=', True),
+                ('company_id', 'in', batch.company_id.ids),
+                ('department_type', '=', 'planner'),
+            ])
+            pics = departments.mapped('pic_ids').filtered('active')
+            pics |= self.env['tagging.pic'].sudo().search([
+                ('active', '=', True),
+                ('department_ids', 'in', departments.ids),
+            ])
+            recipients_by_company = {}
+            for company in batch.company_id:
+                company_departments = departments.filtered(lambda department: department.company_id == company)
+                company_pics = pics.filtered(
+                    lambda pic: pic.department_id in company_departments
+                    or bool(pic.department_ids & company_departments),
+                )
+                emails = sorted(set(tools.email_normalize_all(
+                    ','.join(company_pics.mapped('email')),
+                )))
+                if emails:
+                    recipients_by_company[company.id] = ','.join(emails)
+
+            queue_batch = batch.filtered(
+                lambda work_order: work_order.company_id.id
+                in recipients_by_company,
+            )
+            missing_recipient_batch = batch - queue_batch
+            if missing_recipient_batch:
+                _logger.warning(
+                    "PM confirmation email pending: planner recipient not found "
+                    "for work order IDs %s",
+                    missing_recipient_batch.ids,
+                )
+            if not queue_batch:
+                continue
+
+            try:
+                with self.env.cr.savepoint():
+                    rendered = template.sudo()._generate_template(
+                        queue_batch.ids,
+                        (
+                            'auto_delete',
+                            'body_html',
+                            'email_cc',
+                            'email_from',
+                            'mail_server_id',
+                            'reply_to',
+                            'scheduled_date',
+                            'subject',
+                        ),
+                    )
+                    mails = []
+                    for work_order in queue_batch:
+                        values = rendered[work_order.id]
+                        values.update({
+                            'auto_delete': False,
+                            'body': values['body_html'],
+                            'email_to': recipients_by_company[
+                                work_order.company_id.id
+                            ],
+                            'model': False,
+                            'res_id': False,
+                        })
+                        if not values.get('email_from'):
+                            values.pop('email_from', None)
+                        mails.append(values)
+
+                    created_mails = self.env['mail.mail'].sudo().create(mails)
+                    if len(created_mails) != len(queue_batch):
+                        message = ("Not all PM confirmation emails could be queued")
+                        raise ValidationError(message)
+                    queue_batch.write({'confirm_email_sent': True})
+            except Exception:
+                _logger.exception("Failed to queue PM confirmation emails for work order IDs %s", batch.ids)
+        return True
 
     def _send_creation_email_to_department(self):
         template = self.env.ref('pm_work_order_tagging.mail_template_work_order_created')
@@ -128,6 +226,7 @@ class PlanMaintenanceWorkOrder(models.Model):
                 if email and email.strip()
             ))
             email_values = {
+                'auto_delete': False,
                 'email_to': ','.join(emails),
                 'model': False,
                 'res_id': False,
@@ -282,6 +381,19 @@ class PlanMaintenanceWorkOrder(models.Model):
                 ('item_number', 'in', list(deleted_item_numbers)),
             ]).unlink()
 
+        deleted_jasa_docs = {
+            (row.get('BANFN') or '').strip().lstrip('0')
+            for row in rows
+            if (row.get('BANFN') or '').strip().lstrip('0')
+            and (row.get('LOEKZ') or '').strip() == 'X'
+            and (row.get('FRGKZ') or '').strip() in ('', 'X')
+        }
+        if deleted_jasa_docs:
+            wo_jasa_line_model.search([
+                ('pm_work_order_id', '=', work_order.id),
+                ('gr_doc', 'in', list(deleted_jasa_docs)),
+            ]).unlink()
+
         for row in rows:
             has_rsnum = bool((row.get('RSNUM') or '').strip())
             has_banfn = bool((row.get('BANFN') or '').strip())
@@ -348,6 +460,8 @@ class PlanMaintenanceWorkOrder(models.Model):
 
             if has_banfn:
                 banfn = (row.get('BANFN') or '').strip().lstrip('0')
+                if not banfn or banfn in deleted_jasa_docs:
+                    continue
                 existing_jasa = wo_jasa_line_model.search([
                     ('pm_work_order_id', '=', work_order.id),
                     ('gr_doc', '=', banfn),
@@ -1127,29 +1241,59 @@ class PlanMaintenanceWorkOrder(models.Model):
 
     @api.model
     def cron_reminder_wo_draft(self):
-        self = self.sudo()
-        draft_wos = self.sudo().search([('state', '=', 'draft')])
+        work_orders = self.sudo()
+        draft_wos = work_orders.search([
+            ('wo_sap', '!=', False),
+            ('state', '=', 'draft'),
+            ('is_maintenance_plan', '=', False),
+        ])
         if not draft_wos:
-            _logger.info("cron_reminder_wo_draft Tidak Ditemukan, skipped!")
+            _logger.info("Draft work order reminder skipped: no work orders found")
             return True
 
         base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url')
+        fallback_departments = self.env['tagging.department'].sudo().search([
+            ('active', '=', True),
+            ('company_id', 'in', draft_wos.company_id.ids),
+            ('name', '=ilike', 'Maintenance%'),
+        ])
+        fallback_by_company = defaultdict(list)
+        for department in fallback_departments:
+            fallback_by_company[department.company_id.id].append(department)
+
         wos_by_dept = defaultdict(list)
         for wo in draft_wos:
-            if wo.tagging_id and wo.tagging_id.department_id:
-                wos_by_dept[wo.tagging_id.department_id].append(wo)
+            department = wo.tagging_id.department_id
+            if not department:
+                company_departments = fallback_by_company[wo.company_id.id]
+                department = (
+                    company_departments[0]
+                    if len(company_departments) == 1 else False
+                )
+            if department and department.company_id == wo.company_id:
+                wos_by_dept[department].append(wo)
+
+        departments = self.env['tagging.department'].sudo().browse(
+            [department.id for department in wos_by_dept]
+        )
+        pics = departments.mapped('pic_ids').filtered('active')
+        pics |= self.env['tagging.pic'].sudo().search([
+            ('active', '=', True),
+            ('department_ids', 'in', departments.ids),
+        ])
+        now = fields.Datetime.now()
 
         mails = []
         for dept, wos in wos_by_dept.items():
-            emails = []
-            for pic in dept.pic_ids:
-                if pic.email:
-                    emails.append(pic.email)
-            
-            emails = list(set(emails))
+            department_pics = pics.filtered(
+                lambda pic: pic.department_id == dept
+                or dept in pic.department_ids,
+            )
+            emails = sorted(set(tools.email_normalize_all(','.join(department_pics.mapped('email')))))
             if not emails:
-                _logger.info(f"cron_reminder_wo_draft Email tidak ada untuk Dept {dept.name}, skipped!")
+                _logger.info("Draft work order reminder skipped: no recipient for department %s", dept.display_name)
                 continue
+            cc_emails = sorted(set(tools.email_normalize_all(','.join(filter(None, department_pics.mapped('cc'))))))
 
             rows = ""
             for i, wo in enumerate(wos, start=1):
@@ -1159,7 +1303,14 @@ class PlanMaintenanceWorkOrder(models.Model):
                 type_mo = escape(wo.type_mo or '-')
                 system = escape(wo.system_id.name or '-')
                 sub_system = escape(wo.sub_system_id.name or '-')
-                created_on = str(wo.create_date)[:19] if wo.create_date else '-' 
+                created_on = (
+                    fields.Datetime.context_timestamp(
+                        wo.with_context(tz='Asia/Jakarta'),
+                        wo.create_date,
+                    ).strftime('%Y-%m-%d %H:%M:%S')
+                    if wo.create_date else '-'
+                )
+                pending_days = max((now - wo.create_date).days, 0) if wo.create_date else 0
                 
                 rows += f"""
                     <tr>
@@ -1174,6 +1325,7 @@ class PlanMaintenanceWorkOrder(models.Model):
                         <td style="padding: 8px;">{system}</td>
                         <td style="padding: 8px;">{sub_system}</td>
                         <td style="padding: 8px;">{created_on}</td>
+                        <td style="padding: 8px; text-align: right;">{pending_days} days</td>
                     </tr>
                 """
                 
@@ -1192,6 +1344,7 @@ class PlanMaintenanceWorkOrder(models.Model):
                                 <th style="padding: 8px;">System</th>
                                 <th style="padding: 8px;">Sub System</th>
                                 <th style="padding: 8px;">Created On</th>
+                                <th style="padding: 8px;">Pending Duration</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1205,11 +1358,14 @@ class PlanMaintenanceWorkOrder(models.Model):
             
             subject = f"[REMINDER] Draft Maintenance Order ({len(wos)} items)"
             mail_values = {
+                "auto_delete": False,
                 "subject": subject,
                 "body_html": body_html,
                 "email_to": ",".join(emails),
                 "email_from": "noreply-ops@cpp.co.id",
             }
+            if cc_emails:
+                mail_values['email_cc'] = ','.join(cc_emails)
             mails.append(mail_values)
 
         if mails:

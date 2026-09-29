@@ -14,7 +14,7 @@ class TaggingProblem(models.Model):
     _order = 'id desc'
     
     name = fields.Char(string="Name")
-    code = fields.Char(string="Code")
+    code = fields.Char(string="Code", index=True)
     code_group = fields.Char(string="Code Group")
     sap_synchronize = fields.Boolean(string="SAP Synchronize", default=False)
     
@@ -56,7 +56,7 @@ class TaggingProblem(models.Model):
         for data in data_list:
             code = data.get('CODE') or ''
             kurztext = data.get('KURZTEXT') or ''
-            code_group = data.get('CODEGROUP') or ''
+            code_group = data.get('CODEGROUP') or data.get('CODEGRUPPE')
             if not code:
                 continue
             

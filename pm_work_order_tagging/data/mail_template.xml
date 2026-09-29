@@ -39,7 +39,7 @@
     <p>Best regards,<br/>Plant Maintenance System</p>
 </div>
             </field>
-            <field name="auto_delete" eval="True"/>
+            <field name="auto_delete" eval="False"/>
         </record>
     </data>
 </odoo>

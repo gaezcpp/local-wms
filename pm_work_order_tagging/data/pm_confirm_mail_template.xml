@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <record id="mail_template_pm_technical_report_submitted" model="mail.template">
+            <field name="name">PM: Technical Report Submitted</field>
+            <field name="model_id" ref="model_pm_work_order"/>
+            <field name="subject">Technical Report Submitted [{{ object.wo_sap or object.name }}]</field>
+            <field name="email_from">noreply-ops@cpp.co.id</field>
+            <field name="email_to" eval="False"/>
+            <field name="partner_to" eval="False"/>
+            <field name="description">Notify maintenance planners after a technical report is submitted to SAP.</field>
+            <field name="body_html" type="html">
+<div style="font-family: Arial, sans-serif; font-size: 14px; color: #333333;">
+    <p>Dear Maintenance Planner,</p>
+    <p>This is to inform you that the Technical Report for the following Maintenance Order has been successfully submitted to SAP.</p>
+    <p><strong>Technical Report Details:</strong></p>
+    <ul>
+        <li><strong>Maintenance Order Number:</strong> <t t-out="object.wo_sap or object.name or '-'">Order Number</t></li>
+        <li><strong>Notification Number:</strong> <t t-out="object.tagging_id.nomor_notifikasi or '-'">Notification Number</t></li>
+        <li><strong>Plant:</strong> <t t-out="object.company_id.company_registry or '-'">Plant</t></li>
+        <li><strong>System:</strong> <t t-out="object.system_id.display_name or '-'">System</t></li>
+        <li><strong>Sub System:</strong> <t t-out="object.sub_system_id.display_name or '-'">Sub System</t></li>
+        <li><strong>Equipment:</strong> <t t-out="object.equipment_id.display_name or '-'">Equipment</t></li>
+        <li><strong>Sub Equipment:</strong> <t t-out="object.sub_equipment_id.display_name or '-'">Sub Equipment</t></li>
+        <li><strong>Description:</strong> <t t-out="object.description or '-'">Order Description</t></li>
+        <li><strong>Technician:</strong> <t t-out="object.write_uid.display_name or '-'">Technician Name</t> / <t t-out="object.write_uid.login or '-'">Maintenance Account Odoo</t></li>
+        <li><strong>Confirmation Date:</strong> <t t-out="object.write_date and format_datetime(object.write_date, tz='Asia/Jakarta', dt_format='dd MMMM yyyy') or '-'">Confirmation Date</t></li>
+        <li><strong>Confirmation Time:</strong> <t t-out="object.write_date and format_datetime(object.write_date, tz='Asia/Jakarta', dt_format='HH:mm:ss') or '-'">Confirmation Time</t></li>
+        <li><strong>Technical Report Status:</strong> Submitted</li>
+    </ul>
+    <p>Please review the submitted technical report and proceed with the necessary maintenance order completion activities, including TECO when all required activities have been completed.</p>
+    <p>Thank you for your cooperation.</p>
+    <p>Best regards,<br/>Plant Maintenance System</p>
+</div>
+            </field>
+            <field name="auto_delete" eval="False"/>
+        </record>
+    </data>
+</odoo>

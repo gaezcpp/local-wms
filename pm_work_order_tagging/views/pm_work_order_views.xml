@@ -34,7 +34,7 @@
                 <field name="sub_system_id"/>
                 <field name="equipment_id"/>
                 <field name="sub_equipment_id"/>
-                <field name="state" wdiget="badge" decoration-danger="state == 'draft'" decoration-warning="state == 'waiting_sap'" decoration-success="state == 'confirm'"/>
+                <field name="state" widget="badge" decoration-danger="state == 'draft'" decoration-warning="state == 'waiting_sap'" decoration-success="state == 'confirm'"/>
                 <field name="priority"/>
                 <field name="company_id"/>
             </list>
@@ -137,7 +137,7 @@
                         <field name="photo_attachment" readonly="state != 'draft'" widget="image" options="{'size': [128, 128]}"/>
                     </group>
                 </sheet>
-                <chatter/>
+                <!-- <chatter/> -->
             </form>
         </field>
     </record>
@@ -180,6 +180,7 @@
                     event_open_popup="true"
                     form_view_id="%(pm_work_order_tagging.pm_work_order_view_form_calendar_only)d">
                  <field name="wo_sap"/>
+                <field name="description_planning"/>
                  <field name="calendar_display_name" invisible="1"/>
                  <field name="system_id" options="{'no_open': True, 'no_create': True}"/>
                 <field name="sub_system_id" options="{'no_open': True, 'no_create': True}"/>

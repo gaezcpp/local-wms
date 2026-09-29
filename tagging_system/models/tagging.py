@@ -244,12 +244,13 @@ class TaggingRecord(models.Model):
     # =========================
     # HARD LOCK WHEN CLOSED
     # =========================
-    def write(self, vals):
-        for rec in self:
-            # allow archive / unarchive even if closed
-            only_active_toggle = set(vals.keys()) == {"active"}
+    def _get_closed_write_allowed_fields(self):
+        return {'active'}
 
-            if rec.status == "closed" and not only_active_toggle:
+    def write(self, vals):
+        allowed_fields = self._get_closed_write_allowed_fields()
+        for rec in self:
+            if rec.status == "closed" and not set(vals) <= allowed_fields:
                 raise UserError(_("This record is Closed and cannot be edited."))
 
         return super().write(vals)
@@ -951,6 +952,7 @@ class TaggingRecord(models.Model):
             """
             
             mail_values = {
+                "auto_delete": False,
                 "subject": subject,
                 "body_html": body_html,
                 "email_to": ",".join(emails),
@@ -1063,6 +1065,7 @@ class TaggingRecord(models.Model):
         """
 
         mail_vals = {
+            "auto_delete": False,
             "subject": subject,
             "body_html": body_html,
             "email_to": ",".join(to_emails),
@@ -1141,6 +1144,7 @@ class TaggingRecord(models.Model):
         """
 
         mail_vals = {
+            "auto_delete": False,
             "subject": subject,
             "body_html": body_html,
             "email_to": ",".join(to_emails),
@@ -1198,6 +1202,7 @@ class TaggingRecord(models.Model):
         """
 
         mail_vals = {
+            "auto_delete": False,
             "subject": subject,
             "body_html": body_html,
             "email_to": to_email,

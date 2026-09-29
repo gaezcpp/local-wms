@@ -7,7 +7,7 @@
         </record>
         <record id="query_work_order_material_sap" model="ir.config_parameter">
             <field name="key">query_work_order_material_sap</field>
-            <field name="value">SELECT DISTINCT d.rspos, d.potx1, d.charg, a.aufnr, a.auart,il.tplnr,b.equnr, d.matnr, d.bdmng,d.enmng,d.rsnum, md.maktx,eba.matnr as sku, eba.txz01, eba.banfn, pt.priokx, a.ktext, fe.fetxt, viq.strmn, viq.strur, viq.ltrmn, viq.ltrur, a.werks,d.xloek,d.kzear, es.kzabn FROM aufk a left JOIN afko k ON a.mandt = k.mandt AND a.aufnr = k.aufnr left JOIN afih b ON a.mandt = b.mandt AND a.aufnr = b.aufnr left JOIN resb d ON a.mandt = d.mandt AND k.rsnum = d.rsnum left JOIN qmel qm ON a.mandt = qm.mandt AND a.aufnr = qm.aufnr inner JOIN viqmfe fe ON qm.mandt = fe.mandt AND qm.qmnum = fe.qmnum inner join viqmel viq on qm.qmnum = viq.qmnum and qm.mandt = viq.mandt inner JOIN t356_t pt ON pt.mandt = b.mandt AND pt.priok = b.priok AND pt.spras = 'E' AND pt.artpr = 'PM' left join makt md on d.matnr = md.matnr and d.mandt = md.mandt and md.spras = 'E' left join ebkn eb on eb.aufnr = a.aufnr and a.mandt = eb.mandt left join eban eba on eba.banfn = eb.banfn and eba.mandt = eb.mandt left join ekkn ek on ek.aufnr = a.aufnr and a.mandt = ek.mandt left JOIN essr es ON es.ebeln = ek.ebeln AND es.ebelp = ek.ebelp inner join iloa il on il.iloan = b.iloan and il.iloan = b.iloan</field>
+            <field name="value">SELECT DISTINCT a.aufnr, a.auart, k.gstrp, k.gltrp, il.tplnr,b.equnr,d.rspos, d.matnr,md.maktx,d.charg,d.potx1,d.bdmng,d.enmng,d.rsnum,d.xloek,eba.matnr as sku, eba.txz01, eba.banfn,eba.loekz,eba.frgkz, pt.priokx, a.ktext, fe.fetxt, viq.strmn, viq.strur, viq.ltrmn, viq.ltrur,viq.qmdat, a.werks,d.kzear, es.kzabn FROM aufk a left JOIN afko k ON a.mandt = k.mandt AND a.aufnr = k.aufnr left JOIN afih b ON a.mandt = b.mandt AND a.aufnr = b.aufnr left JOIN resb d ON a.mandt = d.mandt AND k.rsnum = d.rsnum left JOIN qmel qm ON a.mandt = qm.mandt AND a.aufnr = qm.aufnr inner JOIN viqmfe fe ON qm.mandt = fe.mandt AND qm.qmnum = fe.qmnum inner join viqmel viq on qm.qmnum = viq.qmnum and qm.mandt = viq.mandt inner JOIN t356_t pt ON pt.mandt = b.mandt AND pt.priok = b.priok AND pt.spras = 'E' AND pt.artpr = 'PM' left join makt md on d.matnr = md.matnr and d.mandt = md.mandt and md.spras = 'E' left join ebkn eb on eb.aufnr = a.aufnr and a.mandt = eb.mandt left join eban eba on eba.banfn = eb.banfn and eba.mandt = eb.mandt left join ekkn ek on ek.aufnr = a.aufnr and a.mandt = ek.mandt left JOIN essr es ON es.ebeln = ek.ebeln AND es.ebelp = ek.ebelp inner join iloa il on il.iloan = b.iloan and il.iloan = b.iloan inner join jest je on a.objnr = je.objnr and a.mandt = je.mandt and je.stat = 'I0002' where a.auart IN ('ZLF2','ZLF3','ZLF6','ZLS2','ZLS3','ZLS6')</field>
         </record>
         <record id="query_preventif_inspection_work_order_sap" model="ir.config_parameter">
             <field name="key">query_preventif_inspection_work_order_sap</field>
@@ -24,10 +24,6 @@
         <record id="query_wo_analysis" model="ir.config_parameter">
             <field name="key">query_wo_analysis</field>
             <field name="value">select a.grund, a.grdtx, a.werks from trugt a where a.werks in('1321','1443') and a.spras = 'EN'</field>
-        </record>
-        <record id="notification_tagging_email_to" model="ir.config_parameter">
-            <field name="key">notification_tagging_email_to</field>
-            <field name="value">elvandho.pradana@cpp.co.id</field>
         </record>
     </data>
 </odoo>

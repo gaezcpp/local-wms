@@ -1,6 +1,6 @@
 {
     "name": "Tagging System (Website + Internal Maintenance)",
-    "version": "19.0.1.2.0",
+    "version": "19.0.1.2.1",
     "category": "Operations",
     "summary": "Website tagging form and internal maintenance (list, filters, dashboard charts)",
     "author": "Bayu Faturahman",

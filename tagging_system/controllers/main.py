@@ -57,7 +57,7 @@ class TaggingController(http.Controller):
         # departments = pics_all.mapped("department_ids")
         # departments = departments.sorted(key=lambda d: (d.name or "").lower())
         
-        departments = request.env['tagging.department'].sudo().search([('active', '=', True),('company_id', '=', company_id)])
+        departments = request.env['tagging.department'].sudo().search([('active', '=', True),('company_id', '=', company_id),('department_type', '!=', 'planner')])
 
         category_problems = request.env["category.problem"].sudo().search([
             ("active", "=", True),

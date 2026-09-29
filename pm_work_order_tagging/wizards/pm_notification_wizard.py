@@ -1,9 +1,5 @@
-import logging
-
 from odoo import api, fields, models
 from odoo.exceptions import ValidationError
-
-_logger = logging.getLogger(__name__)
 
 
 class PmNotificationWizard(models.TransientModel):
@@ -40,33 +36,9 @@ class PmNotificationWizard(models.TransientModel):
         if self.tagging_type_notification_id.company_id != self.tagging_id.company_id:
             message = "Company Notification Type harus sama dengan company tagging!"
             raise ValidationError(message)
-        email_to = self.env['ir.config_parameter'].sudo().get_param(
-            'notification_tagging_email_to',
-        )
-        email_to = (email_to or '').strip()
-        if not email_to:
-            message = "Parameter notification_tagging_email_to belum disetting!"
-            raise ValidationError(message)
         self.tagging_id.write({
             'tagging_type_notification_id': self.tagging_type_notification_id.id,
             'notification_desc': self.notification_desc,
         })
         self.tagging_id.action_set_create_work_order()
-        template = self.env.ref('pm_work_order_tagging.mail_template_pm_notification_created')
-        if not template:
-            message = "PM notification email template tidak ditemukan!"
-            raise ValidationError(message)
-        try:
-            with self.env.cr.savepoint():
-                template.sudo().send_mail(
-                    self.tagging_id.id,
-                    email_values={
-                        'email_to': email_to,
-                        'model': False,
-                        'res_id': False,
-                    },
-                )
-        except Exception:
-            _logger.exception("Failed to queue PM notification email for %s", self.tagging_id.name)
-            message = "Email PM Notification gagal dibuat. Silakan ulangi proses!"
-            raise ValidationError(message) from None
+        return {'type': 'ir.actions.act_window_close'}

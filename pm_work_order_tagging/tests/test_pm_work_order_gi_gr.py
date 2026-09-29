@@ -254,6 +254,123 @@ class TestPmWorkOrderGiGr(TransactionCase):
         self.assertFalse(wo.pm_wo_material_line_ids)
         self.assertFalse(wo.pm_wo_jasa_line_ids)
 
+    def test_loekz_x_hapus_jasa_saat_frgkz_x_atau_kosong(self):
+        for index, frgkz in enumerate(('X', '', ' X ', '   '), start=1):
+            with self.subTest(frgkz=frgkz):
+                banfn = str(5800 + index)
+                line = self.env['pm.work.order.jasa.line'].create({
+                    'pm_work_order_id': self.work_order.id,
+                    'material_desc': 'Jasa dihapus',
+                    'gr_doc': banfn,
+                })
+
+                self._sync([{
+                    'BANFN': banfn,
+                    'LOEKZ': ' X ',
+                    'FRGKZ': frgkz,
+                    'TXZ01': 'Jasa dihapus',
+                }])
+
+                self.assertFalse(line.exists())
+
+    def test_jasa_tidak_dihapus_jika_kondisi_tidak_lengkap(self):
+        cases = (
+            ('', 'X'),
+            ('X', 'A'),
+            ('x', 'X'),
+            ('X', 'x'),
+        )
+        for index, (loekz, frgkz) in enumerate(cases, start=1):
+            with self.subTest(loekz=loekz, frgkz=frgkz):
+                banfn = str(5900 + index)
+                line = self.env['pm.work.order.jasa.line'].create({
+                    'pm_work_order_id': self.work_order.id,
+                    'material_desc': 'Jasa aktif',
+                    'gr_doc': banfn,
+                })
+
+                self._sync([{
+                    'BANFN': banfn,
+                    'LOEKZ': loekz,
+                    'FRGKZ': frgkz,
+                    'TXZ01': 'Jasa aktif',
+                }])
+
+                self.assertTrue(line.exists())
+
+    def test_deleted_jasa_row_tidak_membuat_line_baru(self):
+        self._sync([{
+            'BANFN': '5999',
+            'LOEKZ': 'X',
+            'FRGKZ': '',
+            'TXZ01': 'Jasa sudah dihapus',
+        }])
+
+        self.assertFalse(
+            self.work_order.pm_wo_jasa_line_ids.filtered(
+                lambda line: line.gr_doc == '5999',
+            ),
+        )
+
+    def test_deleted_jasa_menang_dari_row_aktif_dan_hapus_duplikat(self):
+        duplicate_lines = self.env['pm.work.order.jasa.line'].create([{
+            'pm_work_order_id': self.work_order.id,
+            'material_desc': 'Jasa duplikat',
+            'gr_doc': '6100',
+        }, {
+            'pm_work_order_id': self.work_order.id,
+            'material_desc': 'Jasa duplikat',
+            'gr_doc': '6100',
+        }])
+        rows = [{
+            'BANFN': '00006100',
+            'LOEKZ': '',
+            'FRGKZ': 'X',
+            'TXZ01': 'Jasa aktif',
+        }, {
+            'BANFN': '00006100',
+            'LOEKZ': 'X',
+            'FRGKZ': 'X',
+            'TXZ01': 'Jasa dihapus',
+        }]
+
+        self._sync(rows)
+        self._sync(list(reversed(rows)))
+
+        self.assertFalse(duplicate_lines.exists())
+        self.assertFalse(
+            self.work_order.pm_wo_jasa_line_ids.filtered(
+                lambda line: line.gr_doc == '6100',
+            ),
+        )
+
+    def test_hapus_jasa_tidak_mengubah_logic_material(self):
+        jasa_line = self.env['pm.work.order.jasa.line'].create({
+            'pm_work_order_id': self.work_order.id,
+            'material_desc': 'Jasa dihapus',
+            'gr_doc': '6001',
+        })
+
+        wo = self._sync([{
+            'RSNUM': '4711',
+            'RSPOS': '0090',
+            'MATNR': self.sparepart.sku,
+            'MAKTX': self.sparepart.name,
+            'BDMNG': '2',
+            'KZEAR': '',
+            'XLOEK': '',
+            'BANFN': '6001',
+            'LOEKZ': 'X',
+            'FRGKZ': 'X',
+        }])
+
+        self.assertFalse(jasa_line.exists())
+        material_line = wo.pm_wo_material_line_ids.filtered(
+            lambda line: line.item_number == '0090',
+        )
+        self.assertEqual(len(material_line), 1)
+        self.assertEqual(material_line.quantity, 2.0)
+
     def test_cron_tagging_hapus_material_saat_kzear_kosong_xloek_x(self):
         line = self.env['pm.work.order.material.line'].create({
             'pm_work_order_id': self.work_order.id,

@@ -57,5 +57,24 @@
             <field name="interval_number">1</field>
             <field name="interval_type">days</field>
         </record>
+        <record id="ir_cron_queue_pm_notification_emails" model="ir.cron">
+            <field name="name">Queue PM Notification Emails</field>
+            <field name="model_id" ref="tagging_system.model_tagging_record"/>
+            <field name="state">code</field>
+            <field name="code">model.cron_queue_pm_notification_emails()</field>
+            <field name="user_id" ref="base.user_root"/>
+            <field name="interval_number">10</field>
+            <field name="interval_type">minutes</field>
+        </record>
+        <record id="ir_cron_queue_pm_confirm_emails" model="ir.cron">
+            <field name="name">Queue PM Technical Report Confirmation Emails</field>
+            <field name="model_id" ref="model_pm_work_order"/>
+            <field name="state">code</field>
+            <field name="code">model.cron_queue_confirm_emails()</field>
+            <field name="user_id" ref="base.user_root"/>
+            <field name="interval_number">10</field>
+            <field name="interval_type">minutes</field>
+            <field name="active" eval="False"/>
+        </record>
     </data>
 </odoo>

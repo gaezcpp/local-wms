@@ -16,6 +16,7 @@ class TaggingDepartment(models.Model):
     department_type = fields.Selection([
         ('production', 'Production'),
         ('maintenance', 'Maintenance'),
+        ('planner', 'Planner'),
     ], string="Department Type", default=False, index=True)
 
 

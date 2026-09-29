@@ -15,7 +15,8 @@
     <p>This is to inform you that a new PM Notification has been created in SAP.</p>
     <p><strong>Notification Details:</strong></p>
     <ul>
-        <li><strong>Notification Number:</strong> <t t-out="object.nomor_notifikasi or object.name or '-'">TSP-0001</t></li>
+        <li><strong>Tagging ID:</strong> <t t-out="object.name or '-'">TSP-0001</t></li>
+        <li><strong>Notification Number:</strong> <t t-out="object.nomor_notifikasi or '-'">000100</t></li>
         <li><strong>Notification Type:</strong> <t t-out="object.tagging_type_notification_id.display_name or '-'">Notification Type</t></li>
         <li><strong>Plant:</strong> <t t-out="object.company_id.company_registry or object.plant_name or '-'">Plant</t></li>
         <li><strong>System:</strong> <t t-out="object.system_id.display_name or object.system_name or '-'">System</t></li>
@@ -30,7 +31,7 @@
     <p>Best regards,<br/>Plant Maintenance System</p>
 </div>
             </field>
-            <field name="auto_delete" eval="True"/>
+            <field name="auto_delete" eval="False"/>
         </record>
     </data>
 </odoo>
